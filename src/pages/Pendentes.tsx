@@ -296,6 +296,40 @@ export default function Pendentes() {
     }
   };
 
+  const aprovarTudo = async () => {
+    if (!confirm(`Tem certeza que deseja aprovar TODAS as ${extractedData.length} transações?`)) return;
+    try {
+      const ids = extractedData.map(t => t.id);
+      const { error } = await supabase
+        .from('transactions')
+        .update({ pendente: false })
+        .in('id', ids);
+
+      if (error) throw error;
+      setExtractedData([]);
+    } catch (error) {
+      console.error("Erro ao aprovar tudo:", error);
+      alert("Erro ao aprovar transações.");
+    }
+  };
+
+  const reprovarTudo = async () => {
+    if (!confirm(`Tem certeza que deseja reprovar e excluir TODAS as ${extractedData.length} transações pendentes?`)) return;
+    try {
+      const ids = extractedData.map(t => t.id);
+      const { error } = await supabase
+        .from('transactions')
+        .delete()
+        .in('id', ids);
+
+      if (error) throw error;
+      setExtractedData([]);
+    } catch (error) {
+      console.error("Erro ao reprovar tudo:", error);
+      alert("Erro ao excluir transações.");
+    }
+  };
+
   return (
     <div className="space-y-6">
       <header>
@@ -378,11 +412,27 @@ export default function Pendentes() {
 
       {extractedData.length > 0 && (
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <h3 className="text-xl font-bold text-text flex items-center gap-2">
-              <CheckCircle className="text-primary" /> Rascunhos Salvos ({extractedData.length})
-            </h3>
-            <span className="text-sm text-text-light">As edições são salvas automaticamente.</span>
+          <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+            <div>
+              <h3 className="text-xl font-bold text-text flex items-center gap-2">
+                <CheckCircle className="text-primary" /> Rascunhos Salvos ({extractedData.length})
+              </h3>
+              <span className="text-sm text-text-light">As edições são salvas automaticamente.</span>
+            </div>
+            <div className="flex items-center gap-3 w-full sm:w-auto">
+              <button 
+                onClick={aprovarTudo}
+                className="flex-1 sm:flex-none bg-primary text-white hover:bg-primary-hover px-4 py-2 rounded-xl transition-colors text-sm font-medium flex items-center justify-center gap-2 shadow-sm"
+              >
+                <CheckCircle size={16} /> Aprovar Tudo
+              </button>
+              <button 
+                onClick={reprovarTudo}
+                className="flex-1 sm:flex-none bg-danger/10 text-danger hover:bg-danger hover:text-white px-4 py-2 rounded-xl transition-colors text-sm font-medium flex items-center justify-center gap-2"
+              >
+                <XCircle size={16} /> Reprovar Tudo
+              </button>
+            </div>
           </div>
           
           {extractedData.map((item) => (

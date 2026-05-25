@@ -1,6 +1,8 @@
 # Starting the server
-cd C:\Users\berna\.gemini\antigravity\scratch\balanco-geral //enter in project past
-npm run dev //starting
+//enter in project past
+cd C:\Users\berna\.gemini\antigravity\scratch\balanco-geral
+//starting
+npm run dev
 cntr + c + s //stoping
 # React + TypeScript + Vite
 
