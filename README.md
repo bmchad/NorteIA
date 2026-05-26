@@ -1,6 +1,6 @@
 # Starting the server
 //enter in project past
-cd C:\Users\berna\.gemini\antigravity\scratch\balanco-geral
+cd C:\Bernardo\Computação\Balanco_Geral\BalancoGeral
 //starting
 npm run dev
 cntr + c + s //stoping
