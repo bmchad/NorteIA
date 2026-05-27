@@ -1,7 +1,7 @@
-import { ReactNode } from 'react';
+import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { LayoutDashboard, Clock, Calendar, CreditCard, LogOut } from 'lucide-react';
+import { LayoutDashboard, Clock, Calendar, CreditCard, LogOut, User } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -34,17 +34,16 @@ export default function Layout({ children }: LayoutProps) {
             Balanço Geral
           </h1>
         </div>
-        
+
         <nav className="flex-1 py-6 px-4 space-y-2">
           {navItems.map((item) => (
             <NavLink
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${
-                  isActive
-                    ? 'bg-primary text-white shadow-md shadow-primary/20'
-                    : 'text-text-light hover:bg-background hover:text-primary'
+                `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive
+                  ? 'bg-primary text-white shadow-md shadow-primary/20'
+                  : 'text-text-light hover:bg-background hover:text-primary'
                 }`
               }
             >
@@ -54,7 +53,19 @@ export default function Layout({ children }: LayoutProps) {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-border">
+        <div className="p-4 border-t border-border flex flex-col gap-2">
+          <NavLink
+            to="/perfil"
+            className={({ isActive }) =>
+              `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive
+                ? 'bg-primary text-white shadow-md shadow-primary/20'
+                : 'text-text-light hover:bg-background hover:text-primary'
+              }`
+            }
+          >
+            <User size={20} />
+            <span className="font-medium">Perfil</span>
+          </NavLink>
           <button
             onClick={handleLogout}
             className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-danger hover:bg-danger/10 transition-colors font-medium"
@@ -69,8 +80,8 @@ export default function Layout({ children }: LayoutProps) {
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Mobile Header */}
         <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-4 md:hidden shadow-sm">
-           <h1 className="text-lg font-bold text-primary">Balanço Geral</h1>
-           {/* Add mobile menu toggle here if needed */}
+          <h1 className="text-lg font-bold text-primary">Balanço Geral</h1>
+          {/* Add mobile menu toggle here if needed */}
         </header>
 
         {/* Page Content */}

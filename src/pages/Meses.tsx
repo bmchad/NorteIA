@@ -7,7 +7,7 @@ export default function Meses() {
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
-  
+
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
 
@@ -52,7 +52,7 @@ export default function Meses() {
 
   const deleteTransaction = async (id: string) => {
     if (!confirm('Tem certeza que deseja excluir esta transação?')) return;
-    
+
     try {
       const { error } = await supabase.from('transactions').delete().eq('id', id);
       if (error) throw error;
@@ -100,11 +100,11 @@ export default function Meses() {
 
       // Atualiza o estado local incluindo o nome da categoria para a UI
       const selectedCategory = categories.find(c => c.id === updates.categoria_id);
-      
+
       setTransactions(prev => prev.map(t => {
         if (t.id === id) {
-          return { 
-            ...t, 
+          return {
+            ...t,
             ...updates,
             categories: selectedCategory ? { nome: selectedCategory.nome } : null
           };
@@ -137,7 +137,7 @@ export default function Meses() {
       }
 
       const cycleKey = `${cycleYear}-${String(cycleMonth + 1).padStart(2, '0')}`;
-      
+
       if (!cycles[cycleKey]) {
         cycles[cycleKey] = [];
       }
@@ -148,7 +148,7 @@ export default function Meses() {
   };
 
   const toggleMonth = (monthKey: string) => {
-    setExpandedMonths(prev => 
+    setExpandedMonths(prev =>
       prev.includes(monthKey) ? prev.filter(m => m !== monthKey) : [...prev, monthKey]
     );
   };
@@ -178,7 +178,7 @@ export default function Meses() {
           {sortedCycleKeys.map(key => {
             const cycleTransactions = cycles[key];
             const isExpanded = expandedMonths.includes(key);
-            
+
             const [year, month] = key.split('-');
             const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
             const cycleName = `Balanço de ${monthNames[parseInt(month) - 1]} ${year}`;
@@ -187,14 +187,33 @@ export default function Meses() {
             const saidas = cycleTransactions.reduce((acc, curr) => curr.valor < 0 ? acc + Math.abs(Number(curr.valor)) : acc, 0);
             const saldoMes = entradas - saidas;
 
+            // Agrupar transações por categoria para exibir acima das transações
+            const categoriesMap: Record<string, { totalSpent: number; totalReceived: number }> = {};
+            cycleTransactions.forEach(t => {
+              const catName = t.categories?.nome || 'Sem categoria';
+              if (!categoriesMap[catName]) {
+                categoriesMap[catName] = { totalSpent: 0, totalReceived: 0 };
+              }
+              const valorNum = Number(t.valor);
+              if (valorNum < 0) {
+                categoriesMap[catName].totalSpent += Math.abs(valorNum);
+              } else {
+                categoriesMap[catName].totalReceived += valorNum;
+              }
+            });
+
+            const sortedCategories = Object.entries(categoriesMap)
+              .filter(([_, data]) => data.totalSpent > 0 || data.totalReceived > 0)
+              .sort((a, b) => b[1].totalSpent - a[1].totalSpent || b[1].totalReceived - a[1].totalReceived);
+
             return (
               <div key={key} className="glass-panel overflow-hidden transition-all duration-300">
-                <button 
+                <button
                   onClick={() => toggleMonth(key)}
                   className="w-full p-4 flex items-center justify-between bg-white/40 hover:bg-white/60 transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    {isExpanded ? <ChevronDown size={20} className="text-primary"/> : <ChevronRight size={20} className="text-text-light"/>}
+                    {isExpanded ? <ChevronDown size={20} className="text-primary" /> : <ChevronRight size={20} className="text-text-light" />}
                     <h3 className="text-lg font-bold text-text">{cycleName}</h3>
                     <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
                       {cycleTransactions.length} itens
@@ -211,11 +230,67 @@ export default function Meses() {
 
                 {isExpanded && (
                   <div className="p-4 border-t border-border bg-white/20">
+                    {/* Resumo por Categoria em Duas Colunas */}
+                    {sortedCategories.length > 0 && (
+                      <div className="mb-6">
+                        <h4 className="text-xs font-bold text-text-light uppercase tracking-wider mb-3">
+                          Gasto por Categoria
+                        </h4>
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                          {sortedCategories.map(([catName, data]) => {
+                            const hasSpent = data.totalSpent > 0;
+                            const hasReceived = data.totalReceived > 0;
+
+                            return (
+                              <div
+                                key={catName}
+                                className="bg-white/45 border border-border/40 rounded-xl p-3 flex flex-col gap-1.5 hover:bg-white/60 transition-colors shadow-sm"
+                              >
+                                <div className="flex justify-between items-center">
+                                  <span className="font-semibold text-text text-sm">{catName}</span>
+                                  <div className="text-right flex flex-col">
+                                    {hasSpent && (
+                                      <span className="text-sm font-bold text-danger">
+                                        - R$ {data.totalSpent.toFixed(2).replace('.', ',')}
+                                      </span>
+                                    )}
+                                    {hasReceived && (
+                                      <span className="text-xs font-semibold text-[#10b981]">
+                                        + R$ {data.totalReceived.toFixed(2).replace('.', ',')}
+                                      </span>
+                                    )}
+                                  </div>
+                                </div>
+
+                                {hasSpent && saidas > 0 && (
+                                  <div className="w-full bg-black/5 rounded-full h-1 overflow-hidden">
+                                    <div
+                                      className="bg-danger/60 h-1 rounded-full"
+                                      style={{ width: `${Math.min(100, (data.totalSpent / saidas) * 100)}%` }}
+                                    ></div>
+                                  </div>
+                                )}
+
+                                {!hasSpent && hasReceived && entradas > 0 && (
+                                  <div className="w-full bg-black/5 rounded-full h-1 overflow-hidden">
+                                    <div
+                                      className="bg-[#10b981]/60 h-1 rounded-full"
+                                      style={{ width: `${Math.min(100, (data.totalReceived / entradas) * 100)}%` }}
+                                    ></div>
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
                     <div className="overflow-x-auto">
                       <table className="w-full text-left border-collapse">
                         <thead>
                           <tr className="border-b border-border text-sm text-text-light">
-                            <th className="pb-2 font-medium w-[15%]">Data Real</th>
+                            <th className="pb-2 font-medium w-[15%]">Data (Y/M/D)</th>
                             <th className="pb-2 font-medium w-[35%]">Apelido</th>
                             <th className="pb-2 font-medium w-[20%] text-center">Categoria</th>
                             <th className="pb-2 font-medium w-[15%] text-center">Valor</th>
@@ -230,18 +305,18 @@ export default function Meses() {
                               return (
                                 <tr key={t.id} className="border-b border-border/50 bg-primary/5">
                                   <td className="py-2 px-1">
-                                    <input 
-                                      type="date" 
-                                      value={editForm.data} 
-                                      onChange={e => setEditForm({...editForm, data: e.target.value})}
+                                    <input
+                                      type="date"
+                                      value={editForm.data}
+                                      onChange={e => setEditForm({ ...editForm, data: e.target.value })}
                                       className="glass-input w-full p-1 text-sm bg-white"
                                     />
                                   </td>
                                   <td className="py-2 px-1">
-                                    <input 
-                                      type="text" 
-                                      value={editForm.apelido} 
-                                      onChange={e => setEditForm({...editForm, apelido: e.target.value})}
+                                    <input
+                                      type="text"
+                                      value={editForm.apelido}
+                                      onChange={e => setEditForm({ ...editForm, apelido: e.target.value })}
                                       className="glass-input w-full p-1 text-sm bg-white"
                                     />
                                     <div className="mt-1 text-[10px] text-text-light/70 break-words whitespace-normal" title={t.nome}>
@@ -249,9 +324,9 @@ export default function Meses() {
                                     </div>
                                   </td>
                                   <td className="py-2 px-1 text-center">
-                                    <select 
+                                    <select
                                       value={editForm.categoria_id}
-                                      onChange={e => setEditForm({...editForm, categoria_id: e.target.value})}
+                                      onChange={e => setEditForm({ ...editForm, categoria_id: e.target.value })}
                                       className="glass-input w-full p-1 text-sm bg-white appearance-none text-center"
                                     >
                                       <option value="">Selecione...</option>
@@ -261,44 +336,44 @@ export default function Meses() {
                                     </select>
                                   </td>
                                   <td className="py-2 px-1">
-                                    <input 
-                                      type="number" 
+                                    <input
+                                      type="number"
                                       step="0.01"
-                                      value={editForm.valor} 
-                                      onChange={e => setEditForm({...editForm, valor: e.target.value})}
+                                      value={editForm.valor}
+                                      onChange={e => setEditForm({ ...editForm, valor: e.target.value })}
                                       className="glass-input w-full p-1 text-lg font-extrabold text-center bg-white"
                                     />
                                     <div className="flex items-center justify-center gap-1 mt-1">
                                       <span className="text-[10px] text-text-light font-semibold">Parc:</span>
-                                      <input 
-                                        type="text" 
+                                      <input
+                                        type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
                                         value={editForm.parcela_atual}
-                                        onChange={e => setEditForm({...editForm, parcela_atual: e.target.value})}
+                                        onChange={e => setEditForm({ ...editForm, parcela_atual: e.target.value })}
                                         className="glass-input w-10 px-1 py-0.5 text-[11px] text-center bg-white font-medium"
                                       />
                                       <span className="text-[10px] text-text-light font-bold">/</span>
-                                      <input 
-                                        type="text" 
+                                      <input
+                                        type="text"
                                         inputMode="numeric"
                                         pattern="[0-9]*"
                                         value={editForm.parcela_total}
-                                        onChange={e => setEditForm({...editForm, parcela_total: e.target.value})}
+                                        onChange={e => setEditForm({ ...editForm, parcela_total: e.target.value })}
                                         className="glass-input w-10 px-1 py-0.5 text-[11px] text-center bg-white font-medium"
                                       />
                                     </div>
                                   </td>
                                   <td className="py-2 px-1 text-center">
                                     <div className="flex items-center justify-center gap-2">
-                                      <button 
+                                      <button
                                         onClick={() => saveEditing(t.id)}
                                         className="text-primary hover:text-primary-hover p-1"
                                         title="Salvar"
                                       >
                                         <CheckCircle size={18} />
                                       </button>
-                                      <button 
+                                      <button
                                         onClick={cancelEditing}
                                         className="text-text-light hover:text-danger p-1"
                                         title="Cancelar"
@@ -336,14 +411,14 @@ export default function Meses() {
                                 </td>
                                 <td className="py-3 text-center">
                                   <div className="flex items-center justify-center gap-1">
-                                    <button 
+                                    <button
                                       onClick={() => startEditing(t)}
                                       className="text-text-light hover:text-primary transition-colors p-1"
                                       title="Editar"
                                     >
                                       <Edit2 size={16} />
                                     </button>
-                                    <button 
+                                    <button
                                       onClick={() => deleteTransaction(t.id)}
                                       className="text-text-light hover:text-danger transition-colors p-1"
                                       title="Excluir"
