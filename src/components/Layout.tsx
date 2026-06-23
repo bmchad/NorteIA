@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { LayoutDashboard, Clock, Calendar, CreditCard, LogOut, User } from 'lucide-react';
+import { LayoutDashboard, Clock, Calendar, CreditCard, LogOut, User, Anchor } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -20,6 +20,7 @@ export default function Layout({ children }: LayoutProps) {
     { name: 'Pendentes', path: '/pendentes', icon: Clock },
     { name: 'Balanços Mensais', path: '/meses', icon: Calendar },
     { name: 'Parcelas', path: '/parcelas', icon: CreditCard },
+    { name: 'Gastos Fixos', path: '/fixos', icon: Anchor },
   ];
 
   return (

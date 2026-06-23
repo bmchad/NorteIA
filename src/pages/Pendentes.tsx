@@ -17,6 +17,7 @@ export default function Pendentes() {
   const [documentFile, setDocumentFile] = useState<File | null>(null);
   const [documentPrompt, setDocumentPrompt] = useState('');
   const [activeMode, setActiveMode] = useState<'selection' | 'image' | 'spreadsheet' | 'document'>('selection');
+  const [cicloDia, setCicloDia] = useState<number>(5);
 
   const removeFile = (indexToRemove: number) => {
     setFiles(prev => prev.filter((_, idx) => idx !== indexToRemove));
@@ -26,7 +27,22 @@ export default function Pendentes() {
   useEffect(() => {
     fetchPendentes();
     fetchCategories();
+    fetchCiclo();
   }, []);
+
+  const fetchCiclo = async () => {
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+      const { data, error } = await supabase.from('memory').select('ciclo_dia').eq('user_id', user.id).single();
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data && data.ciclo_dia) {
+        setCicloDia(data.ciclo_dia);
+      }
+    } catch (err) {
+      console.error("Erro ao buscar ciclo:", err);
+    }
+  };
 
   const fetchCategories = async () => {
     try {
@@ -128,7 +144,8 @@ export default function Pendentes() {
       - "nome": Nome exato do estabelecimento ou transferência na íntegra (ex: "PGTO MERCADOLIVRE *OSASCO").
       - "apelido": Um nome limpo e resumido, deduzido a partir do nome na íntegra (ex: "Mercado Livre").
       - "valor": Valor numérico (positivo para entradas, negativo para saídas).
-      - "banco": Nome do banco deduzido pela interface do print.
+      - "banco": Nome do banco deduzido pela interface do print. DEVE obrigatoriamente ser "Inter", "XP", "Outros" ou null.
+      - "mes_fatura": Nome do mês do ciclo da fatura ou do balanço em que a transação entra (ex: "Janeiro", "Fevereiro"). DEVE ser estritamente o nome do mês em português com a primeira letra maiúscula, ou null. A regra é: a fatura (ou balanço) de um determinado Mês engloba as transações do dia ${cicloDia + 1} desse mês até o dia ${cicloDia} do mês seguinte. Exemplo: A fatura de Janeiro contém as transações do dia ${String(cicloDia + 1).padStart(2, '0')} de Janeiro até o dia ${String(cicloDia).padStart(2, '0')} de Fevereiro (inclusive).
       - "hora": Hora no formato HH:MM:SS. Se não visível, use "12:00:00".
       - "parcela_atual": Número da parcela atual (se for compra parcelada, ex: "1 de 10" -> 1). Se não houver, retorne null.
       - "parcela_total": Total de parcelas (ex: "1 de 10" -> 10). Se não houver, retorne null.
@@ -137,6 +154,7 @@ export default function Pendentes() {
       REGRAS CRÍTICAS:
       1. Se uma transação NÃO tiver data, OU NÃO tiver nome, OU NÃO tiver valor claro, IGNORE-A COMPLETAMENTE. Não registre transações parcialmente de forma alguma.
       2. Não use blocos de código (markdown), retorne o JSON puro. A "categoria_sugerida" DEVE ser textualmente idêntica a uma das opções da lista de categorias ou null.`;
+      //3. Nos itens cuja parcela_atual != 0, imprima a data como YYYY-(MM + parcela_atual - 1)-DD`;
 
       if (customPrompt.trim()) {
         prompt += `\n\nINSTRUÇÕES ADICIONAIS DO USUÁRIO:\n${customPrompt.trim()}`;
@@ -188,6 +206,7 @@ export default function Pendentes() {
           apelido: item.apelido,
           valor: item.valor,
           banco: item.banco,
+          mes_fatura: item.mes_fatura || null,
           categoria_id: matchedCategory ? matchedCategory.id : null,
           hora: item.hora || '12:00:00',
           parcela_atual: item.parcela_atual,
@@ -237,6 +256,7 @@ export default function Pendentes() {
       - "apelido": Um nome limpo e resumido, deduzido a partir do nome na íntegra.
       - "valor": Valor numérico (positivo para entradas/receitas, negativo para saídas/despesas). Tente inferir a partir das colunas de débito/crédito ou valores positivos/negativos.
       - "banco": Sempre retorne null para planilhas.
+      - "mes_fatura": Nome do mês do ciclo da fatura ou do balanço em que a transação entra (ex: "Janeiro", "Fevereiro"). DEVE ser estritamente o nome do mês em português com a primeira letra maiúscula, ou null. A regra é: a fatura (ou balanço) de um determinado Mês engloba as transações do dia ${cicloDia + 1} desse mês até o dia ${cicloDia} do mês seguinte. Exemplo: A fatura de Janeiro contém as transações do dia ${String(cicloDia + 1).padStart(2, '0')} de Janeiro até o dia ${String(cicloDia).padStart(2, '0')} de Fevereiro (inclusive).
       - "hora": Hora no formato HH:MM:SS. Se não houver, use "12:00:00".
       - "parcela_atual": Sempre retorne null para planilhas.
       - "parcela_total": Sempre retorne null para planilhas.
@@ -246,9 +266,9 @@ export default function Pendentes() {
       1. REGRAS DE NOME E APELIDO: Se o nome da transação na planilha estiver ausente, em branco, for nulo ou não puder ser extraído, coloque o NOME DA CATEGORIA SUGERIDA tanto no campo "nome" quanto no campo "apelido". Se a categoria sugerida também for nula, use "Outros".
       2. REGRAS DE DATA: 
          - Se houver data completa, retorne no formato YYYY-MM-DD.
-         - Se NÃO houver data exata (ex: a planilha só tem o mês e o ano, ou o dia está ausente), padronize o DIA como dia 5. Ex: se for Maio/2026, a data será "2026-05-05".
-         - Se até o mês estiver ausente (ex: apenas o ano), padronize o DIA como dia 5 e o MÊS como Janeiro (01). Ex: se for 2026, a data será "2026-01-05".
-         - Se não houver nenhuma informação de data/ano/mês na linha, use a data de hoje ou o padrão "2026-01-05".
+         - Se NÃO houver data exata (ex: a planilha só tem o mês e o ano, ou o dia está ausente), padronize o DIA como dia ${cicloDia}. Ex: se for Maio/2026, a data será "2026-05-${String(cicloDia).padStart(2, '0')}".
+         - Se até o mês estiver ausente (ex: apenas o ano), padronize o DIA como dia ${cicloDia} e o MÊS como Janeiro (01). Ex: se for 2026, a data será "2026-01-${String(cicloDia).padStart(2, '0')}".
+         - Se não houver nenhuma informação de data/ano/mês na linha, use a data de hoje ou o padrão "2026-01-${String(cicloDia).padStart(2, '0')}".
       3. REGRAS DE BANCO E PARCELAS:
          - O campo "banco" DEVE ser obrigatoriamente null para TODAS as transações da planilha.
          - Os campos "parcela_atual" e "parcela_total" DEVEM ser obrigatoriamente null para TODAS as transações da planilha. NUNCA tente configurar parcelas para planilhas.
@@ -291,6 +311,7 @@ export default function Pendentes() {
           apelido: finalApelido,
           valor: item.valor,
           banco: null, // Forçar null
+          mes_fatura: item.mes_fatura || null,
           categoria_id: matchedCategory ? matchedCategory.id : null,
           hora: item.hora || '12:00:00',
           parcela_atual: null, // Forçar null
@@ -340,7 +361,8 @@ export default function Pendentes() {
       - "nome": Nome exato do estabelecimento ou transferência na íntegra.
       - "apelido": Um nome limpo e resumido, deduzido a partir do nome na íntegra.
       - "valor": Valor numérico (positivo para entradas/receitas, negativo para saídas/despesas).
-      - "banco": Nome do banco deduzido pelo documento.
+      - "banco": Nome do banco deduzido pelo documento. DEVE obrigatoriamente ser "Inter", "XP", "Outros" ou null.
+      - "mes_fatura": Nome do mês do ciclo da fatura ou do balanço em que a transação entra (ex: "Janeiro", "Fevereiro"). DEVE ser estritamente o nome do mês em português com a primeira letra maiúscula, ou null. A regra é: a fatura (ou balanço) de um determinado Mês engloba as transações do dia ${cicloDia + 1} desse mês até o dia ${cicloDia} do mês seguinte. Exemplo: A fatura de Janeiro contém as transações do dia ${String(cicloDia + 1).padStart(2, '0')} de Janeiro até o dia ${String(cicloDia).padStart(2, '0')} de Fevereiro (inclusive).
       - "hora": Hora no formato HH:MM:SS. Se não visível, use "12:00:00".
       - "parcela_atual": Número da parcela atual. Se não houver, retorne null.
       - "parcela_total": Total de parcelas. Se não houver, retorne null.
@@ -398,6 +420,7 @@ export default function Pendentes() {
           apelido: item.apelido,
           valor: item.valor,
           banco: item.banco,
+          mes_fatura: item.mes_fatura || null,
           categoria_id: matchedCategory ? matchedCategory.id : null,
           hora: item.hora || '12:00:00',
           parcela_atual: item.parcela_atual,
@@ -435,7 +458,8 @@ export default function Pendentes() {
         nome: 'Nova Transação',
         apelido: '',
         valor: 0,
-        banco: '',
+        banco: 'Outros',
+        mes_fatura: null,
         categoria_id: null,
         hora: '12:00:00',
         parcela_atual: null,
@@ -677,16 +701,16 @@ export default function Pendentes() {
 
             {files.length > 0 && (
               <div className="mt-4 flex flex-col items-center w-full">
-                <div className={`font-medium mb-3 flex flex-col items-center gap-1 text-sm text-center w-full ${files.length > 5 ? 'text-danger font-bold' : 'text-primary'}`}>
+                <div className={`font-medium mb-3 flex flex-col items-center gap-1 text-sm text-center w-full ${files.length > 10 ? 'text-danger font-bold' : 'text-primary'}`}>
                   <span className="flex items-center gap-2">
                     <FileText size={16} />
-                    <span>{files.length}/5 {files.length === 1 ? 'imagem selecionada' : 'imagens selecionadas'}</span>
+                    <span>{files.length}/10 {files.length === 1 ? 'imagem selecionada' : 'imagens selecionadas'}</span>
                   </span>
                   <div className="flex flex-wrap gap-2 justify-center max-w-lg mt-2 mb-1">
                     {files.map((file, index) => (
                       <div
                         key={index}
-                        className={`flex items-center gap-1.5 border rounded-full pl-3 pr-1.5 py-1 text-xs font-semibold ${files.length > 5
+                        className={`flex items-center gap-1.5 border rounded-full pl-3 pr-1.5 py-1 text-xs font-semibold ${files.length > 10
                           ? 'bg-danger/10 border-danger/20 text-danger'
                           : 'bg-primary/10 border-primary/20 text-primary'
                           }`}
@@ -696,7 +720,7 @@ export default function Pendentes() {
                         </span>
                         <button
                           onClick={() => removeFile(index)}
-                          className={`rounded-full p-0.5 transition-colors cursor-pointer flex items-center justify-center ${files.length > 5
+                          className={`rounded-full p-0.5 transition-colors cursor-pointer flex items-center justify-center ${files.length > 10
                             ? 'hover:bg-danger/20 text-danger hover:text-danger-hover'
                             : 'hover:bg-primary/20 hover:text-danger text-primary'
                             }`}
@@ -712,20 +736,20 @@ export default function Pendentes() {
 
                 <button
                   onClick={processImage}
-                  disabled={loading || files.length > 5}
-                  className={`py-2 px-6 rounded-lg font-medium transition-all flex items-center gap-2 text-sm ${files.length > 5
+                  disabled={loading || files.length > 10}
+                  className={`py-2 px-6 rounded-lg font-medium transition-all flex items-center gap-2 text-sm ${files.length > 10
                     ? 'bg-border text-text-light cursor-not-allowed opacity-60'
                     : 'bg-text text-white hover:bg-black cursor-pointer'
                     }`}
                 >
                   {loading ? (
-                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Processando com IA...</>
+                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Processando com IA... não saia da tela, pode demorar até 2 minutos.</>
                   ) : 'Iniciar Leitura'}
                 </button>
 
-                {files.length > 5 && (
+                {files.length > 10 && (
                   <p className="text-danger text-xs font-bold mt-2 animate-pulse">
-                    Selecione até 5 imagens para iniciar a leitura
+                    Selecione até 10 imagens para iniciar a leitura
                   </p>
                 )}
               </div>
@@ -970,25 +994,63 @@ Ex: as saídas estão de A2 até H7 e as entrada de J2 até K7, ignore A8 até L
                   </select>
                 </div>
                 <div>
-                  <span className="text-xs text-text-light uppercase">Banco</span>
-                  <input
-                    type="text"
-                    defaultValue={item.banco || ''}
-                    onBlur={(e) => handleUpdateField(item.id, 'banco', e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                    className="glass-input w-full p-1 bg-transparent border-transparent hover:border-border text-sm"
-                  />
+                  <span className="text-xs text-text-light uppercase">Balanço de:</span>
+                  <select
+                    value={item.mes_fatura || ''}
+                    onChange={(e) => handleUpdateField(item.id, 'mes_fatura', e.target.value || null)}
+                    className="glass-input w-full p-1 bg-transparent border-transparent hover:border-border text-sm appearance-none cursor-pointer"
+                  >
+                    <option value="">Ciclo do dia {cicloDia}</option>
+                    {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map(mes => (
+                      <option key={mes} value={mes} className="text-black">{mes}</option>
+                    ))}
+                  </select>
+                  <div className="flex items-center gap-1 mt-1">
+                    <span className="text-[10px] text-text-light uppercase font-semibold">Banco:</span>
+                    <input
+                      type="text"
+                      defaultValue={item.banco || ''}
+                      onBlur={(e) => handleUpdateField(item.id, 'banco', e.target.value)}
+                      onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                      className="glass-input w-full px-1 py-0.5 text-[11px] font-medium"
+                      title="Banco"
+                    />
+                  </div>
                 </div>
                 <div>
                   <span className="text-xs text-text-light uppercase">Valor (R$)</span>
-                  <input
-                    type="number"
-                    step="0.01"
-                    defaultValue={item.valor}
-                    onBlur={(e) => handleUpdateField(item.id, 'valor', parseFloat(e.target.value))}
-                    onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                    className={`glass-input w-full p-1 text-sm font-bold ${item.valor >= 0 ? 'text-primary' : 'text-danger'}`}
-                  />
+                  <div className="flex items-center glass-input w-full p-0 overflow-hidden">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        const isNeg = item.valor < 0 || Object.is(item.valor, -0);
+                        const currentAbs = Math.abs(item.valor);
+                        const newSign = isNeg ? 1 : -1;
+                        handleUpdateField(item.id, 'valor', currentAbs === 0 ? (newSign === -1 ? -0 : 0) : currentAbs * newSign);
+                      }}
+                      className={`font-extrabold px-2 py-1 flex items-center justify-center transition-colors hover:bg-black/5 ${item.valor < 0 || Object.is(item.valor, -0) ? 'text-danger' : 'text-primary'}`}
+                      title="Alternar Entrada/Saída"
+                    >
+                      {item.valor < 0 || Object.is(item.valor, -0) ? '-' : '+'}
+                    </button>
+                    <input
+                      type="text"
+                      inputMode="decimal"
+                      defaultValue={Math.abs(item.valor)}
+                      onInput={(e) => {
+                        e.currentTarget.value = e.currentTarget.value.replace(/[^0-9.,]/g, '');
+                      }}
+                      onBlur={(e) => {
+                        const isNeg = item.valor < 0 || Object.is(item.valor, -0);
+                        const valStr = e.target.value.replace(',', '.');
+                        const val = Math.abs(parseFloat(valStr) || 0);
+                        handleUpdateField(item.id, 'valor', isNeg ? -val : val);
+                        e.target.value = val.toString();
+                      }}
+                      onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                      className={`w-full bg-transparent border-none outline-none py-1 pr-1 text-sm font-bold ${item.valor < 0 || Object.is(item.valor, -0) ? 'text-danger' : 'text-primary'}`}
+                    />
+                  </div>
                   <div className="flex items-center gap-1 mt-1">
                     <span className="text-[10px] text-text-light uppercase font-semibold">Parc:</span>
                     <input

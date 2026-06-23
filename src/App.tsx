@@ -7,6 +7,7 @@ import Pendentes from './pages/Pendentes';
 import Meses from './pages/Meses';
 import Parcelas from './pages/Parcelas';
 import Perfil from './pages/Perfil';
+import Fixos from './pages/Fixos';
 import Layout from './components/Layout';
 import type { Session } from '@supabase/supabase-js';
 
@@ -52,6 +53,7 @@ function App() {
           <Route path="/pendentes" element={<Pendentes />} />
           <Route path="/meses" element={<Meses />} />
           <Route path="/parcelas" element={<Parcelas />} />
+          <Route path="/fixos" element={<Fixos />} />
           <Route path="/perfil" element={<Perfil />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

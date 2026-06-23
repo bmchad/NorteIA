@@ -249,7 +249,7 @@ export default function Parcelas() {
                 Não há parcelas em andamento
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
                 {emAndamentoKeys.map(nomeKey => renderCard(nomeKey))}
               </div>
             )}
@@ -270,7 +270,7 @@ export default function Parcelas() {
                 Não há parcelas concluídas
               </div>
             ) : (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 items-start">
                 {concluidasKeys.map(nomeKey => renderCard(nomeKey))}
               </div>
             )}
