@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter } from 'lucide-react';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Perfil() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -18,6 +19,7 @@ export default function Perfil() {
   const [isEditingColorOpen, setIsEditingColorOpen] = useState(false);
 
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
 
   const [searchTerm, setSearchTerm] = useState('');
   const [isSearchExpanded, setIsSearchExpanded] = useState(false);
@@ -161,29 +163,33 @@ export default function Perfil() {
   };
 
   const deleteCategory = async (id: string, nome: string) => {
-    if (!window.confirm(`Tem certeza que deseja excluir a categoria "${nome}"?`)) return;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Excluir Categoria',
+      message: `Tem certeza que deseja excluir a categoria "${nome}"?`,
+      onConfirm: async () => {
+        try {
+          setErrorMsg(null);
+          const { error } = await supabase
+            .from('categories')
+            .delete()
+            .eq('id', id);
 
-    try {
-      setErrorMsg(null);
-      const { error } = await supabase
-        .from('categories')
-        .delete()
-        .eq('id', id);
-
-      if (error) {
-        // Se houver erro de foreign key constraint, o supabase retorna o erro
-        if (error.code === '23503') {
-          setErrorMsg(`Não foi possível excluir "${nome}" porque existem transações vinculadas a ela.`);
-        } else {
-          throw error;
+          if (error) {
+            if (error.code === '23503') {
+              setErrorMsg(`Não foi possível excluir "${nome}" porque existem transações vinculadas a ela.`);
+            } else {
+              throw error;
+            }
+          } else {
+            await fetchCategories();
+          }
+        } catch (error) {
+          console.error('Erro ao excluir categoria:', error);
+          alert('Erro ao excluir categoria.');
         }
-      } else {
-        await fetchCategories();
       }
-    } catch (error) {
-      console.error('Erro ao excluir categoria:', error);
-      alert('Erro ao excluir categoria.');
-    }
+    });
   };
 
   let displayedCategories = [...categories];
@@ -206,6 +212,14 @@ export default function Perfil() {
 
   return (
     <div className="space-y-6">
+      {confirmModal.isOpen && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        />
+      )}
       <header>
         <h2 className="text-3xl font-bold text-text">Seu Perfil</h2>
         <p className="text-text-light mt-1">Gerencie suas categorias e preferências da conta.</p>
@@ -287,7 +301,7 @@ export default function Perfil() {
                   title="Escolher cor"
                 />
                 {isAddColorOpen && (
-                  <div className="absolute top-full left-0 mt-2 bg-white p-3 rounded-xl shadow-xl border border-border/50 z-30 w-[200px] grid grid-cols-4 gap-2">
+                  <div className="absolute top-full left-0 mt-2 bg-white p-3 rounded-xl shadow-xl border border-border/50 z-30 w-[240px] grid grid-cols-5 gap-2">
                     {coresList.map(cor => (
                       <button
                         key={cor.id}
@@ -350,7 +364,7 @@ export default function Perfil() {
                           title="Alterar cor"
                         />
                         {isEditingColorOpen && (
-                          <div className="absolute top-full left-0 mt-2 bg-white p-3 rounded-xl shadow-xl border border-border/50 z-20 w-[200px] grid grid-cols-4 gap-2">
+                          <div className="absolute top-full left-0 mt-2 bg-white p-3 rounded-xl shadow-xl border border-border/50 z-20 w-[240px] grid grid-cols-5 gap-2">
                             {coresList.map(cor => (
                               <button
                                 key={cor.id}

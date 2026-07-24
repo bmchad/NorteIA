@@ -1,8 +1,9 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { UploadCloud, FileText, CheckCircle, XCircle, X, Image as ImageIcon, FileSpreadsheet, PlusCircle, ArrowLeft } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, XCircle, X, Image as ImageIcon, FileSpreadsheet, PlusCircle, ArrowLeft, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import * as XLSX from 'xlsx';
+import ConfirmModal from '../components/ConfirmModal';
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
@@ -18,6 +19,17 @@ export default function Pendentes() {
   const [documentPrompt, setDocumentPrompt] = useState('');
   const [activeMode, setActiveMode] = useState<'selection' | 'image' | 'spreadsheet' | 'document'>('selection');
   const [cicloDia, setCicloDia] = useState<number>(5);
+  const [expandedRascunhos, setExpandedRascunhos] = useState<Set<string>>(new Set());
+  const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
+
+  const toggleRascunho = (id: string) => {
+    setExpandedRascunhos(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
 
   const removeFile = (indexToRemove: number) => {
     setFiles(prev => prev.filter((_, idx) => idx !== indexToRemove));
@@ -69,19 +81,39 @@ export default function Pendentes() {
 
   const seedDefaultCategories = async (userId: string) => {
     const defaultList = [
-      'Comida', 'Uber/99', 'Táxi', 'Ônibus/Metrô', 'Supermercado',
-      'Academia', 'Vestuário/Beleza', 'Farmácia', 'Eletrônicos', 'Casa',
-      'Comércio', 'Governo', 'Educação', 'Viagem', 'Médicos/Saúde',
-      'Entreterimento', 'Assinaturas', 'Bancos', 'Carro', 'Aluguel',
-      'Paulo', 'Larissa', 'Maria', 'Poker', 'Outros', 'Outras receitas'
+      { nome: 'Aluguel', cor: '#4B0082' },
+      { nome: 'Farmácia', cor: '#D9FF00' },
+      { nome: 'Educação', cor: '#FF007F' },
+      { nome: 'Outras Receitas', cor: '#00FF00' },
+      { nome: 'Comércio', cor: '#FF00F4' },
+      { nome: 'Lavanderia', cor: '#A020F0' },
+      { nome: 'Supermercado', cor: '#00FFFF' },
+      { nome: 'Bancos', cor: '#FF8C00' },
+      { nome: 'Viagem', cor: '#8F00FF' },
+      { nome: 'Uber/99', cor: '#FFE900' },
+      { nome: 'Carro', cor: '#FF00F4' },
+      { nome: 'Táxi', cor: '#FFE900' },
+      { nome: 'Vestuário/Beleza', cor: '#FF007F' },
+      { nome: 'Entreterimento', cor: '#CF00FF' },
+      { nome: 'Academia', cor: '#00BFFF' },
+      { nome: 'Outros', cor: '#FF0000' },
+      { nome: 'Ônibus/Metrô', cor: '#FF8C00' },
+      { nome: 'Casa', cor: '#00FFF9' },
+      { nome: 'Eletrônicos', cor: '#00BFFF' },
+      { nome: 'Lingua estrangeira', cor: '#ef4444' },
+      { nome: 'Assinaturas', cor: '#D9FF00' },
+      { nome: 'Streaming', cor: '#D9FF00' },
+      { nome: 'Governo', cor: '#BFFF00' },
+      { nome: 'Comida', cor: '#001AFF' },
+      { nome: 'Salário', cor: '#00FF00' },
+      { nome: 'Médicos/Saúde', cor: '#FF00FF' },
+      { nome: 'Apostas/Loteria', cor: '#8F00FF' }
     ];
 
-    // Cores aleatórias neutras
-    const colors = ['#64748b', '#ef4444', '#0ea5e9', '#10b981', '#f59e0b', '#8b5cf6', '#ec4899'];
-    const insertData = defaultList.map((nome, i) => ({
+    const insertData = defaultList.map((item) => ({
       user_id: userId,
-      nome,
-      cor: colors[i % colors.length]
+      nome: item.nome,
+      cor: item.cor
     }));
 
     const { error } = await supabase.from('categories').insert(insertData);
@@ -455,10 +487,10 @@ export default function Pendentes() {
       const { error } = await supabase.from('transactions').insert([{
         user_id: user.id,
         data: today,
-        nome: 'Nova Transação',
+        nome: 'Registro Manual',
         apelido: '',
         valor: 0,
-        banco: 'Outros',
+        banco: null,
         mes_fatura: null,
         categoria_id: null,
         hora: '12:00:00',
@@ -549,56 +581,85 @@ export default function Pendentes() {
       alert("Erro ao excluir transação.");
     }
   };
-
   const aprovarTudo = async () => {
-    if (!confirm(`Tem certeza que deseja aprovar TODAS as ${extractedData.length} transações?`)) return;
-    try {
-      const ids = extractedData.map(t => t.id);
-      const { error } = await supabase
-        .from('transactions')
-        .update({ pendente: false })
-        .in('id', ids);
+    if (extractedData.length === 0) return;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Aprovar Tudo',
+      message: `Tem certeza que deseja aprovar TODAS as ${extractedData.length} transações?`,
+      onConfirm: async () => {
+        try {
+          const ids = extractedData.map(t => t.id);
+          const { error } = await supabase
+            .from('transactions')
+            .update({ pendente: false })
+            .in('id', ids);
 
-      if (error) throw error;
-      setExtractedData([]);
-    } catch (error) {
-      console.error("Erro ao aprovar tudo:", error);
-      alert("Erro ao aprovar transações.");
-    }
+          if (error) throw error;
+          setExtractedData([]);
+        } catch (error) {
+          console.error("Erro ao aprovar tudo:", error);
+          alert("Erro ao aprovar transações.");
+        }
+      }
+    });
   };
 
   const reprovarTudo = async () => {
-    if (!confirm(`Tem certeza que deseja reprovar e excluir TODAS as ${extractedData.length} transações pendentes?`)) return;
-    try {
-      const ids = extractedData.map(t => t.id);
-      const { error } = await supabase
-        .from('transactions')
-        .delete()
-        .in('id', ids);
+    if (extractedData.length === 0) return;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Reprovar Tudo',
+      message: `Tem certeza que deseja reprovar e excluir TODAS as ${extractedData.length} transações pendentes?`,
+      onConfirm: async () => {
+        try {
+          const ids = extractedData.map(t => t.id);
+          const { error } = await supabase
+            .from('transactions')
+            .delete()
+            .in('id', ids);
 
-      if (error) throw error;
-      setExtractedData([]);
-    } catch (error) {
-      console.error("Erro ao reprovar tudo:", error);
-      alert("Erro ao excluir transações.");
-    }
+          if (error) throw error;
+          setExtractedData([]);
+        } catch (error) {
+          console.error("Erro ao reprovar tudo:", error);
+          alert("Erro ao excluir transações.");
+        }
+      }
+    });
   };
 
   return (
     <div className="space-y-6">
+      {confirmModal.isOpen && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        />
+      )}
       <header>
-        <h2 className="text-3xl font-bold text-text text-center"><br />Transações Pendentes</h2>
-        <p className="text-text-light mt-1"><br />Nossa IA interpreta prints e planilhas! <br />Você também pode dar instruções extras para ela. Mande aqui seus arquivos, e confira ou edite a leitura abaixo. <br /> O progresso é salvo automaticamente! <br /> Crie categorias na aba "perfil", nossa IA usará somente elas. <br />  Depois, é só clicar em "aprovar" para que a transação apareça no seu balanço.</p>
+        <h2 className="text-3xl font-bold text-text flex items-center gap-3">
+          <Clock size={32} className="text-primary" /> Novos Registros
+        </h2>
+        <p className="text-text-light mt-1">
+          <br />
+          Nossa IA interpreta prints e planilhas! <br />
+          Você também pode dar instruções extras para ela. Mande aqui seus arquivos, e confira ou edite a leitura abaixo. <br />
+          O progresso é salvo automaticamente! Crie categorias na aba "perfil", nossa IA usará somente elas. <br />
+          Depois, é só clicar em "aprovar" para que a transação apareça no seu balanço.
+        </p>
       </header>
 
       <div
-        className={`glass-panel flex flex-col items-center justify-center text-center border-dashed border-2 border-primary/30 transition-colors relative ${extractedData.length > 0 ? 'p-6 min-h-[200px]' : 'p-8 min-h-[400px]'} ${activeMode === 'selection' ? '' : 'hover:bg-primary/5'}`}
+        className={`glass-panel flex flex-col items-center justify-start pt-8 text-center border-dashed border-2 border-primary/30 transition-colors relative ${extractedData.length > 0 ? 'p-6 min-h-[200px]' : 'px-8 pb-8 min-h-[400px]'} ${activeMode === 'selection' ? '' : 'hover:bg-primary/5'}`}
         onDragOver={(e) => e.preventDefault()}
         onDrop={activeMode === 'image' ? handleDrop : undefined}
       >
         {activeMode === 'selection' && (
           <div className="w-full flex flex-col items-center animate-fade-in">
-            <h3 className={`${extractedData.length > 0 ? 'text-xl' : 'text-2xl'} font-bold text-text mb-8`}>
+            <h3 className={`${extractedData.length > 0 ? 'text-xl' : 'text-2xl'} font-bold text-text mb-4`}>
               {extractedData.length > 0 ? 'Adicionar mais transações via:' : 'O que você quer selecionar?'}
             </h3>
 
@@ -611,6 +672,7 @@ export default function Pendentes() {
                   <ImageIcon size={28} />
                 </div>
                 <span className="font-bold text-text text-lg">Imagem</span>
+                <span className="text-[10px] text-text-light mt-1 font-medium">Formatos: .jpg, .jpeg, .png, .webp</span>
               </button>
 
               <button
@@ -621,6 +683,7 @@ export default function Pendentes() {
                   <FileSpreadsheet size={28} />
                 </div>
                 <span className="font-bold text-text text-lg">Planilha</span>
+                <span className="text-[10px] text-text-light mt-1 font-medium">Formatos: .xlsx, .csv, .xls</span>
               </button>
 
               <button
@@ -631,6 +694,7 @@ export default function Pendentes() {
                   <FileText size={28} />
                 </div>
                 <span className="font-bold text-text text-lg">Documentos</span>
+                <span className="text-[10px] text-text-light mt-1 font-medium">Formatos: .pdf, .docx, .txt</span>
               </button>
 
               <button
@@ -640,7 +704,8 @@ export default function Pendentes() {
                 <div className="w-14 h-14 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <PlusCircle size={28} />
                 </div>
-                <span className="font-bold text-text text-lg">Manualmente</span>
+                <span className="font-bold text-text text-lg">Registro manual</span>
+                <span className="text-[10px] text-text-light mt-1 font-medium">Edite você mesmo!</span>
               </button>
             </div>
           </div>
@@ -954,145 +1019,190 @@ Ex: as saídas estão de A2 até H7 e as entrada de J2 até K7, ignore A8 até L
             </div>
           </div>
 
-          {extractedData.map((item) => (
-            <div key={item.id} className="glass-panel p-4 flex flex-col xl:flex-row items-center gap-4 justify-between border-l-4 border-l-primary/50">
-              <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-4 w-full">
-                <div>
-                  <span className="text-xs text-text-light uppercase">Data</span>
-                  <input
-                    type="date"
-                    defaultValue={item.data}
-                    onBlur={(e) => handleUpdateField(item.id, 'data', e.target.value)}
-                    className="glass-input w-full p-1 text-sm bg-transparent border-transparent hover:border-border"
-                  />
-                </div>
-                <div>
-                  <span className="text-xs text-text-light uppercase">Apelido</span>
-                  <input
-                    type="text"
-                    defaultValue={item.apelido || item.nome}
-                    onBlur={(e) => handleUpdateField(item.id, 'apelido', e.target.value)}
-                    onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                    className="glass-input w-full p-1 text-sm font-medium"
-                  />
-                  <div className="mt-1 text-[10px] text-text-light/70 break-words whitespace-normal" title={item.nome}>
-                    Original: {item.nome}
+          {extractedData.map((item) => {
+            const isExpanded = expandedRascunhos.has(item.id);
+            return (
+              <div key={item.id} className="glass-panel flex flex-col border-l-4 border-l-primary/50 overflow-hidden">
+                <div className="p-4 flex flex-col xl:flex-row items-center gap-4 justify-between">
+                  <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
+                    {/* Data */}
+                    <div>
+                      <span className="text-xs text-text-light uppercase">Data</span>
+                      <input
+                        type="date"
+                        defaultValue={item.data}
+                        onBlur={(e) => handleUpdateField(item.id, 'data', e.target.value)}
+                        className="glass-input w-full p-1 text-sm bg-transparent border-transparent hover:border-border"
+                      />
+                    </div>
+                    {/* Apelido */}
+                    <div>
+                      <span className="text-xs text-text-light uppercase">Apelido</span>
+                      <input
+                        type="text"
+                        defaultValue={item.apelido || item.nome}
+                        onBlur={(e) => handleUpdateField(item.id, 'apelido', e.target.value)}
+                        onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                        className="glass-input w-full p-1 text-sm font-medium"
+                      />
+                    </div>
+                    {/* Categoria */}
+                    <div>
+                      <span className="text-xs text-text-light uppercase">Categoria</span>
+                      <select
+                        value={item.categoria_id || ''}
+                        onChange={(e) => handleCategoryChange(item.id, e.target.value)}
+                        className="glass-input w-full p-1 bg-transparent border-transparent hover:border-border text-sm appearance-none cursor-pointer"
+                      >
+                        <option value="" disabled>Selecione...</option>
+                        {categories.map(c => (
+                          <option key={c.id} value={c.id} className="text-black">{c.nome}</option>
+                        ))}
+                        <option value="ADD_NEW" className="font-bold text-primary bg-primary/10">+ Adicionar Categoria</option>
+                      </select>
+                    </div>
+                    {/* Valor */}
+                    <div>
+                      <span className="text-xs text-text-light uppercase">Valor (R$)</span>
+                      <div className="flex items-center glass-input w-full p-0 overflow-hidden">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const isNeg = item.valor < 0 || Object.is(item.valor, -0);
+                            const currentAbs = Math.abs(item.valor);
+                            const newSign = isNeg ? 1 : -1;
+                            handleUpdateField(item.id, 'valor', currentAbs === 0 ? (newSign === -1 ? -0 : 0) : currentAbs * newSign);
+                          }}
+                          className={`font-extrabold px-2 py-1 flex items-center justify-center transition-colors hover:bg-black/5 ${item.valor < 0 || Object.is(item.valor, -0) ? 'text-danger' : 'text-primary'}`}
+                          title="Alternar Entrada/Saída"
+                        >
+                          {item.valor < 0 || Object.is(item.valor, -0) ? '-' : '+'}
+                        </button>
+                        <input
+                          type="text"
+                          inputMode="decimal"
+                          defaultValue={Math.abs(item.valor)}
+                          onInput={(e) => {
+                            e.currentTarget.value = e.currentTarget.value.replace(/[^0-9.,]/g, '');
+                          }}
+                          onBlur={(e) => {
+                            const isNeg = item.valor < 0 || Object.is(item.valor, -0);
+                            const valStr = e.target.value.replace(',', '.');
+                            const val = Math.abs(parseFloat(valStr) || 0);
+                            handleUpdateField(item.id, 'valor', isNeg ? -val : val);
+                            e.target.value = val.toString();
+                          }}
+                          onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                          className={`w-full bg-transparent border-none outline-none py-1 pr-1 text-sm font-bold ${item.valor < 0 || Object.is(item.valor, -0) ? 'text-danger' : 'text-primary'}`}
+                        />
+                      </div>
+                    </div>
                   </div>
-                </div>
-                <div>
-                  <span className="text-xs text-text-light uppercase">Categoria</span>
-                  <select
-                    value={item.categoria_id || ''}
-                    onChange={(e) => handleCategoryChange(item.id, e.target.value)}
-                    className="glass-input w-full p-1 bg-transparent border-transparent hover:border-border text-sm appearance-none cursor-pointer"
-                  >
-                    <option value="" disabled>Selecione...</option>
-                    {categories.map(c => (
-                      <option key={c.id} value={c.id} className="text-black">{c.nome}</option>
-                    ))}
-                    <option value="ADD_NEW" className="font-bold text-primary bg-primary/10">+ Adicionar Categoria</option>
-                  </select>
-                </div>
-                <div>
-                  <span className="text-xs text-text-light uppercase">Balanço de:</span>
-                  <select
-                    value={item.mes_fatura || ''}
-                    onChange={(e) => handleUpdateField(item.id, 'mes_fatura', e.target.value || null)}
-                    className="glass-input w-full p-1 bg-transparent border-transparent hover:border-border text-sm appearance-none cursor-pointer"
-                  >
-                    <option value="">Ciclo do dia {cicloDia}</option>
-                    {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map(mes => (
-                      <option key={mes} value={mes} className="text-black">{mes}</option>
-                    ))}
-                  </select>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="text-[10px] text-text-light uppercase font-semibold">Banco:</span>
-                    <input
-                      type="text"
-                      defaultValue={item.banco || ''}
-                      onBlur={(e) => handleUpdateField(item.id, 'banco', e.target.value)}
-                      onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                      className="glass-input w-full px-1 py-0.5 text-[11px] font-medium"
-                      title="Banco"
-                    />
-                  </div>
-                </div>
-                <div>
-                  <span className="text-xs text-text-light uppercase">Valor (R$)</span>
-                  <div className="flex items-center glass-input w-full p-0 overflow-hidden">
+                  {/* Botões */}
+                  <div className="flex gap-2 w-full xl:w-auto mt-4 xl:mt-0">
                     <button
-                      type="button"
-                      onClick={() => {
-                        const isNeg = item.valor < 0 || Object.is(item.valor, -0);
-                        const currentAbs = Math.abs(item.valor);
-                        const newSign = isNeg ? 1 : -1;
-                        handleUpdateField(item.id, 'valor', currentAbs === 0 ? (newSign === -1 ? -0 : 0) : currentAbs * newSign);
-                      }}
-                      className={`font-extrabold px-2 py-1 flex items-center justify-center transition-colors hover:bg-black/5 ${item.valor < 0 || Object.is(item.valor, -0) ? 'text-danger' : 'text-primary'}`}
-                      title="Alternar Entrada/Saída"
+                      onClick={() => aprovarTransacao(item.id)}
+                      className="flex-1 xl:flex-none bg-primary/10 hover:bg-primary text-primary hover:text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
+                      title="Aprovar"
                     >
-                      {item.valor < 0 || Object.is(item.valor, -0) ? '-' : '+'}
+                      <CheckCircle size={20} /> <span className="xl:hidden">Aprovar</span>
                     </button>
-                    <input
-                      type="text"
-                      inputMode="decimal"
-                      defaultValue={Math.abs(item.valor)}
-                      onInput={(e) => {
-                        e.currentTarget.value = e.currentTarget.value.replace(/[^0-9.,]/g, '');
-                      }}
-                      onBlur={(e) => {
-                        const isNeg = item.valor < 0 || Object.is(item.valor, -0);
-                        const valStr = e.target.value.replace(',', '.');
-                        const val = Math.abs(parseFloat(valStr) || 0);
-                        handleUpdateField(item.id, 'valor', isNeg ? -val : val);
-                        e.target.value = val.toString();
-                      }}
-                      onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                      className={`w-full bg-transparent border-none outline-none py-1 pr-1 text-sm font-bold ${item.valor < 0 || Object.is(item.valor, -0) ? 'text-danger' : 'text-primary'}`}
-                    />
-                  </div>
-                  <div className="flex items-center gap-1 mt-1">
-                    <span className="text-[10px] text-text-light uppercase font-semibold">Parc:</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      defaultValue={item.parcela_atual || ''}
-                      onBlur={(e) => handleUpdateField(item.id, 'parcela_atual', e.target.value ? parseInt(e.target.value) : null)}
-                      className="glass-input w-12 px-1 py-0.5 text-[11px] text-center font-medium"
-                      title="Parcela Atual"
-                    />
-                    <span className="text-[10px] text-text-light font-bold">/</span>
-                    <input
-                      type="text"
-                      inputMode="numeric"
-                      pattern="[0-9]*"
-                      defaultValue={item.parcela_total || ''}
-                      onBlur={(e) => handleUpdateField(item.id, 'parcela_total', e.target.value ? parseInt(e.target.value) : null)}
-                      className="glass-input w-12 px-1 py-0.5 text-[11px] text-center font-medium"
-                      title="Total de Parcelas"
-                    />
+                    <button
+                      onClick={() => descartarTransacao(item.id)}
+                      className="flex-1 xl:flex-none bg-danger/10 hover:bg-danger text-danger hover:text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
+                      title="Descartar"
+                    >
+                      <XCircle size={20} /> <span className="xl:hidden">Descartar</span>
+                    </button>
                   </div>
                 </div>
+
+                {/* Toggle and Advanced Options */}
+                <div className="border-t border-border">
+                  <button
+                    onClick={() => toggleRascunho(item.id)}
+                    className="w-full flex items-center justify-start px-4 gap-2 py-2 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors"
+                  >
+                    Opções Avançadas
+                    {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                  </button>
+
+                  {isExpanded && (
+                    <div className="p-4 bg-transparent animate-in slide-in-from-top-2 duration-300">
+                      <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+                        {/* Nome Original */}
+                        <div className="col-span-1 md:col-span-4">
+                          <span className="text-[10px] text-text-light uppercase font-bold block mb-1">Nome Original</span>
+                          <input
+                            type="text"
+                            defaultValue={item.nome || ''}
+                            onBlur={(e) => handleUpdateField(item.id, 'nome', e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                            className="glass-input w-full p-2 text-sm bg-transparent border-transparent hover:border-border text-text-light"
+                            title="Nome Original"
+                          />
+                        </div>
+                        {/* Balanço de */}
+                        <div className="col-span-1 md:col-span-3">
+                          <span className="text-[10px] text-text-light uppercase font-bold block mb-1">Balanço de</span>
+                          <select
+                            value={item.mes_fatura || ''}
+                            onChange={(e) => handleUpdateField(item.id, 'mes_fatura', e.target.value || null)}
+                            className="glass-input w-full p-2 bg-transparent border-transparent hover:border-border text-xs appearance-none cursor-pointer"
+                          >
+                            <option value="">Ciclo do dia {cicloDia}</option>
+                            {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map(mes => (
+                              <option key={mes} value={mes} className="text-black">{mes}</option>
+                            ))}
+                          </select>
+                        </div>
+                        {/* Banco */}
+                        <div className="col-span-1 md:col-span-2">
+                          <span className="text-[10px] text-text-light uppercase font-bold block mb-1">Banco</span>
+                          <input
+                            type="text"
+                            placeholder="Banco"
+                            defaultValue={item.banco || ''}
+                            onBlur={(e) => handleUpdateField(item.id, 'banco', e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
+                            className="glass-input w-full p-2 bg-transparent border-transparent hover:border-border text-xs"
+                            title="Banco"
+                          />
+                        </div>
+                        {/* Parcelas */}
+                        <div className="col-span-1 md:col-span-3">
+                          <span className="text-[10px] text-text-light uppercase font-bold block mb-1">Parcelas</span>
+                          <div className="flex items-center gap-2">
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              placeholder="Atual"
+                              defaultValue={item.parcela_atual || ''}
+                              onBlur={(e) => handleUpdateField(item.id, 'parcela_atual', e.target.value ? parseInt(e.target.value) : null)}
+                              className="glass-input w-full p-2 bg-transparent border-transparent hover:border-border text-xs text-center"
+                              title="Parcela Atual"
+                            />
+                            <span className="text-text-light font-bold">/</span>
+                            <input
+                              type="text"
+                              inputMode="numeric"
+                              pattern="[0-9]*"
+                              placeholder="Total"
+                              defaultValue={item.parcela_total || ''}
+                              onBlur={(e) => handleUpdateField(item.id, 'parcela_total', e.target.value ? parseInt(e.target.value) : null)}
+                              className="glass-input w-full p-2 bg-transparent border-transparent hover:border-border text-xs text-center"
+                              title="Total de Parcelas"
+                            />
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </div>
               </div>
-              <div className="flex gap-2 w-full xl:w-auto mt-4 xl:mt-0">
-                <button
-                  onClick={() => aprovarTransacao(item.id)}
-                  className="flex-1 xl:flex-none bg-primary/10 hover:bg-primary text-primary hover:text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
-                  title="Aprovar"
-                >
-                  <CheckCircle size={20} /> <span className="xl:hidden">Aprovar</span>
-                </button>
-                <button
-                  onClick={() => descartarTransacao(item.id)}
-                  className="flex-1 xl:flex-none bg-danger/10 hover:bg-danger text-danger hover:text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
-                  title="Descartar"
-                >
-                  <XCircle size={20} /> <span className="xl:hidden">Descartar</span>
-                </button>
-              </div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       )}
     </div>

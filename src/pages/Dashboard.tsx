@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Info } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Info, Calculator, ChevronDown, ChevronUp } from 'lucide-react';
 
 export default function Dashboard() {
   const [ano, setAno] = useState(new Date().getFullYear().toString());
@@ -11,7 +11,14 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
   const [latestTransaction, setLatestTransaction] = useState<any>(null);
-  
+
+  // Calculadora state
+  const [calcParcela, setCalcParcela] = useState<number | ''>(100);
+  const [calcMeses, setCalcMeses] = useState<number | ''>(12);
+  const [calcTaxa, setCalcTaxa] = useState<number | ''>(12);
+  const [calcIr, setCalcIr] = useState<number | ''>(25);
+  const [isCalcExpanded, setIsCalcExpanded] = useState(false);
+
   // Notas state
   const [nota, setNota] = useState('');
   const [notaSaving, setNotaSaving] = useState(false);
@@ -30,7 +37,7 @@ export default function Dashboard() {
         .select('content')
         .eq('user_id', user.id)
         .single();
-      
+
       // Error PGRST116 occurs when 0 rows are returned, which is fine for new users
       if (error && error.code !== 'PGRST116') throw error;
       if (data) setNota(data.content || '');
@@ -83,7 +90,7 @@ export default function Dashboard() {
       data?.forEach(t => {
         if (t.valor >= 0) inTotal += Number(t.valor);
         else outTotal += Math.abs(Number(t.valor));
-        
+
         if (t.data) {
           uniqueMonths.add(t.data.substring(0, 7)); // YYYY-MM
         }
@@ -107,7 +114,7 @@ export default function Dashboard() {
         .order('data', { ascending: false })
         .limit(1)
         .single();
-      
+
       if (latest) {
         setLatestTransaction(latest);
       }
@@ -126,11 +133,11 @@ export default function Dashboard() {
       <header className="flex justify-between items-end flex-wrap gap-4">
         <div>
           <h2 className="text-3xl font-bold text-text">Dashboard Anual</h2>
-          <p className="text-text-light mt-1">Visão geral das suas finanças consolidadas</p>
+          <p className="text-text-light mt-1">Visão geral das suas finanças</p>
         </div>
-        
-        <select 
-          value={ano} 
+
+        <select
+          value={ano}
           onChange={(e) => setAno(e.target.value)}
           className="glass-input cursor-pointer font-medium text-lg w-32"
         >
@@ -220,51 +227,133 @@ export default function Dashboard() {
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            <div className="glass-panel p-6 min-h-[350px] flex flex-col">
-              <h3 className="font-bold text-lg mb-4 text-text">Proporção Anual</h3>
-              <div className="flex-1 min-h-[250px]">
-                {entradas === 0 && saidas === 0 ? (
-                  <div className="h-full flex items-center justify-center text-text-light">
-                    Nenhum dado para exibir neste ano.
-                  </div>
-                ) : (
-                  <ResponsiveContainer width="100%" height="100%">
-                    <PieChart>
-                      <Pie
-                        data={chartData}
-                        innerRadius={60}
-                        outerRadius={100}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
-                        {chartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={entry.color} />
-                        ))}
-                      </Pie>
-                      <Tooltip formatter={(value) => `R$ ${Number(value).toFixed(2)}`} />
-                      <Legend verticalAlign="bottom" height={36}/>
-                    </PieChart>
-                  </ResponsiveContainer>
-                )}
-              </div>
-              
-              <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <span className="font-bold text-text-light uppercase tracking-wider text-sm">Base</span>
-                  <div className="group/tooltip relative flex items-center justify-center">
-                    <Info size={16} className="text-primary cursor-help" />
-                    <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 p-2 bg-text text-white text-xs rounded-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-10 text-center pointer-events-none shadow-lg">
-                      A porcentagem das entradas que se tornam resultado
-                      <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-text"></div>
+            <div className="flex flex-col gap-6">
+              <div className="glass-panel p-6 min-h-[350px] flex flex-col">
+                <h3 className="font-bold text-lg mb-4 text-text">Proporção Anual</h3>
+                <div className="flex-1 min-h-[250px]">
+                  {entradas === 0 && saidas === 0 ? (
+                    <div className="h-full flex items-center justify-center text-text-light">
+                      Nenhum dado para exibir neste ano.
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      <PieChart>
+                        <Pie
+                          data={chartData}
+                          innerRadius={60}
+                          outerRadius={100}
+                          paddingAngle={5}
+                          dataKey="value"
+                        >
+                          {chartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={entry.color} />
+                          ))}
+                        </Pie>
+                        <Tooltip formatter={(value) => `R$ ${Number(value).toFixed(2)}`} />
+                        <Legend verticalAlign="bottom" height={36} />
+                      </PieChart>
+                    </ResponsiveContainer>
+                  )}
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <span className="font-bold text-text-light uppercase tracking-wider text-sm">Base</span>
+                    <div className="group/tooltip relative flex items-center justify-center">
+                      <Info size={16} className="text-primary cursor-help" />
+                      <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 p-2 bg-text text-white text-xs rounded-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-10 text-center pointer-events-none shadow-lg">
+                        A porcentagem das entradas que se tornam resultado
+                        <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-text"></div>
+                      </div>
                     </div>
                   </div>
+                  <span className={`font-bold text-lg ${entradas > 0 ? ((1 - (saidas / entradas)) * 100 >= 0 ? 'text-primary' : 'text-danger') : 'text-text-light'}`}>
+                    {entradas > 0 ? ((1 - (saidas / entradas)) * 100).toFixed(2) : '0.00'}%
+                  </span>
                 </div>
-                <span className={`font-bold text-lg ${entradas > 0 ? ((1 - (saidas / entradas)) * 100 >= 0 ? 'text-primary' : 'text-danger') : 'text-text-light'}`}>
-                  {entradas > 0 ? ((1 - (saidas / entradas)) * 100).toFixed(2) : '0.00'}%
-                </span>
+              </div>
+
+              {/* Calculadora de Valor Presente */}
+              <div className="glass-panel p-6">
+                <button
+                  onClick={() => setIsCalcExpanded(!isCalcExpanded)}
+                  className="w-full flex items-center justify-between font-bold text-lg text-text group"
+                >
+                  <div className="flex items-center gap-2">
+                    <Calculator size={20} className="text-primary" />
+                    Calculadora de Investimentos
+                  </div>
+                  {isCalcExpanded ? <ChevronUp size={20} className="text-text-light group-hover:text-primary transition-colors" /> : <ChevronDown size={20} className="text-text-light group-hover:text-primary transition-colors" />}
+                </button>
+
+                {isCalcExpanded && (
+                  <div className="mt-6 pt-6 border-t border-border animate-in slide-in-from-top-2 duration-300">
+                    <div className="mb-6 p-4 bg-primary/5 border border-primary/10 rounded-xl">
+                      <h5 className="font-bold text-primary text-sm mb-1 flex items-center gap-2">
+                        <Info size={14} /> Fórmula do Valor Presente
+                      </h5>
+                      <p className="text-xs text-text-light leading-relaxed">
+                        Essa ferramenta utiliza a fórmula do <strong>Valor Presente de uma Série Uniforme</strong>.
+                        Ela calcula o montante exato que você precisa colocar hoje em um investimento (já descontando o imposto de renda cobrado no resgate) para que ele pague todas as parcelas e zere exatamente no último mês.
+                      </p>
+                    </div>
+
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-4">
+                      <div>
+                        <label className="text-[10px] text-text-light uppercase font-bold block mb-1" title="Valor de cada parcela mensal">Parcela (R$)</label>
+                        <input type="number" value={calcParcela} onChange={e => setCalcParcela(e.target.value ? Number(e.target.value) : '')} className="glass-input w-full p-2 text-sm text-text [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-text-light uppercase font-bold block mb-1" title="Quantas parcelas faltam para terminar de pagar">Meses Restantes</label>
+                        <input type="number" value={calcMeses} onChange={e => setCalcMeses(e.target.value ? Number(e.target.value) : '')} className="glass-input w-full p-2 text-sm text-text [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-text-light uppercase font-bold block mb-1" title="Taxa bruta ao ano do seu investimento">Taxa Anual (%)</label>
+                        <input type="number" value={calcTaxa} onChange={e => setCalcTaxa(e.target.value ? Number(e.target.value) : '')} className="glass-input w-full p-2 text-sm text-text [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                      </div>
+                      <div>
+                        <label className="text-[10px] text-text-light uppercase font-bold block mb-1" title="Aliquota do imposto de renda cobrado no resgate">I.R. (%)</label>
+                        <input type="number" value={calcIr} onChange={e => setCalcIr(e.target.value ? Number(e.target.value) : '')} className="glass-input w-full p-2 text-sm text-text [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                      </div>
+                    </div>
+
+                    {(() => {
+                      const p = Number(calcParcela) || 0;
+                      const n = Number(calcMeses) || 0;
+                      const taxa = Number(calcTaxa) || 0;
+                      const ir = Number(calcIr) || 0;
+
+                      // Retirando imposto de renda da taxa anual
+                      const taxaLiquidaAnual = taxa * (1 - ir / 100);
+                      const iAnual = taxaLiquidaAnual / 100;
+                      // Encontrando a taxa equivalente mensal (juros compostos)
+                      const iMensal = Math.pow(1 + iAnual, 1 / 12) - 1;
+
+                      // Fórmula VPL (Valor Presente)
+                      const valorPresente = iMensal > 0 && n > 0
+                        ? p * ((1 - Math.pow(1 + iMensal, -n)) / iMensal)
+                        : p * n;
+
+                      const rendimento = (p * n) - valorPresente;
+
+                      return (
+                        <div className="bg-primary/5 rounded-lg p-4 flex flex-col gap-2 border border-primary/20">
+                          <div className="flex justify-between items-end">
+                            <span className="text-sm text-text-light font-medium">Valor a investir hoje:</span>
+                            <span className="text-2xl font-bold text-primary">R$ {valorPresente.toFixed(2).replace('.', ',')}</span>
+                          </div>
+                          <div className="flex justify-between items-center mt-2 pt-2 border-t border-primary/10">
+                            <span className="text-xs text-text-light">Soma das parcelas: R$ {(p * n).toFixed(2).replace('.', ',')}</span>
+                            <span className="text-xs text-[#10b981] font-bold">+ R$ {rendimento.toFixed(2).replace('.', ',')} em juros a favor</span>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </div>
+                )}
               </div>
             </div>
-            
+
             <div className="flex flex-col gap-6">
               {/* Última Transação */}
               {latestTransaction && (
@@ -298,12 +387,12 @@ export default function Dashboard() {
                   <h3 className="font-bold text-lg text-text">Notas</h3>
                   {notaSaving && (
                     <span className="text-xs text-primary flex items-center gap-1 font-medium">
-                      <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div> 
+                      <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                       Salvando...
                     </span>
                   )}
                 </div>
-                <textarea 
+                <textarea
                   className="glass-input flex-1 w-full p-4 resize-none bg-white/40 focus:bg-white/80 transition-colors text-sm text-text"
                   placeholder="Escreva suas metas, lembretes ou estratégias financeiras aqui..."
                   value={nota}

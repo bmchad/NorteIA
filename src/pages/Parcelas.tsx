@@ -1,11 +1,13 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { CreditCard, Trash2, ListChecks, ChevronDown, ChevronUp } from 'lucide-react';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Parcelas() {
   const [parcelas, setParcelas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
 
   const toggleExpand = (key: string) => {
     setExpandedGroups(prev => ({ ...prev, [key]: !prev[key] }));
@@ -40,41 +42,82 @@ export default function Parcelas() {
 
   const deleteGroup = async (group: any[]) => {
     const baseName = group[0].apelido || group[0].nome;
-    if (!confirm(`Tem certeza que deseja excluir TODAS as ${group.length} parcelas pagas de "${baseName}"?`)) return;
+    setConfirmModal({
+      isOpen: true,
+      title: 'Excluir Parcelas',
+      message: `Tem certeza que deseja excluir TODAS as ${group.length} parcelas pagas de "${baseName}"?`,
+      onConfirm: async () => {
+        try {
+          const idsToDelete = group.map(t => t.id);
+          const { error } = await supabase
+            .from('transactions')
+            .delete()
+            .in('id', idsToDelete);
 
-    try {
-      const idsToDelete = group.map(t => t.id);
-      const { error } = await supabase
-        .from('transactions')
-        .delete()
-        .in('id', idsToDelete);
-
-      if (error) throw error;
-      setParcelas(prev => prev.filter(t => !idsToDelete.includes(t.id)));
-    } catch (error) {
-      console.error("Erro ao excluir:", error);
-      alert("Erro ao excluir parcelas.");
-    }
+          if (error) throw error;
+          setParcelas(prev => prev.filter(t => !idsToDelete.includes(t.id)));
+        } catch (error) {
+          console.error("Erro ao excluir:", error);
+          alert("Erro ao excluir parcelas.");
+        }
+      }
+    });
   };
 
-  // Lógica de agrupamento exigida: agrupar pelo Nome Original
-  // Usamos uma regex para remover padrões comuns de número de parcela no fim do nome (ex: " 01/10", " 1 de 5", "- 02/05")
-  // para que "MERCADO 01/05" e "MERCADO 02/05" agrupem perfeitamente.
-  const groupParcelas = () => {
-    const groups: Record<string, any[]> = {};
-    parcelas.forEach(p => {
-      // Remove sufixos de parcela do nome original
-      const cleanName = p.nome.replace(/\s*(-)?\s*\d+\s*(\/|de)\s*\d+$/i, '').trim();
-      // Garante que o agrupamento exija nome E valor iguais
-      const valorStr = Math.abs(Number(p.valor)).toFixed(2);
-      const groupKey = `${cleanName}_${valorStr}`;
+  const isSameBillingDay = (date1: string, date2: string) => {
+    const d1 = parseInt(date1.split('-')[2], 10);
+    const d2 = parseInt(date2.split('-')[2], 10);
+    const m1 = parseInt(date1.split('-')[1], 10);
+    const y1 = parseInt(date1.split('-')[0], 10);
+    const m2 = parseInt(date2.split('-')[1], 10);
+    const y2 = parseInt(date2.split('-')[0], 10);
 
-      if (!groups[groupKey]) {
-        groups[groupKey] = [];
+    if (Math.abs(d1 - d2) <= 2) return true;
+    if (d1 >= 28 && d2 >= 28) return true;
+
+    const checkWrap = (y: number, m: number, d: number, targetD: number) => {
+      for (let offset = -2; offset <= 2; offset++) {
+        const testDate = new Date(y, m - 1, d + offset);
+        if (testDate.getDate() === targetD) return true;
       }
-      groups[groupKey].push(p);
+      return false;
+    };
+
+    if (checkWrap(y1, m1, d1, d2)) return true;
+    if (checkWrap(y2, m2, d2, d1)) return true;
+
+    return false;
+  };
+
+  const groupParcelas = () => {
+    const groups: any[][] = [];
+    parcelas.forEach(p => {
+      const valorStr = Math.abs(Number(p.valor)).toFixed(2);
+      const pTotal = p.parcela_total || 1;
+
+      let foundGroup = groups.find(group => {
+        const baseItem = group[0];
+        const baseValor = Math.abs(Number(baseItem.valor)).toFixed(2);
+        const baseTotal = baseItem.parcela_total || 1;
+
+        if (valorStr === baseValor && pTotal === baseTotal) {
+          return isSameBillingDay(p.data, baseItem.data);
+        }
+        return false;
+      });
+
+      if (foundGroup) {
+        foundGroup.push(p);
+      } else {
+        groups.push([p]);
+      }
     });
-    return groups;
+
+    const record: Record<string, any[]> = {};
+    groups.forEach(g => {
+      record[g[0].id] = g;
+    });
+    return record;
   };
 
   const groupedParcelas = groupParcelas();
@@ -111,13 +154,12 @@ export default function Parcelas() {
     const isCompleted = current >= total;
 
     return (
-      <div 
-        key={nomeKey} 
-        className={`glass-panel p-6 flex flex-col gap-4 relative overflow-hidden group/card border-t-4 transition-all duration-300 ${
-          isCompleted 
-            ? 'border-t-[#10b981] hover:border-t-[#059669] bg-[#10b981]/[0.01]' 
+      <div
+        key={nomeKey}
+        className={`glass-panel p-6 flex flex-col gap-4 relative overflow-hidden group/card border-t-4 transition-all duration-300 ${isCompleted
+            ? 'border-t-[#10b981] hover:border-t-[#059669] bg-[#10b981]/[0.01]'
             : 'border-t-transparent hover:border-t-primary'
-        }`}
+          }`}
       >
         <div className="absolute top-0 right-0 p-4 opacity-0 group-hover/card:opacity-100 transition-opacity">
           <button
@@ -140,7 +182,11 @@ export default function Parcelas() {
               Original: {baseItem.nome}
             </div>
           )}
-          <div className={`text-sm mt-1 font-medium ${isCompleted ? 'text-[#10b981]' : 'text-primary'}`}>{baseItem.banco || 'Banco desconhecido'}</div>
+          {baseItem.banco && (
+            <div className={`text-sm mt-1 font-medium ${isCompleted ? 'text-[#10b981]' : 'text-primary'}`}>
+              {baseItem.banco}
+            </div>
+          )}
         </div>
 
         <div className="mt-auto pt-4 border-t border-border">
@@ -179,9 +225,8 @@ export default function Parcelas() {
           {/* Botão de Expandir Histórico */}
           <button
             onClick={() => toggleExpand(nomeKey)}
-            className={`mt-4 w-full flex items-center justify-center gap-1 text-xs font-bold transition-colors py-2 border-t border-border/50 ${
-              isCompleted ? 'text-[#10b981] hover:text-[#059669]' : 'text-primary hover:text-primary-hover'
-            }`}
+            className={`mt-4 w-full flex items-center justify-center gap-1 text-xs font-bold transition-colors py-2 border-t border-border/50 ${isCompleted ? 'text-[#10b981] hover:text-[#059669]' : 'text-primary hover:text-primary-hover'
+              }`}
           >
             {expandedGroups[nomeKey] ? (
               <><ChevronUp size={14} /> Ocultar Histórico</>
@@ -192,9 +237,8 @@ export default function Parcelas() {
 
           {/* Lista de Parcelas Pagas (Expansível) */}
           {expandedGroups[nomeKey] && (
-            <div className={`mt-2 flex flex-col gap-2 p-3 rounded-lg border ${
-              isCompleted ? 'bg-[#10b981]/5 border-[#10b981]/10' : 'bg-primary/5 border-primary/10'
-            }`}>
+            <div className={`mt-2 flex flex-col gap-2 p-3 rounded-lg border ${isCompleted ? 'bg-[#10b981]/5 border-[#10b981]/10' : 'bg-primary/5 border-primary/10'
+              }`}>
               <h4 className="text-[10px] font-bold text-text-light uppercase tracking-wider mb-1">Histórico de Pagamentos</h4>
               {group.map((transacao) => (
                 <div key={transacao.id} className="flex justify-between items-center text-xs border-b border-border/30 pb-1 last:border-0 last:pb-0">
@@ -214,13 +258,21 @@ export default function Parcelas() {
 
   return (
     <div className="space-y-6">
+      {confirmModal.isOpen && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        />
+      )}
       <header>
         <h2 className="text-3xl font-bold text-text flex items-center gap-3">
           <CreditCard size={32} className="text-primary" /> Minhas Parcelas
         </h2>
         <p className="text-text-light mt-1">
-          Acompanhe aqui o andamento das suas compras parceladas! <br /> 
-          Elas são agrupadas pelo nome original e pelo valor. Então, se tiverem desagrupadas, mude o valor na página "Pendentes" ou mude o nome original no supabase.
+          Acompanhe aqui o andamento das suas compras parceladas! <br />
+          Elas são agrupadas pelo valor, quantidade total de parcelas e dia da cobrança. Se estiverem desagrupadas, ajuste a quantidade total ou o valor em "Balanços Mensais".
         </p>
       </header>
 
@@ -243,7 +295,7 @@ export default function Parcelas() {
                 {emAndamentoKeys.length}
               </span>
             </h3>
-            
+
             {emAndamentoKeys.length === 0 ? (
               <div className="glass-panel p-8 text-center text-text-light bg-white/20">
                 Não há parcelas em andamento

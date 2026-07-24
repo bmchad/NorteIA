@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { LayoutDashboard, Clock, Calendar, CreditCard, LogOut, User, Anchor } from 'lucide-react';
+import { LayoutDashboard, Clock, Calendar, CreditCard, LogOut, User, Anchor, History } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -16,11 +16,12 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   const navItems = [
-    { name: 'Dashboard Anual', path: '/', icon: LayoutDashboard },
-    { name: 'Pendentes', path: '/pendentes', icon: Clock },
+    { name: 'Dashboard Anual', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Balanços Mensais', path: '/meses', icon: Calendar },
-    { name: 'Parcelas', path: '/parcelas', icon: CreditCard },
+    { name: 'Novos Registros', path: '/novos-registros', icon: Clock },
     { name: 'Gastos Fixos', path: '/fixos', icon: Anchor },
+    { name: 'Parcelas', path: '/parcelas', icon: CreditCard },
+    { name: 'Histórico', path: '/historico', icon: History },
   ];
 
   return (

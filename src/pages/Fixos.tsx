@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { Anchor, PlusCircle, Trash2, DollarSign, Edit2, CheckCircle, XCircle, ListFilter, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Fixos() {
     const [fixos, setFixos] = useState<any[]>([]);
@@ -10,6 +11,7 @@ export default function Fixos() {
     const [dia, setDia] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isAdding, setIsAdding] = useState(false);
+    const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
 
     const [editingId, setEditingId] = useState<string | null>(null);
     const [editForm, setEditForm] = useState({ nome: '', valor: '', dia: '' });
@@ -89,21 +91,28 @@ export default function Fixos() {
     };
 
     const handleDeleteFixo = async (id: string) => {
-        if (!confirm('Tem certeza que deseja excluir este gasto fixo?')) return;
+        setConfirmModal({
+            isOpen: true,
+            title: 'Excluir Gasto Fixo',
+            message: 'Tem certeza que deseja excluir este gasto fixo?',
+            onConfirm: async () => {
+                try {
+                    const { error } = await supabase
+                        .from('fixos')
+                        .delete()
+                        .eq('id', id);
 
-        try {
-            const { error } = await supabase
-                .from('fixos')
-                .delete()
-                .eq('id', id);
+                    if (error) throw error;
 
-            if (error) throw error;
-
-            setFixos(prev => prev.filter(f => f.id !== id));
-        } catch (err) {
-            console.error("Erro ao excluir gasto fixo:", err);
-            alert("Erro ao excluir.");
-        }
+                    setFixos(prev => prev.filter(f => f.id !== id));
+                } catch (err) {
+                    console.error("Erro ao excluir gasto fixo:", err);
+                    alert("Erro ao excluir.");
+                } finally {
+                    setConfirmModal({ ...confirmModal, isOpen: false });
+                }
+            }
+        });
     };
 
     const startEditing = (fixo: any) => {
@@ -163,6 +172,14 @@ export default function Fixos() {
 
     return (
         <div className="space-y-6 animate-fade-in">
+            {confirmModal.isOpen && (
+                <ConfirmModal
+                    title={confirmModal.title}
+                    message={confirmModal.message}
+                    onConfirm={confirmModal.onConfirm}
+                    onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+                />
+            )}
             <header className="flex flex-col md:flex-row md:items-start justify-between gap-4">
                 <div>
                     <h2 className="text-3xl font-bold text-text flex items-center gap-3">

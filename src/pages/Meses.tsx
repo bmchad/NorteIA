@@ -1,12 +1,15 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Calendar as CalendarIcon, ChevronDown, ChevronRight, Trash2, Edit2, CheckCircle, XCircle, ChevronUp, Minus, Search, ListFilter, X } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, ChevronRight, Trash2, Edit2, CheckCircle, XCircle, ChevronUp, Minus, Search, ListFilter, X, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
+import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
+import ConfirmModal from '../components/ConfirmModal';
 
 export default function Meses() {
   const [transactions, setTransactions] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedMonths, setExpandedMonths] = useState<string[]>([]);
+  const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
 
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editForm, setEditForm] = useState<any>({});
@@ -17,6 +20,7 @@ export default function Meses() {
   const [isApelidoFilterOpen, setIsApelidoFilterOpen] = useState(false);
   const [isCategoriaFilterOpen, setIsCategoriaFilterOpen] = useState(false);
   const [cicloDia, setCicloDia] = useState<number>(5);
+  const [dashboardType, setDashboardType] = useState<'bar' | 'pie'>('pie');
 
   const handleSort = (key: 'data' | 'valor') => {
     let direction: 'asc' | 'desc' = 'asc';
@@ -69,7 +73,7 @@ export default function Meses() {
 
       const { data, error } = await supabase
         .from('transactions')
-        .select('*, categories(nome)')
+        .select('*, categories(nome, cor)')
         .eq('user_id', user.id)
         .eq('pendente', false)
         .order('data', { ascending: false });
@@ -84,16 +88,21 @@ export default function Meses() {
   };
 
   const deleteTransaction = async (id: string) => {
-    if (!confirm('Tem certeza que deseja excluir esta transação?')) return;
-
-    try {
-      const { error } = await supabase.from('transactions').delete().eq('id', id);
-      if (error) throw error;
-      setTransactions(prev => prev.filter(t => t.id !== id));
-    } catch (error) {
-      console.error("Erro ao excluir:", error);
-      alert("Erro ao excluir transação.");
-    }
+    setConfirmModal({
+      isOpen: true,
+      title: 'Excluir Transação',
+      message: 'Tem certeza que deseja excluir esta transação?',
+      onConfirm: async () => {
+        try {
+          const { error } = await supabase.from('transactions').delete().eq('id', id);
+          if (error) throw error;
+          setTransactions(prev => prev.filter(t => t.id !== id));
+        } catch (error) {
+          console.error("Erro ao excluir:", error);
+          alert("Erro ao excluir transação.");
+        }
+      }
+    });
   };
 
   const startEditing = (t: any) => {
@@ -203,6 +212,14 @@ export default function Meses() {
 
   return (
     <div className="space-y-6">
+      {confirmModal.isOpen && (
+        <ConfirmModal
+          title={confirmModal.title}
+          message={confirmModal.message}
+          onConfirm={confirmModal.onConfirm}
+          onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
+        />
+      )}
       <header>
         <h2 className="text-3xl font-bold text-text flex items-center gap-3">
           <CalendarIcon size={32} className="text-primary" /> Balanços Mensais
@@ -216,7 +233,7 @@ export default function Meses() {
         </div>
       ) : sortedCycleKeys.length === 0 ? (
         <div className="glass-panel p-12 text-center text-text-light">
-          Nenhuma transação concluída encontrada. Aprove prints na aba Pendentes!
+          Nenhuma transação concluída encontrada. Aprove prints na aba Novos Registros!
         </div>
       ) : (
         <div className="space-y-4">
@@ -233,11 +250,12 @@ export default function Meses() {
             const saldoMes = entradas - saidas;
 
             // Agrupar transações por categoria para exibir acima das transações
-            const categoriesMap: Record<string, { totalSpent: number; totalReceived: number }> = {};
+            const categoriesMap: Record<string, { totalSpent: number; totalReceived: number; cor: string }> = {};
             cycleTransactions.forEach(t => {
               const catName = t.categories?.nome || 'Sem categoria';
+              const catCor = t.categories?.cor || '#64748b'; // default slate color
               if (!categoriesMap[catName]) {
-                categoriesMap[catName] = { totalSpent: 0, totalReceived: 0 };
+                categoriesMap[catName] = { totalSpent: 0, totalReceived: 0, cor: catCor };
               }
               const valorNum = Number(t.valor);
               if (valorNum < 0) {
@@ -247,9 +265,13 @@ export default function Meses() {
               }
             });
 
-            const sortedCategories = Object.entries(categoriesMap)
-              .filter(([_, data]) => data.totalSpent > 0 || data.totalReceived > 0)
-              .sort((a, b) => b[1].totalSpent - a[1].totalSpent || b[1].totalReceived - a[1].totalReceived);
+            const despesasCategories = Object.entries(categoriesMap)
+              .filter(([_, data]) => data.totalSpent > 0)
+              .sort((a, b) => b[1].totalSpent - a[1].totalSpent);
+
+            const receitasCategories = Object.entries(categoriesMap)
+              .filter(([_, data]) => data.totalReceived > 0)
+              .sort((a, b) => b[1].totalReceived - a[1].totalReceived);
 
             return (
               <div key={key} className="glass-panel overflow-hidden transition-all duration-300">
@@ -265,78 +287,191 @@ export default function Meses() {
                     </span>
                   </div>
                   <div className="flex items-center gap-2 text-sm font-bold">
-                    {entradas > 0 && (
-                      <span className="bg-[#10b981]/10 text-[#10b981] px-3 py-1 rounded-lg border border-[#10b981]/20">
-                        +R$ {entradas.toFixed(2).replace('.', ',')}
+                    <div className="w-[110px] flex justify-end">
+                      {entradas > 0 && (
+                        <span className="bg-[#10b981]/10 text-[#10b981] px-2 py-1 rounded-lg border border-[#10b981]/20 w-full text-center whitespace-nowrap">
+                          +R$ {entradas.toFixed(2).replace('.', ',')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="w-[110px] flex justify-end">
+                      {saidas > 0 && (
+                        <span className="bg-black/5 text-black px-2 py-1 rounded-lg border border-black/10 w-full text-center whitespace-nowrap">
+                          -R$ {saidas.toFixed(2).replace('.', ',')}
+                        </span>
+                      )}
+                    </div>
+                    <div className="w-[130px] flex justify-end">
+                      <span className={`text-lg px-2 py-1 rounded-lg border w-full text-center whitespace-nowrap ${saldoMes >= 0 ? 'bg-primary/10 text-primary border-primary/20' : 'bg-danger/10 text-danger border-danger/20'}`}>
+                        R$ {saldoMes.toFixed(2).replace('.', ',')}
                       </span>
-                    )}
-                    {saidas > 0 && (
-                      <span className="bg-black/5 text-black px-3 py-1 rounded-lg border border-black/10">
-                        -R$ {saidas.toFixed(2).replace('.', ',')}
-                      </span>
-                    )}
-                    <span className={`text-lg px-3 py-1 rounded-lg border ${saldoMes >= 0 ? 'bg-primary/10 text-primary border-primary/20' : 'bg-danger/10 text-danger border-danger/20'}`}>
-                      R$ {saldoMes.toFixed(2).replace('.', ',')}
-                    </span>
+                    </div>
                   </div>
                 </button>
 
                 {isExpanded && (
                   <div className="p-4 border-t border-border bg-white/20">
-                    {/* Resumo por Categoria em Duas Colunas */}
-                    {sortedCategories.length > 0 && (
-                      <div className="mb-6">
-                        <h4 className="text-xs font-bold text-text-light uppercase tracking-wider mb-3">
-                          Gasto por Categoria
-                        </h4>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                          {sortedCategories.map(([catName, data]) => {
-                            const hasSpent = data.totalSpent > 0;
-                            const hasReceived = data.totalReceived > 0;
-
-                            return (
-                              <div
-                                key={catName}
-                                className="bg-white/45 border border-border/40 rounded-xl p-3 flex flex-col gap-1.5 hover:bg-white/60 transition-colors shadow-sm"
-                              >
-                                <div className="flex justify-between items-center">
-                                  <span className="font-semibold text-text text-sm">{catName}</span>
-                                  <div className="text-right flex flex-col">
-                                    {hasSpent && (
-                                      <span className="text-sm font-bold text-danger">
-                                        - R$ {data.totalSpent.toFixed(2).replace('.', ',')}
-                                      </span>
-                                    )}
-                                    {hasReceived && (
-                                      <span className="text-xs font-semibold text-[#10b981]">
-                                        + R$ {data.totalReceived.toFixed(2).replace('.', ',')}
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-
-                                {hasSpent && saidas > 0 && (
-                                  <div className="w-full bg-black/5 rounded-full h-1 overflow-hidden">
-                                    <div
-                                      className="bg-danger/60 h-1 rounded-full"
-                                      style={{ width: `${Math.min(100, (data.totalSpent / saidas) * 100)}%` }}
-                                    ></div>
-                                  </div>
-                                )}
-
-                                {!hasSpent && hasReceived && entradas > 0 && (
-                                  <div className="w-full bg-black/5 rounded-full h-1 overflow-hidden">
-                                    <div
-                                      className="bg-[#10b981]/60 h-1 rounded-full"
-                                      style={{ width: `${Math.min(100, (data.totalReceived / entradas) * 100)}%` }}
-                                    ></div>
-                                  </div>
-                                )}
-                              </div>
-                            );
-                          })}
+                    {/* Resumo por Categoria - Dois Dashboards */}
+                    {(despesasCategories.length > 0 || receitasCategories.length > 0) && (
+                      <>
+                        {/* Toggle de Visualização */}
+                        <div className="flex justify-start mb-4">
+                          <div className="flex bg-white/40 p-1 rounded-lg border border-border/40">
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDashboardType('pie'); }}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${dashboardType === 'pie' ? 'bg-white shadow-sm text-primary' : 'text-text-light hover:text-text'}`}
+                            >
+                              <PieChartIcon size={14} /> Pizza
+                            </button>
+                            <button
+                              onClick={(e) => { e.stopPropagation(); setDashboardType('bar'); }}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${dashboardType === 'bar' ? 'bg-white shadow-sm text-primary' : 'text-text-light hover:text-text'}`}
+                            >
+                              <BarChart3 size={14} /> Barras
+                            </button>
+                          </div>
                         </div>
-                      </div>
+
+                        {dashboardType === 'bar' ? (
+                          <div className="mb-6 grid grid-cols-1 lg:grid-cols-2 gap-8">
+                            {/* Dashboard de Despesas (Barras) */}
+                            {despesasCategories.length > 0 && (
+                              <div className="flex flex-col gap-3">
+                                <h4 className="text-xs font-bold text-danger uppercase tracking-wider border-b border-danger/20 pb-2">
+                                  Despesas por Categoria (Total: R$ {saidas.toFixed(2).replace('.', ',')})
+                                </h4>
+                                <div className="flex flex-col gap-2">
+                                  {despesasCategories.map(([catName, data]) => {
+                                    const percentage = saidas > 0 ? (data.totalSpent / saidas) * 100 : 0;
+                                    return (
+                                      <div key={catName} className="flex items-center gap-3 group h-8">
+                                        <div className="w-24 shrink-0 text-right">
+                                          <span className="text-xs font-semibold text-text truncate block" title={catName}>{catName}</span>
+                                        </div>
+                                        <div className="flex-1 flex items-center gap-2">
+                                          <div className="flex-1 rounded-full overflow-hidden relative">
+                                            <div
+                                              className="h-2 group-hover:h-4 transition-all duration-300 ease-out rounded-full min-w-[4px]"
+                                              style={{ width: `${Math.max(percentage, 1)}%`, backgroundColor: data.cor }}
+                                            ></div>
+                                          </div>
+                                          <div className="w-[120px] shrink-0 text-right">
+                                            <span className="text-[11px] font-semibold text-text-light">
+                                              R$ {data.totalSpent.toFixed(2).replace('.', ',')} ({percentage.toFixed(1)}%)
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Dashboard de Receitas (Barras) */}
+                            {receitasCategories.length > 0 && (
+                              <div className="flex flex-col gap-3">
+                                <h4 className="text-xs font-bold text-[#10b981] uppercase tracking-wider border-b border-[#10b981]/20 pb-2">
+                                  Receitas por Categoria (Total: R$ {entradas.toFixed(2).replace('.', ',')})
+                                </h4>
+                                <div className="flex flex-col gap-2">
+                                  {receitasCategories.map(([catName, data]) => {
+                                    const percentage = entradas > 0 ? (data.totalReceived / entradas) * 100 : 0;
+                                    return (
+                                      <div key={catName} className="flex items-center gap-3 group h-8">
+                                        <div className="w-24 shrink-0 text-right">
+                                          <span className="text-xs font-semibold text-text truncate block" title={catName}>{catName}</span>
+                                        </div>
+                                        <div className="flex-1 flex items-center gap-2">
+                                          <div className="flex-1 rounded-full overflow-hidden relative">
+                                            <div
+                                              className="h-2 group-hover:h-4 transition-all duration-300 ease-out rounded-full min-w-[4px]"
+                                              style={{ width: `${Math.max(percentage, 1)}%`, backgroundColor: data.cor }}
+                                            ></div>
+                                          </div>
+                                          <div className="w-[120px] shrink-0 text-right">
+                                            <span className="text-[11px] font-semibold text-text-light">
+                                              R$ {data.totalReceived.toFixed(2).replace('.', ',')} ({percentage.toFixed(1)}%)
+                                            </span>
+                                          </div>
+                                        </div>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="mb-6 flex flex-col gap-10 items-center">
+                            {/* Dashboard de Despesas (Pizza) */}
+                            {despesasCategories.length > 0 && (
+                              <div className="flex flex-col gap-3 w-full max-w-[600px]">
+                                <h4 className="text-sm font-bold text-danger uppercase tracking-wider border-b border-danger/20 pb-2 text-center">
+                                  Despesas por Categoria (Total: R$ {saidas.toFixed(2).replace('.', ',')})
+                                </h4>
+                                <div className="h-[350px] w-full mt-2">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                      <Pie
+                                        data={despesasCategories.map(([n, d]) => ({ name: n, value: d.totalSpent, cor: d.cor }))}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={90}
+                                        outerRadius={140}
+                                        paddingAngle={5}
+                                        dataKey="value"
+                                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                      >
+                                        {despesasCategories.map((_, idx) => (
+                                          <Cell key={`cell-${idx}`} fill={despesasCategories[idx][1].cor} />
+                                        ))}
+                                      </Pie>
+                                      <RechartsTooltip
+                                        formatter={(value: any) => [`R$ ${Number(value).toFixed(2).replace('.', ',')}`, '']}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}
+                                      />
+                                    </PieChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                            )}
+
+                            {/* Dashboard de Receitas (Pizza) */}
+                            {receitasCategories.length > 0 && (
+                              <div className="flex flex-col gap-3 w-full max-w-[600px]">
+                                <h4 className="text-sm font-bold text-[#10b981] uppercase tracking-wider border-b border-[#10b981]/20 pb-2 text-center">
+                                  Receitas por Categoria (Total: R$ {entradas.toFixed(2).replace('.', ',')})
+                                </h4>
+                                <div className="h-[350px] w-full mt-2">
+                                  <ResponsiveContainer width="100%" height="100%">
+                                    <PieChart>
+                                      <Pie
+                                        data={receitasCategories.map(([n, d]) => ({ name: n, value: d.totalReceived, cor: d.cor }))}
+                                        cx="50%"
+                                        cy="50%"
+                                        innerRadius={90}
+                                        outerRadius={140}
+                                        paddingAngle={3}
+                                        dataKey="value"
+                                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                      >
+                                        {receitasCategories.map((_, idx) => (
+                                          <Cell key={`cell-${idx}`} fill={receitasCategories[idx][1].cor} />
+                                        ))}
+                                      </Pie>
+                                      <RechartsTooltip
+                                        formatter={(value: number) => [`R$ ${value.toFixed(2).replace('.', ',')}`, 'Recebido']}
+                                        contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}
+                                      />
+                                    </PieChart>
+                                  </ResponsiveContainer>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </>
                     )}
 
                     <div className="overflow-x-auto">
@@ -463,9 +598,11 @@ export default function Meses() {
                                         onChange={e => setEditForm({ ...editForm, apelido: e.target.value })}
                                         className="glass-input w-full p-1 text-sm bg-white"
                                       />
-                                      <div className="mt-1 text-[10px] text-text-light/70 break-words whitespace-normal" title={t.nome}>
-                                        Original: {t.nome}
-                                      </div>
+                                      {t.nome && t.nome !== 'Nova Transação' && t.nome !== 'Nova transação' && (
+                                        <div className="mt-1 text-[10px] text-text-light/70 break-words whitespace-normal" title={t.nome}>
+                                          Original: {t.nome}
+                                        </div>
+                                      )}
                                     </td>
                                     <td className="py-2 px-1 text-center">
                                       <select
@@ -539,10 +676,12 @@ export default function Meses() {
                                     </div>
                                   </td>
                                   <td className="py-3">
-                                    <div className="font-medium text-text">{t.apelido || t.nome}</div>
-                                    <div className="text-[10px] text-text-light/70 break-words whitespace-normal" title={t.nome}>
-                                      Original: {t.nome}
-                                    </div>
+                                      <div className="font-medium text-text">{t.apelido || t.nome}</div>
+                                      {t.nome && t.nome !== 'Nova Transação' && t.nome !== 'Nova transação' && (
+                                        <div className="text-[10px] text-text-light/70 break-words whitespace-normal" title={t.nome}>
+                                          Original: {t.nome}
+                                        </div>
+                                      )}
                                   </td>
                                   <td className="py-3 text-sm text-center">
                                     <span className="bg-background px-3 py-1.5 rounded-md border border-border">
