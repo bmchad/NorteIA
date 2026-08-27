@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Info, Calculator, ChevronDown, ChevronUp } from 'lucide-react';
 import { getCycleKey } from '../lib/ciclo';
+import { comprometidoRestante, parcelasRestantes } from '../lib/parcelas';
 
 export default function Dashboard() {
   const [ano, setAno] = useState(new Date().getFullYear().toString());
@@ -13,6 +14,8 @@ export default function Dashboard() {
   const [chartData, setChartData] = useState<any[]>([]);
   const [latestTransaction, setLatestTransaction] = useState<any>(null);
   const [cicloDia, setCicloDia] = useState<number>(5);
+  const [restanteParcelas, setRestanteParcelas] = useState(0);
+  const [qtdParcelasRestantes, setQtdParcelasRestantes] = useState(0);
 
   // Calculadora state
   const [calcParcela, setCalcParcela] = useState<number | ''>(100);
@@ -66,6 +69,49 @@ export default function Dashboard() {
       console.error("Erro ao salvar nota:", err);
     } finally {
       setNotaSaving(false);
+    }
+  };
+
+  /**
+   * O comprometido futuro das compras parceladas.
+   *
+   * ⚠️ Agrupa como a tela /parcelas agrupa -- por valor absoluto, total de parcelas e dia
+   * de cobranca proximo. Enquanto o agrupamento nao tiver dono unico, os dois lugares
+   * precisam concordar; o calculo em cima dele ja mora em src/lib/parcelas.ts.
+   */
+  const fetchComprometido = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('*')
+        .eq('user_id', userId)
+        .eq('pendente', false)
+        .not('parcela_total', 'is', null);
+
+      if (error) throw error;
+
+      const grupos: any[][] = [];
+      for (const p of data ?? []) {
+        const valor = Math.abs(Number(p.valor)).toFixed(2);
+        const total = p.parcela_total || 1;
+        const dia = parseInt(p.data.split('-')[2], 10);
+
+        const grupo = grupos.find(g => {
+          const b = g[0];
+          return Math.abs(Number(b.valor)).toFixed(2) === valor
+            && (b.parcela_total || 1) === total
+            && Math.abs(parseInt(b.data.split('-')[2], 10) - dia) <= 2;
+        });
+
+        if (grupo) grupo.push(p);
+        else grupos.push([p]);
+      }
+
+      const emAndamento = grupos.filter(g => g.length < (g[0].parcela_total || 1));
+      setRestanteParcelas(comprometidoRestante(emAndamento));
+      setQtdParcelasRestantes(parcelasRestantes(emAndamento));
+    } catch (err) {
+      console.error("Erro ao buscar comprometido de parcelas:", err);
     }
   };
 
@@ -132,6 +178,8 @@ export default function Dashboard() {
         { name: 'Entradas', value: inTotal, color: '#0ea5e9' }, // primary
         { name: 'Saídas', value: outTotal, color: '#991b1b' }  // danger
       ]);
+
+      await fetchComprometido(user.id);
 
       // Buscar última transação
       const { data: latest } = await supabase
@@ -214,6 +262,12 @@ export default function Dashboard() {
                 </div>
               </div>
               <span className="text-3xl font-bold text-primary mt-2">R$ {resultadoLiquido.toFixed(2).replace('.', ',')}</span>
+              {restanteParcelas > 0 && (
+                <span className="text-xs text-text-light mt-1" title="Soma das parcelas que ainda vão ser cobradas">
+                  ⏳ R$ {restanteParcelas.toFixed(2).replace('.', ',')} já comprometidos em{' '}
+                  {qtdParcelasRestantes} parcela{qtdParcelasRestantes === 1 ? '' : 's'}
+                </span>
+              )}
             </div>
 
             {/* LINHA 2: MÉDIAS */}

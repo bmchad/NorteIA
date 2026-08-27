@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-27
+atualizado_em: 2026-08-28
 ---
 
 # As páginas do Balanço Geral
@@ -54,6 +54,7 @@ Quatro blocos:
   a alíquota de IR, compara pagar à vista contra investir e pagar parcelado.
 - **Notas** — um campo de texto livre salvo em `memory.content`, um registro por usuário.
 - **Última transação registrada.**
+- **Comprometido em parcelas**, ao lado do resultado líquido — o mesmo número de `/parcelas`.
 
 ⭐ **O "ano" desta tela é um ano de ciclos, não de calendário** — com ciclo 5, vai de 06/01 a 05/01
 do ano seguinte. O total tem de bater exatamente com a soma dos 12 ciclos do `/meses`, porque as
@@ -113,6 +114,10 @@ heurística: mesmo valor absoluto, mesmo `parcela_total` e data de cobrança pr�
 ±2 dias, com tratamento para virada de mês). Cada grupo é classificado em **Em andamento**
 (parcelas registradas < total) ou **Concluídas**.
 
+⭐ **No topo, o comprometido restante:** quanto ainda falta pagar somando as compras em andamento, e
+a saída projetada por ciclo nos próximos seis. O cálculo vive em `src/lib/parcelas.ts`, não na tela,
+porque o mesmo total aparece no Dashboard.
+
 ⭐ O agrupamento **ignora o nome do estabelecimento de propósito**. O nome vem sujo do extrato e
 muda entre faturas da mesma compra; valor, total de parcelas e dia de cobrança não mudam. Ver
 `30-decisoes-e-licoes.md` D-008.
@@ -126,6 +131,14 @@ muda entre faturas da mesma compra; valor, total de parcelas e dia de cobrança 
 Tabela crua de todos os registros, ordenada por data de criação. Filtro por apelido e por
 categoria, ordenação por data/criação/valor, edição inline e exclusão. É a tela de conserto quando
 algo entrou errado.
+
+**Comentário livre** por transação, editável inline e mostrado como ícone discreto quando preenchido
+— é onde mora "isso foi presente da minha mãe", que nenhuma categoria captura. O mesmo campo aparece
+em `/meses`.
+
+⭐ **Corrigir a categoria aqui alimenta a memória do agente.** A contagem que decide a categoria
+automática lê o histórico confirmado, então cada correção entra no placar na hora. →
+`03-agentes-de-ia.md`
 
 ---
 

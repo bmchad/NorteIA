@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Calendar as CalendarIcon, ChevronDown, ChevronRight, Trash2, Edit2, CheckCircle, XCircle, ChevronUp, Minus, Search, ListFilter, X, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
+import { Calendar as CalendarIcon, ChevronDown, ChevronRight, Trash2, Edit2, CheckCircle, XCircle, ChevronUp, Minus, Search, ListFilter, X, MessageSquare, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import ConfirmModal from '../components/ConfirmModal';
 import { MESES, getCycleKey } from '../lib/ciclo';
@@ -115,7 +115,8 @@ export default function Meses() {
       mes_fatura: t.mes_fatura || '',
       valor: t.valor,
       parcela_atual: t.parcela_atual || '',
-      parcela_total: t.parcela_total || ''
+      parcela_total: t.parcela_total || '',
+      comentario: t.comentario || ''
     });
   };
 
@@ -133,7 +134,8 @@ export default function Meses() {
         mes_fatura: editForm.mes_fatura || null,
         valor: parseFloat(editForm.valor),
         parcela_atual: editForm.parcela_atual ? parseInt(editForm.parcela_atual) : null,
-        parcela_total: editForm.parcela_total ? parseInt(editForm.parcela_total) : null
+        parcela_total: editForm.parcela_total ? parseInt(editForm.parcela_total) : null,
+        comentario: editForm.comentario?.trim() ? editForm.comentario.trim() : null
       };
 
       const { error } = await supabase
@@ -574,6 +576,14 @@ export default function Meses() {
                                         onChange={e => setEditForm({ ...editForm, apelido: e.target.value })}
                                         className="glass-input w-full p-1 text-sm bg-white"
                                       />
+                                      <input
+                                        type="text"
+                                        value={editForm.comentario || ''}
+                                        onChange={e => setEditForm({ ...editForm, comentario: e.target.value })}
+                                        placeholder="Comentário..."
+                                        title="Comentário livre sobre esta transação"
+                                        className="glass-input w-full p-1 mt-1 text-xs bg-white text-text-light"
+                                      />
                                       {t.nome && t.nome !== 'Nova Transação' && t.nome !== 'Nova transação' && (
                                         <div className="mt-1 text-[10px] text-text-light/70 break-words whitespace-normal" title={t.nome}>
                                           Original: {t.nome}
@@ -656,6 +666,12 @@ export default function Meses() {
                                       {t.nome && t.nome !== 'Nova Transação' && t.nome !== 'Nova transação' && (
                                         <div className="text-[10px] text-text-light/70 break-words whitespace-normal" title={t.nome}>
                                           Original: {t.nome}
+                                        </div>
+                                      )}
+                                      {t.comentario && (
+                                        <div className="mt-1 flex items-center gap-1 text-[10px] text-text-light" title={t.comentario}>
+                                          <MessageSquare size={11} className="text-primary shrink-0" />
+                                          <span className="truncate">{t.comentario}</span>
                                         </div>
                                       )}
                                   </td>

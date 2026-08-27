@@ -2,11 +2,13 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { CreditCard, Trash2, ListChecks, ChevronDown, ChevronUp } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
+import { comprometidoRestante, parcelasRestantes, projecaoPorCiclo } from '../lib/parcelas';
 
 export default function Parcelas() {
   const [parcelas, setParcelas] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
+  const [cicloDia, setCicloDia] = useState<number>(5);
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
 
   const toggleExpand = (key: string) => {
@@ -15,7 +17,20 @@ export default function Parcelas() {
 
   useEffect(() => {
     fetchParcelas();
+    fetchCiclo();
   }, []);
+
+  const fetchCiclo = async () => {
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+      const { data, error } = await supabase.from('memory').select('ciclo_dia').eq('user_id', user.id).maybeSingle();
+      if (error) throw error;
+      if (data?.ciclo_dia) setCicloDia(data.ciclo_dia);
+    } catch (err) {
+      console.error("Erro ao buscar ciclo:", err);
+    }
+  };
 
   const fetchParcelas = async () => {
     setLoading(true);
@@ -139,6 +154,12 @@ export default function Parcelas() {
       emAndamentoKeys.push(nomeKey);
     }
   });
+
+  // O calculo mora em src/lib/parcelas.ts porque o mesmo numero aparece no Dashboard.
+  const gruposEmAndamento = emAndamentoKeys.map(k => groupedParcelas[k]);
+  const restante = comprometidoRestante(gruposEmAndamento);
+  const faltamParcelas = parcelasRestantes(gruposEmAndamento);
+  const projecao = projecaoPorCiclo(gruposEmAndamento, cicloDia, 6);
 
   const renderCard = (nomeKey: string) => {
     const group = groupedParcelas[nomeKey];
@@ -275,6 +296,41 @@ export default function Parcelas() {
           Elas são agrupadas pelo valor, quantidade total de parcelas e dia da cobrança. Se estiverem desagrupadas, ajuste a quantidade total ou o valor em "Balanços Mensais".
         </p>
       </header>
+
+      {!loading && emAndamentoKeys.length > 0 && (
+        <div className="glass-panel p-6">
+          <div className="flex flex-wrap items-end justify-between gap-6">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-text-light font-bold">Comprometido restante</p>
+              <p className="text-4xl font-bold text-danger mt-1">
+                R$ {restante.toFixed(2).replace('.', ',')}
+              </p>
+              <p className="text-sm text-text-light mt-1">
+                {faltamParcelas} parcela{faltamParcelas === 1 ? '' : 's'} a vencer em{' '}
+                {emAndamentoKeys.length} compra{emAndamentoKeys.length === 1 ? '' : 's'}
+              </p>
+            </div>
+
+            {projecao.length > 0 && (
+              <div className="flex-1 min-w-[280px]">
+                <p className="text-xs uppercase tracking-wider text-text-light font-bold mb-2">
+                  Saída por ciclo
+                </p>
+                <div className="flex items-end gap-3 flex-wrap">
+                  {projecao.map(c => (
+                    <div key={c.cicloKey} className="text-center">
+                      <div className="text-[11px] text-text-light">{c.rotulo}</div>
+                      <div className="text-sm font-bold text-text">
+                        R$ {c.valor.toFixed(2).replace('.', ',')}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
 
       {loading ? (
         <div className="flex justify-center p-12">

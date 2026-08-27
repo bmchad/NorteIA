@@ -1,8 +1,12 @@
 /**
  * O que acontece com a resposta da IA antes de virar linha de `transactions`.
  *
- * Nada aqui e IA: sao as duas regras de negocio que sempre correram em JavaScript depois
- * da extracao, e que agora correm do lado do servidor junto com ela.
+ * Nada aqui e IA: sao as regras de negocio que sempre correram em JavaScript depois da
+ * extracao, e que agora correm do lado do servidor junto com ela.
+ *
+ * ⚠️ "Normalizar" aqui e sobre a transacao -- deslocamento de parcela e casamento de
+ * categoria. Nao confundir com normalizacao de NOME, que foi deliberadamente descartada:
+ * o agrupamento da memoria usa o `nome` cru. Ver context/30-decisoes-e-licoes.md D-013.
  */
 
 /** Uma transacao como a IA a devolve, antes de qualquer tratamento. */
@@ -73,11 +77,19 @@ function casarCategoria(sugerida: string | null | undefined, categorias: Categor
  * isso, mas nada garante que a IA obedeca -- e registro pela metade contamina o total do
  * ciclo, a pizza da categoria e o resultado anual de uma vez.
  */
-export function normalizar(brutas: TransacaoBruta[], categorias: Categoria[]): TransacaoNormalizada[] {
+export function normalizar(
+  brutas: TransacaoBruta[],
+  categorias: Categoria[],
+  memoria: Map<string, string> = new Map(),
+): TransacaoNormalizada[] {
   const linhas: TransacaoNormalizada[] = [];
 
   for (const t of brutas) {
     if (!t.data || !t.nome || t.valor === null || t.valor === undefined || isNaN(Number(t.valor))) continue;
+
+    // A memória do usuário vence o palpite da IA: ela é a categoria que ele já confirmou
+    // 3 vezes ou mais para este mesmo nome. Ver lib/memoria-categoria.ts.
+    const categoriaId = memoria.get(t.nome) ?? casarCategoria(t.categoria_sugerida, categorias);
 
     linhas.push({
       data: deslocarParcela(t.data, t.parcela_atual, t.parcela_total),
@@ -86,7 +98,7 @@ export function normalizar(brutas: TransacaoBruta[], categorias: Categoria[]): T
       valor: Number(t.valor),
       banco: t.banco ?? null,
       mes_fatura: t.mes_fatura ?? null,
-      categoria_id: casarCategoria(t.categoria_sugerida, categorias),
+      categoria_id: categoriaId,
       hora: t.hora ?? '12:00:00',
       parcela_atual: t.parcela_atual ?? null,
       parcela_total: t.parcela_total ?? null,

@@ -63,7 +63,11 @@ Ficam no `.env` (gitignorado) e **também precisam estar configuradas na Vercel*
 `GEMINI_API_KEY` da Edge Function `ai-agents`. Se ainda estiver no `.env` ou na Vercel, pode sair.
 
 **Secrets do servidor** (painel do Supabase, nunca no repositório): `GEMINI_API_KEY` em `ai-agents`;
-`RESEND_API_KEY` e `SELLER_EMAIL` em `send-email`.
+`RESEND_API_KEY`, `SELLER_EMAIL` e ⚠️ `WEBHOOK_SECRET` em `send-email`.
+
+⛔ **`send-email` tem ordem de deploy.** Ela passou a exigir o header `x-webhook-secret`. Crie o
+secret → configure o header no Database Webhook → **só então** publique. Ao contrário, o e-mail de
+lead para em silêncio. → `context/30-decisoes-e-licoes.md` L-004
 
 ---
 
@@ -75,6 +79,7 @@ src/
   App.tsx              rotas + guarda de sessão
   lib/supabase.ts      cliente único
   lib/ciclo.ts         ⭐ a regra de ciclo de fatura — dono único, usada por /meses e /dashboard
+  lib/parcelas.ts      comprometido restante e projeção por ciclo — usada por /parcelas e /dashboard
   components/
     Layout.tsx         sidebar + navegação das telas autenticadas
     ConfirmModal.tsx   confirmação de ações destrutivas
@@ -85,6 +90,7 @@ supabase/              versionado
   functions/
     _shared/           cors, respostas com código de erro, cliente com a RLS do chamador
     ai-agents/         ⭐ porta única dos agentes de IA — index, agentes/, lib/, prompts/
+      lib/memoria-categoria.ts   o que o usuário confirmou 3× vence o palpite da IA
     send-email/        webhook de INSERT em `leads` e `profiles`
 supabase-backup/       ⚠️ gitignorado. Dump de schema, roles e dados reais
 context/               ⚠️ 00–05 versionados; 10, 11, 20 e 30 ficam fora
@@ -117,7 +123,7 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
 | `categories` | categorias do usuário (nome + cor); 27 semeadas no 1º acesso | `user_id` |
 | `fixos` | despesas recorrentes (nome, valor, dia) — **hoje desligadas dos balanços** | `user_id` |
 | `memory` | ⚠️ não é memória de IA: guarda `ciclo_dia` e as Notas do Dashboard, 1 linha por usuário | `user_id` |
-| `cores` | ⭐ paleta **global**, sem dono e **sem RLS**, deliberadamente (D-009) | — |
+| `cores` | ⭐ paleta **global**, sem dono. RLS ligada: legível por todos, **gravável por ninguém** | — |
 | `leads` | contatos da landing; única escrita sem autenticação | — |
 
 **Colunas de `transactions` usadas no código:** `user_id`, `data`, `nome`, `apelido`, `valor`,
@@ -149,30 +155,34 @@ o repositório, não o site. Foi assim que a chave do Gemini ficou pública até
 ponha segredo atrás de um prefixo `VITE_`**; segredo vai para secret de Edge Function.
 → `context/30-decisoes-e-licoes.md` D-005
 
-**2. ⚠️ `cores` está sem RLS de propósito.** Todas as tabelas de usuário têm RLS ligada; `cores` é
-paleta global, sem `user_id`. Ligar RLS ali quebra o seletor de cores e não protege nada. → D-009.
-O schema, porém, só existe no painel do Supabase — nada versionado. → P20
+**2. ⛔ Tabela nova nasce ABERTA à internet.** `ALTER DEFAULT PRIVILEGES` concede tudo a `anon`, e
+só a RLS fecha. **Toda tabela criada por migration precisa de `ENABLE ROW LEVEL SECURITY` e política
+na mesma migration.** Não é zelo: `cores` ficou gravável por qualquer anônimo por meses exatamente
+assim. → `context/30-decisoes-e-licoes.md` L-003
 
-**3. `tsc -b` roda em `strict`.** Import não usado (`TS6133`), campo opcional do Recharts
+**3. ⚠️ Ao avaliar uma tabela, pergunte quem lê E quem escreve.** São dois portões — o `GRANT` do
+Postgres e a RLS. Olhar só para a RLS vê metade do problema. → L-003
+
+**4. `tsc -b` roda em `strict`.** Import não usado (`TS6133`), campo opcional do Recharts
 (`TS18048`) e assinatura de `formatter` de tooltip (`TS2322`) já quebraram o deploy. → L-001
 
-**4. O prompt vive na função, não na tela.** `supabase/functions/ai-agents/prompts/` monta os três
+**5. O prompt vive na função, não na tela.** `supabase/functions/ai-agents/prompts/` monta os três
 modos de partes comuns. Mexeu no prompt? **Faça o deploy da função** — o `npm run build` não leva
 nada disso.
 
-**5. `Pendentes.tsx` tem 1.210 linhas** e concentra upload, três pipelines de IA, seed de
+**6. `Pendentes.tsx` tem ~1.000 linhas** e concentra upload, três pipelines de IA, seed de
 categorias, pós-processamento e revisão. É o arquivo mais arriscado do projeto.
 
-**6. `Meses.tsx` carrega todas as transações do usuário** de uma vez, sem paginação.
+**7. `Meses.tsx` carrega todas as transações do usuário** de uma vez, sem paginação.
 
-**7. Erro vira `alert()`.** Não há tratamento estruturado em lugar nenhum. → P3
+**8. Erro vira `alert()`.** Não há tratamento estruturado em lugar nenhum. → P3
 
-**8. ⚠️ Rota nova de SPA depende do `vercel.json`.** As rotas são do `BrowserRouter` e não existem
+**9. ⚠️ Rota nova de SPA depende do `vercel.json`.** As rotas são do `BrowserRouter` e não existem
 como arquivo: sem o `rewrites` para `/index.html`, recarregar qualquer tela com F5 dá 404 — e o
 retorno do login, que vai direto para `/dashboard`, também. → `context/30-decisoes-e-licoes.md`
 L-002
 
-**9. Auth do Google depende de configuração que o git não guarda.** O *Site URL* e a lista de
+**10. Auth do Google depende de configuração que o git não guarda.** O *Site URL* e a lista de
 *Redirect URLs* vivem no painel do Supabase. `redirectTo` no código não decide nada sozinho. → L-002
 
 ---

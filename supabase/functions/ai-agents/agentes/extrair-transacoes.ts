@@ -2,6 +2,7 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { ErroDeAgente } from '../../_shared/resposta.ts';
 import { extrairArrayJson, gerar, type ArquivoInline } from '../lib/gemini.ts';
 import { MODELO } from '../lib/modelos.ts';
+import { memoriaDeCategoria } from '../lib/memoria-categoria.ts';
 import { normalizar, type Categoria, type TransacaoBruta } from '../lib/normalizar.ts';
 import { montarPrompt, type Modo } from '../prompts/extrair-transacoes.ts';
 
@@ -87,5 +88,12 @@ export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClien
   const texto = await gerar(MODELO.RAPIDO, prompt, modo === 'planilha' ? [] : arquivos);
   const brutas = extrairArrayJson<TransacaoBruta>(texto);
 
-  return { transacoes: normalizar(brutas, categorias) };
+  // O que o usuário já ensinou vale mais que o palpite do modelo, para os nomes que ele
+  // já confirmou 3 vezes ou mais. Invisível para ele. Ver lib/memoria-categoria.ts.
+  const memoria = await memoriaDeCategoria(
+    supabase,
+    brutas.map(t => t.nome ?? '').filter(Boolean),
+  );
+
+  return { transacoes: normalizar(brutas, categorias, memoria) };
 }

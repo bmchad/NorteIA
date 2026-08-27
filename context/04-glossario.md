@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-27
+atualizado_em: 2026-08-28
 ---
 
 # Glossário
@@ -48,6 +48,16 @@ planejada em `10-proximos-passos.md`.
 **Valor** · um único campo assinado: **positivo é entrada, negativo é saída**. Não há coluna de
 tipo nem de débito/crédito.
 
+**Comentário** · texto livre por transação, editável em `/historico` e `/meses`. É onde cabe o que
+nenhuma categoria captura.
+
+⭐ **Memória de categoria** · a contagem de como o usuário já categorizou aquele mesmo `nome` no
+histórico confirmado. Três ocorrências ou mais e ela sobrescreve o palpite da IA. Não é tabela: é
+derivada de `transactions` na hora da extração. → `03-agentes-de-ia.md`
+
+**Comprometido restante** · quanto ainda falta pagar das compras parceladas em andamento. Aparece em
+`/parcelas` e no Dashboard, calculado uma vez só em `src/lib/parcelas.ts`.
+
 **Banco** · enum fechado no prompt, alimentado por `BANCOS` em `src/lib/ia.ts`: os vinte bancos mais
 usados no Brasil (incluindo os digitais), mais `Outros` e `null` para quando o print não permite
 deduzir. A interface do extrato quase sempre identifica a instituição — uma lista curta demais
@@ -72,7 +82,8 @@ alcança o `parcela_total`. Antes disso, está em andamento.
 **`categories`** · categorias **do usuário** (nome + cor). 27 são semeadas no primeiro acesso.
 
 **`cores`** · ⭐ paleta **global**, sem `user_id`. É a lista de cores oferecida no seletor do
-`/perfil`; não pertence a ninguém.
+`/perfil`; não pertence a ninguém. ⚠️ **Tem RLS desde 2026-08-28**: legível por todos, gravável por
+ninguém — antes disso qualquer anônimo a apagava (`30-decisoes-e-licoes.md` L-003).
 
 **`fixos`** · despesas recorrentes: nome, valor e dia opcional.
 

@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-27
+atualizado_em: 2026-08-28
 ---
 
 # Os agentes de IA — a Edge Function `ai-agents`
@@ -123,7 +123,32 @@ extraído.
 3. **Deslocamento de parcela** — a data vai para `mês da compra + (parcela_atual − 1)`. Uma compra
    de Janeiro na parcela 3 é registrada em Março. → D-003
 4. **Casamento de categoria** — `categoria_sugerida` comparada por nome, *case-insensitive*.
-5. A função devolve as linhas com `pendente: true`; **o browser acrescenta `user_id` e insere.**
+5. ⭐ **A memória do usuário sobrescreve a IA** — ver a seção abaixo.
+6. A função devolve as linhas com `pendente: true`; **o browser acrescenta `user_id` e insere.**
+
+---
+
+## ⭐ A memória de categoria — o que o usuário ensinou vale mais
+
+`lib/memoria-categoria.ts`. Depois da extração, a função conta como aquele mesmo `nome` já foi
+categorizado no histórico **confirmado** (`pendente = false`). Se a categoria mais frequente tiver
+**3 ocorrências ou mais**, ela sobrescreve o palpite do modelo.
+
+⭐ **É invisível.** Não há tela, aviso nem configuração — o usuário nunca sabe que existe, só percebe
+que o app acerta.
+
+**Duas regras que decidem o comportamento:**
+
+- **Desempate:** vale *a mais frequente*, não *qualquer uma acima de 3*. Empate exato mantém o
+  palpite da IA, porque a memória não tem opinião formada.
+- ⭐ **A memória se conserta sozinha.** Como a contagem lê o confirmado, cada correção do usuário
+  entra no placar na hora — memória errada por 3 confirmações vira depois de 3 correções.
+
+**Não há tabela nem trigger:** a contagem é derivada de `transactions` na hora, e só sobre os nomes
+do lote. O porquê e a medição que fechou o desenho estão em `30-decisoes-e-licoes.md` D-013.
+
+⚠️ Falha na consulta não derruba a extração: sem memória, a sugestão da IA prevalece — o
+comportamento anterior a esta feature.
 
 > ⭐ **A IA nunca escreve um registro definitivo.** → D-001
 
@@ -146,6 +171,7 @@ supabase/functions/
       modelos.ts     MODELO.RAPIDO
       bancos.ts      BANCOS — dono único da lista
       normalizar.ts  deslocamento de parcela e casamento de categoria
+      memoria-categoria.ts  ⭐ o que o usuário já confirmou 3 vezes vence a IA
     prompts/
       extrair-transacoes.ts   ⭐ um prompt montado de partes, os três modos
 ```

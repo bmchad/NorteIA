@@ -1,11 +1,37 @@
 import { serve } from 'https://deno.land/std@0.168.0/http/server.ts'
 
 const RESEND_API_KEY = Deno.env.get('RESEND_API_KEY')
+const WEBHOOK_SECRET = Deno.env.get('WEBHOOK_SECRET')
 const SELLER_EMAIL = Deno.env.get('SELLER_EMAIL') || 'vendas@balancogeral.com.br'
 const SENDER_EMAIL = 'Balanço Geral <onboarding@resend.dev>' // Altere para seu domínio verificado
 
+/**
+ * Compara em tempo constante. Um `===` sai no primeiro byte diferente, e o tempo de
+ * resposta revela quantos caracteres do segredo estao certos.
+ */
+function segredoConfere(recebido: string | null): boolean {
+  if (!WEBHOOK_SECRET || !recebido) return false
+  if (recebido.length !== WEBHOOK_SECRET.length) return false
+  let diferenca = 0
+  for (let i = 0; i < WEBHOOK_SECRET.length; i++) {
+    diferenca |= WEBHOOK_SECRET.charCodeAt(i) ^ recebido.charCodeAt(i)
+  }
+  return diferenca === 0
+}
+
 serve(async (req: Request) => {
   try {
+    // Esta funcao roda com verify_jwt = false, porque quem a chama e um Database
+    // Webhook e nao um usuario -- nao ha JWT na requisicao. Sem esta verificacao,
+    // qualquer POST com um payload forjado dispara e-mail pela conta Resend para
+    // endereco arbitrario. Ver context/30-decisoes-e-licoes.md D-024.
+    if (!segredoConfere(req.headers.get('x-webhook-secret'))) {
+      return new Response(
+        JSON.stringify({ error: 'Unauthorized' }),
+        { headers: { 'Content-Type': 'application/json' }, status: 401 }
+      )
+    }
+
     const payload = await req.json()
     
     // Assegurar que seja um evento INSERT
