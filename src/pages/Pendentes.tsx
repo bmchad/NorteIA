@@ -4,6 +4,7 @@ import { GoogleGenerativeAI } from '@google/generative-ai';
 import { UploadCloud, FileText, CheckCircle, XCircle, X, Image as ImageIcon, FileSpreadsheet, PlusCircle, ArrowLeft, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ConfirmModal from '../components/ConfirmModal';
+import { MODELO, listaDeBancos } from '../lib/ia';
 
 const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
@@ -170,13 +171,13 @@ export default function Pendentes() {
 
       const listadeCategorias = categories.map(c => c.nome).join(', ');
 
-      const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
+      const model = genAI.getGenerativeModel({ model: MODELO.RAPIDO });
       let prompt = `Você é um assistente financeiro. Analise a imagem fornecida, que é um print de extrato bancário ou fatura de cartão. Extraia todas as transações e retorne APENAS um JSON válido contendo um array de objetos com a seguinte estrutura para cada transação:
       - "data": Data no formato YYYY-MM-DD
       - "nome": Nome exato do estabelecimento ou transferência na íntegra (ex: "PGTO MERCADOLIVRE *OSASCO").
       - "apelido": Um nome limpo e resumido, deduzido a partir do nome na íntegra (ex: "Mercado Livre").
       - "valor": Valor numérico (positivo para entradas, negativo para saídas).
-      - "banco": Nome do banco deduzido pela interface do print. DEVE obrigatoriamente ser "Inter", "XP", "Outros" ou null.
+      - "banco": Nome do banco deduzido pela interface do print. DEVE obrigatoriamente ser um destes valores exatos: [ ${listaDeBancos()} ], ou null se o print não permitir deduzir.
       - "mes_fatura": Nome do mês do ciclo da fatura ou do balanço em que a transação entra (ex: "Janeiro", "Fevereiro"). DEVE ser estritamente o nome do mês em português com a primeira letra maiúscula, ou null. A regra é: a fatura (ou balanço) de um determinado Mês engloba as transações do dia ${cicloDia + 1} desse mês até o dia ${cicloDia} do mês seguinte. Exemplo: A fatura de Janeiro contém as transações do dia ${String(cicloDia + 1).padStart(2, '0')} de Janeiro até o dia ${String(cicloDia).padStart(2, '0')} de Fevereiro (inclusive).
       - "hora": Hora no formato HH:MM:SS. Se não visível, use "12:00:00".
       - "parcela_atual": Número da parcela atual (se for compra parcelada, ex: "1 de 10" -> 1). Se não houver, retorne null.
@@ -280,7 +281,7 @@ export default function Pendentes() {
 
       const listadeCategorias = categories.map(c => c.nome).join(', ');
 
-      const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
+      const model = genAI.getGenerativeModel({ model: MODELO.RAPIDO });
       let prompt = `Você é um assistente financeiro de elite. Analise o conteúdo em formato CSV de uma planilha financeira fornecido abaixo e extraia TODAS as transações válidas. 
       Retorne APENAS um JSON válido contendo um array de objetos com a seguinte estrutura para cada transação:
       - "data": Data no formato YYYY-MM-DD.
@@ -386,14 +387,14 @@ export default function Pendentes() {
 
       const listadeCategorias = categories.map(c => c.nome).join(', ');
 
-      const model = genAI.getGenerativeModel({ model: 'gemini-3.5-flash' });
+      const model = genAI.getGenerativeModel({ model: MODELO.RAPIDO });
       let prompt = `Você é um assistente financeiro de elite. Analise o documento PDF fornecido, que é um extrato bancário ou fatura. Extraia TODAS as transações válidas visíveis no extrato.
       Retorne APENAS um JSON válido contendo um array de objetos com a seguinte estrutura para cada transação:
       - "data": Data no formato YYYY-MM-DD.
       - "nome": Nome exato do estabelecimento ou transferência na íntegra.
       - "apelido": Um nome limpo e resumido, deduzido a partir do nome na íntegra.
       - "valor": Valor numérico (positivo para entradas/receitas, negativo para saídas/despesas).
-      - "banco": Nome do banco deduzido pelo documento. DEVE obrigatoriamente ser "Inter", "XP", "Outros" ou null.
+      - "banco": Nome do banco deduzido pelo documento. DEVE obrigatoriamente ser um destes valores exatos: [ ${listaDeBancos()} ], ou null se o documento não permitir deduzir.
       - "mes_fatura": Nome do mês do ciclo da fatura ou do balanço em que a transação entra (ex: "Janeiro", "Fevereiro"). DEVE ser estritamente o nome do mês em português com a primeira letra maiúscula, ou null. A regra é: a fatura (ou balanço) de um determinado Mês engloba as transações do dia ${cicloDia + 1} desse mês até o dia ${cicloDia} do mês seguinte. Exemplo: A fatura de Janeiro contém as transações do dia ${String(cicloDia + 1).padStart(2, '0')} de Janeiro até o dia ${String(cicloDia).padStart(2, '0')} de Fevereiro (inclusive).
       - "hora": Hora no formato HH:MM:SS. Se não visível, use "12:00:00".
       - "parcela_atual": Número da parcela atual. Se não houver, retorne null.
@@ -487,7 +488,7 @@ export default function Pendentes() {
       const { error } = await supabase.from('transactions').insert([{
         user_id: user.id,
         data: today,
-        nome: 'Registro Manual',
+        nome: 'Registro Manual "${registerNumber}"',
         apelido: '',
         valor: 0,
         banco: null,

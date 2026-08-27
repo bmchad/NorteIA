@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Info, Calculator, ChevronDown, ChevronUp } from 'lucide-react';
+import { getCycleKey } from '../lib/ciclo';
 
 export default function Dashboard() {
   const [ano, setAno] = useState(new Date().getFullYear().toString());
@@ -11,6 +12,7 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
   const [latestTransaction, setLatestTransaction] = useState<any>(null);
+  const [cicloDia, setCicloDia] = useState<number>(5);
 
   // Calculadora state
   const [calcParcela, setCalcParcela] = useState<number | ''>(100);
@@ -67,19 +69,42 @@ export default function Dashboard() {
     }
   };
 
+  const fetchCiclo = async (userId: string) => {
+    try {
+      const { data, error } = await supabase.from('memory').select('ciclo_dia').eq('user_id', userId).single();
+      if (error && error.code !== 'PGRST116') throw error;
+      if (data && data.ciclo_dia) {
+        setCicloDia(data.ciclo_dia);
+        return data.ciclo_dia as number;
+      }
+    } catch (err) {
+      console.error("Erro ao buscar ciclo:", err);
+    }
+    return 5;
+  };
+
   const fetchDashboardData = async () => {
     setLoading(true);
     try {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) return;
 
+      // Lido aqui, e nao do state: na primeira renderizacao o valor de `cicloDia` ainda e o
+      // padrao, e agrupar com o ciclo errado nao se corrige sozinho depois.
+      const ciclo = await fetchCiclo(user.id);
+
+      // O ano do Dashboard e o ano de CICLOS, nao o ano-calendario: com ciclo 5, ele vai de
+      // 06/01 a 05/01 do ano seguinte, igual a soma dos 12 ciclos exibidos em /meses.
+      // A busca leva um mes de folga em cada ponta porque a transacao de borda tem `data`
+      // fora do ano do seu proprio ciclo; o recorte exato e feito abaixo, por getCycleKey.
+      const anoNum = parseInt(ano);
       const { data, error } = await supabase
         .from('transactions')
         .select('*')
         .eq('user_id', user.id)
         .eq('pendente', false)
-        .gte('data', `${ano}-01-01`)
-        .lte('data', `${ano}-12-31`);
+        .gte('data', `${anoNum - 1}-12-01`)
+        .lte('data', `${anoNum + 1}-01-31`);
 
       if (error) throw error;
 
@@ -88,12 +113,15 @@ export default function Dashboard() {
       const uniqueMonths = new Set();
 
       data?.forEach(t => {
+        if (!t.data) return;
+
+        const cycleKey = getCycleKey(t.data, t.mes_fatura, ciclo);
+        if (!cycleKey.startsWith(ano)) return;
+
         if (t.valor >= 0) inTotal += Number(t.valor);
         else outTotal += Math.abs(Number(t.valor));
 
-        if (t.data) {
-          uniqueMonths.add(t.data.substring(0, 7)); // YYYY-MM
-        }
+        uniqueMonths.add(cycleKey);
       });
 
       setEntradas(inTotal);
@@ -133,7 +161,7 @@ export default function Dashboard() {
       <header className="flex justify-between items-end flex-wrap gap-4">
         <div>
           <h2 className="text-3xl font-bold text-text">Dashboard Anual</h2>
-          <p className="text-text-light mt-1">Visão geral das suas finanças</p>
+          <p className="text-text-light mt-1">Visão geral das suas finanças — soma dos 12 ciclos do ano (fechamento no dia {cicloDia}).</p>
         </div>
 
         <select

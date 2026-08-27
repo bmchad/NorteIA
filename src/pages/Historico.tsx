@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { History, Search, ListFilter, Trash2, Edit2, ChevronUp, ChevronDown, Minus, CheckCircle, XCircle } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
+import { MESES } from '../lib/ciclo';
 
 export default function Historico() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -304,7 +305,7 @@ export default function Historico() {
                             title="Balanço (Mês da Fatura)"
                           >
                             <option value="">Ciclo do dia {cicloDia}</option>
-                            {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map(mes => (
+                            {MESES.map(mes => (
                               <option key={mes} value={mes}>{mes}</option>
                             ))}
                           </select>
@@ -387,7 +388,7 @@ export default function Historico() {
                       </td>
                       <td className="py-3 text-sm">
                         <div>
-                          {t.data.split('-')[2]} de <span className="text-primary font-semibold">{['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][parseInt(t.data.split('-')[1]) - 1]}</span>
+                          {t.data.split('-')[2]} de <span className="text-primary font-semibold">{MESES[parseInt(t.data.split('-')[1]) - 1]}</span>
                         </div>
                       </td>
                       <td className="py-3">

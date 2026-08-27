@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, LogIn, MapPin, Phone, Mail, ChevronDown, CheckCircle } from 'lucide-react';
+import { LayoutDashboard, LogIn, MapPin, ChevronDown, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 
 export default function Home() {

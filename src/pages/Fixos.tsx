@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { Anchor, PlusCircle, Trash2, DollarSign, Edit2, CheckCircle, XCircle, ListFilter, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
+import { Anchor, PlusCircle, Trash2, Edit2, CheckCircle, XCircle, ListFilter, ArrowUpDown, ChevronUp, ChevronDown } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function Fixos() {

@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { Calendar as CalendarIcon, ChevronDown, ChevronRight, Trash2, Edit2, CheckCircle, XCircle, ChevronUp, Minus, Search, ListFilter, X, PieChart as PieChartIcon, BarChart3 } from 'lucide-react';
 import { PieChart, Pie, Cell, Tooltip as RechartsTooltip, ResponsiveContainer } from 'recharts';
 import ConfirmModal from '../components/ConfirmModal';
+import { MESES, getCycleKey } from '../lib/ciclo';
 
 export default function Meses() {
   const [transactions, setTransactions] = useState<any[]>([]);
@@ -165,33 +166,9 @@ export default function Meses() {
 
   const groupTransactionsByCycle = () => {
     const cycles: Record<string, any[]> = {};
-    const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
 
     transactions.forEach(t => {
-      // Garantir que a data seja tratada como local e não UTC para evitar problemas de fuso
-      const [anoStr, mesStr, diaStr] = t.data.split('-');
-      const date = new Date(parseInt(anoStr), parseInt(mesStr) - 1, parseInt(diaStr));
-      const day = date.getDate();
-
-      let cycleMonth = date.getMonth();
-      let cycleYear = date.getFullYear();
-
-      if (t.mes_fatura && monthNames.includes(t.mes_fatura)) {
-        cycleMonth = monthNames.indexOf(t.mes_fatura);
-      } else {
-        // Fallback: 05 de Janeiro até 04 de Fevereiro = Janeiro (se cicloDia = 5)
-        // Agora corrigido para inclusive: se cicloDia = 1, dia 1 vai para o mês passado.
-        if (day <= cicloDia) {
-          cycleMonth -= 1;
-          if (cycleMonth < 0) {
-            cycleMonth = 11;
-            cycleYear -= 1;
-          }
-        }
-      }
-
-      const cycleKey = `${cycleYear}-${String(cycleMonth + 1).padStart(2, '0')}`;
-
+      const cycleKey = getCycleKey(t.data, t.mes_fatura, cicloDia);
       if (!cycles[cycleKey]) {
         cycles[cycleKey] = [];
       }
@@ -242,8 +219,7 @@ export default function Meses() {
             const isExpanded = expandedMonths.includes(key);
 
             const [year, month] = key.split('-');
-            const monthNames = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
-            const cycleName = `Balanço de ${monthNames[parseInt(month) - 1]} ${year}`;
+            const cycleName = `Balanço de ${MESES[parseInt(month) - 1]} ${year}`;
 
             const entradas = cycleTransactions.reduce((acc, curr) => curr.valor > 0 ? acc + Number(curr.valor) : acc, 0);
             const saidas = cycleTransactions.reduce((acc, curr) => curr.valor < 0 ? acc + Math.abs(Number(curr.valor)) : acc, 0);
@@ -421,7 +397,7 @@ export default function Meses() {
                                         outerRadius={140}
                                         paddingAngle={5}
                                         dataKey="value"
-                                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                        label={({ name, percent }: { name?: string; percent?: number }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
                                       >
                                         {despesasCategories.map((_, idx) => (
                                           <Cell key={`cell-${idx}`} fill={despesasCategories[idx][1].cor} />
@@ -454,14 +430,14 @@ export default function Meses() {
                                         outerRadius={140}
                                         paddingAngle={3}
                                         dataKey="value"
-                                        label={({ name, percent }) => `${name} (${(percent * 100).toFixed(0)}%)`}
+                                        label={({ name, percent }: { name?: string; percent?: number }) => `${name} (${((percent ?? 0) * 100).toFixed(0)}%)`}
                                       >
                                         {receitasCategories.map((_, idx) => (
                                           <Cell key={`cell-${idx}`} fill={receitasCategories[idx][1].cor} />
                                         ))}
                                       </Pie>
                                       <RechartsTooltip
-                                        formatter={(value: number) => [`R$ ${value.toFixed(2).replace('.', ',')}`, 'Recebido']}
+                                        formatter={(value: any) => [`R$ ${Number(value).toFixed(2).replace('.', ',')}`, 'Recebido']}
                                         contentStyle={{ borderRadius: '12px', border: 'none', boxShadow: '0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)' }}
                                       />
                                     </PieChart>
@@ -586,7 +562,7 @@ export default function Meses() {
                                         title="Balanço (Mês da Fatura)"
                                       >
                                         <option value="">Ciclo do dia {cicloDia}</option>
-                                        {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map(mes => (
+                                        {MESES.map(mes => (
                                           <option key={mes} value={mes}>{mes}</option>
                                         ))}
                                       </select>
@@ -672,7 +648,7 @@ export default function Meses() {
                                 <tr key={t.id} className="border-b border-border/50 hover:bg-white/40 transition-colors">
                                   <td className="py-3 text-sm">
                                     <div>
-                                      {t.data.split('-')[2]} de <span className="text-primary font-semibold">{['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'][parseInt(t.data.split('-')[1]) - 1]}</span>
+                                      {t.data.split('-')[2]} de <span className="text-primary font-semibold">{MESES[parseInt(t.data.split('-')[1]) - 1]}</span>
                                     </div>
                                   </td>
                                   <td className="py-3">

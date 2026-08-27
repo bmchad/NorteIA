@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
-import { LayoutDashboard, LogIn, UserPlus, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, AlertCircle } from 'lucide-react';
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);

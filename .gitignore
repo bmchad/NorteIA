@@ -24,5 +24,14 @@ dist-ssr
 *.sln
 *.sw?
 
-#Ignora a pasta do banco de dados por razões de segurança
-/supabase
+#Ignora a pasta do backup do banco de dados por razões de segurança
+/supabase-backup
+
+#Ignora o context pra ninguém pegar minhas boas ideias
+10-proximos-passos.md
+11-ambicao-de-produto.md
+20-pendencias-e-dividas.md
+30-decisoes-e-licoes.md
+
+#Arquivos temporarios do CLI do Supabase
+/supabase/.temp
