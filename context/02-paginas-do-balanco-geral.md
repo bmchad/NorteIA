@@ -29,10 +29,17 @@ Supabase dispara a Edge Function `send-email` a cada novo lead.
 
 ## `/login` · Auth
 
-`src/pages/Auth.tsx` · Supabase Auth (e-mail + senha)
+`src/pages/Auth.tsx` · Supabase Auth com **Google**
 
-Login e cadastro na mesma tela. Se já há sessão, redireciona para `/dashboard`. A sessão é
-observada em `App.tsx` por `onAuthStateChange`.
+⭐ **Não há e-mail e senha.** A tela tem um botão só, `signInWithOAuth` com o provedor Google. Quem
+não tem conta Google não entra. → `30-decisoes-e-licoes.md` D-023
+
+Não existe cadastro separado: o primeiro login cria a conta, e o trigger `handle_new_user` insere a
+linha em `profiles`, que dispara o e-mail de boas-vindas. Havendo sessão, a tela redireciona para
+`/dashboard`; a sessão é observada em `App.tsx` por `onAuthStateChange`.
+
+⚠️ **O `redirectTo` do código não decide sozinho para onde o login volta.** Se a URL não estiver na
+lista de permitidos do painel, o Supabase cai silenciosamente no *Site URL*. → `L-002`
 
 ---
 
