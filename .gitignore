@@ -35,3 +35,6 @@ dist-ssr
 
 #Arquivos temporarios do CLI do Supabase
 /supabase/.temp
+
+#Plano de implementação: roadmap, fica fora do repositório público
+/zz_implementation
