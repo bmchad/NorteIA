@@ -44,7 +44,7 @@ o deploy**. → `context/30-decisoes-e-licoes.md` L-001
 | IA | ⭐ Edge Function `ai-agents` (Deno), que chama `MODELO.RAPIDO` (`gemini-3.5-flash`). **O front não fala com o Gemini** |
 | Gráficos | `recharts` 3 |
 | Planilhas | `xlsx` (SheetJS), lê `.xlsx` e converte para CSV |
-| Deploy | Vercel 🔶 |
+| Deploy | Vercel — `balanco-geral-beta.vercel.app` |
 
 ---
 
@@ -70,6 +70,7 @@ Ficam no `.env` (gitignorado) e **também precisam estar configuradas na Vercel*
 ## Estrutura
 
 ```
+vercel.json            ⭐ reescrita de SPA — sem ela, toda rota dá 404 em acesso direto
 src/
   App.tsx              rotas + guarda de sessão
   lib/supabase.ts      cliente único
@@ -165,6 +166,14 @@ categorias, pós-processamento e revisão. É o arquivo mais arriscado do projet
 **6. `Meses.tsx` carrega todas as transações do usuário** de uma vez, sem paginação.
 
 **7. Erro vira `alert()`.** Não há tratamento estruturado em lugar nenhum. → P3
+
+**8. ⚠️ Rota nova de SPA depende do `vercel.json`.** As rotas são do `BrowserRouter` e não existem
+como arquivo: sem o `rewrites` para `/index.html`, recarregar qualquer tela com F5 dá 404 — e o
+retorno do login, que vai direto para `/dashboard`, também. → `context/30-decisoes-e-licoes.md`
+L-002
+
+**9. Auth do Google depende de configuração que o git não guarda.** O *Site URL* e a lista de
+*Redirect URLs* vivem no painel do Supabase. `redirectTo` no código não decide nada sozinho. → L-002
 
 ---
 
