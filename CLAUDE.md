@@ -41,7 +41,7 @@ o deploy**. → `context/30-decisoes-e-licoes.md` L-001
 | Front | React 19 · TypeScript 6 · Vite 8 · Tailwind 3 (fonte Outfit) |
 | Rotas | `react-router-dom` 7, tudo em `src/App.tsx` |
 | Dados | Supabase (Auth + Postgres), cliente único em `src/lib/supabase.ts` |
-| IA | `@google/generative-ai` → `MODELO.RAPIDO` (`gemini-3.5-flash`), chamado **do browser** ⛔ |
+| IA | ⭐ Edge Function `ai-agents` (Deno), que chama `MODELO.RAPIDO` (`gemini-3.5-flash`). **O front não fala com o Gemini** |
 | Gráficos | `recharts` 3 |
 | Planilhas | `xlsx` (SheetJS), lê `.xlsx` e converte para CSV |
 | Deploy | Vercel 🔶 |
@@ -56,9 +56,14 @@ Ficam no `.env` (gitignorado) e **também precisam estar configuradas na Vercel*
 |---|---|
 | `VITE_SUPABASE_URL` | pública |
 | `VITE_SUPABASE_ANON_KEY` | pública **por design** — quem protege os dados é RLS |
-| `VITE_GEMINI_API_KEY` | ⛔ **NÃO é secreta.** Ver a armadilha nº 1 abaixo |
 
-`src/lib/supabase.ts` lança erro na inicialização se as duas primeiras faltarem.
+`src/lib/supabase.ts` lança erro na inicialização se ambas faltarem.
+
+⚠️ **`VITE_GEMINI_API_KEY` não é mais lida pelo código.** A chave vive como secret
+`GEMINI_API_KEY` da Edge Function `ai-agents`. Se ainda estiver no `.env` ou na Vercel, pode sair.
+
+**Secrets do servidor** (painel do Supabase, nunca no repositório): `GEMINI_API_KEY` em `ai-agents`;
+`RESEND_API_KEY` e `SELLER_EMAIL` em `send-email`.
 
 ---
 
@@ -69,14 +74,27 @@ src/
   App.tsx              rotas + guarda de sessão
   lib/supabase.ts      cliente único
   lib/ciclo.ts         ⭐ a regra de ciclo de fatura — dono único, usada por /meses e /dashboard
-  lib/ia.ts            o vocabulário do prompt: MODELO (id do Gemini) e BANCOS (os 20 aceitos)
   components/
     Layout.tsx         sidebar + navegação das telas autenticadas
     ConfirmModal.tsx   confirmação de ações destrutivas
   pages/               uma por rota — ver context/02-paginas-do-balanco-geral.md
-supabase/
-  supabase-additions/  o SQL de `leads` e a Edge Function de e-mail. Versionado
-context/               ⚠️ gitignorado. Produto, roadmap, decisões
+supabase/              versionado
+  config.toml          verify_jwt por função
+  migrations/          ⭐ toda mudança de schema passa por aqui
+  functions/
+    _shared/           cors, respostas com código de erro, cliente com a RLS do chamador
+    ai-agents/         ⭐ porta única dos agentes de IA — index, agentes/, lib/, prompts/
+    send-email/        webhook de INSERT em `leads` e `profiles`
+supabase-backup/       ⚠️ gitignorado. Dump de schema, roles e dados reais
+context/               ⚠️ 00–05 versionados; 10, 11, 20 e 30 ficam fora
+```
+
+**Comandos do Supabase** (o CLI está em `devDependencies`):
+
+```bash
+npx supabase functions deploy ai-agents --project-ref vkrreygxqlfhtodrogyq
+npx supabase db push --linked          # aplica migrations pendentes
+npx supabase db dump --linked -f supabase-backup/supabase/schema.sql
 ```
 
 **Rotas:** `/` (landing pública) · `/login` · `/dashboard` · `/meses` · `/novos-registros` ·
@@ -87,13 +105,14 @@ redireciona sem ela.
 
 ## Banco de dados
 
-⚠️ **O schema real vive apenas no painel do Supabase.** Só `leads` tem SQL no repositório, em
-`supabase/supabase-additions/`. Não existe pasta de migrations. RLS está ligada em todas as tabelas
-de usuário (conferido em 2026-08-27); `cores` é a exceção deliberada. → P20, D-009
+O dump completo está em `supabase-backup/supabase/schema.sql` (fora do git). ⭐ **Mudança nova de
+schema entra como migration** em `supabase/migrations/`, aplicada por `npx supabase db push`. RLS
+está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada. → D-009, D-011, P20
 
 | Tabela | Papel | Chave |
 |---|---|---|
 | `transactions` | a tabela central, uma linha por lançamento | `user_id` |
+| `profiles` | ⭐ `id` + `email`, criada pelo trigger `handle_new_user` a cada cadastro. Dispara o e-mail de boas-vindas; nenhuma tela lê | `id` |
 | `categories` | categorias do usuário (nome + cor); 27 semeadas no 1º acesso | `user_id` |
 | `fixos` | despesas recorrentes (nome, valor, dia) — **hoje desligadas dos balanços** | `user_id` |
 | `memory` | ⚠️ não é memória de IA: guarda `ciclo_dia` e as Notas do Dashboard, 1 linha por usuário | `user_id` |
@@ -118,15 +137,16 @@ de usuário (conferido em 2026-08-27); `cores` é a exceção deliberada. → P2
 5. **A IA não calcula.** Ela extrai e classifica; toda soma e agrupamento é JavaScript. 🔶
 6. ⭐ **A regra de ciclo mora só em `src/lib/ciclo.ts`.** Nunca reimplemente localmente — foi assim
    que o Dashboard e o `/meses` passaram a discordar por um ano inteiro. → D-007
+7. ⭐ **Nenhuma tela chama um LLM.** Agente de IA se pede à `ai-agents` pelo nome. → D-012
 
 ---
 
 ## Armadilhas
 
-**1. ⛔ `VITE_GEMINI_API_KEY` está pública no bundle.** Toda variável `VITE_*` é embutida no
-JavaScript que vai ao browser. A chave do Gemini é extraível por qualquer visitante do site. O
-`.env` no `.gitignore` **não muda isso**. É a dívida nº 1 do projeto, já decidida: migra para Edge
-Function → `context/20-pendencias-e-dividas.md` P1 e `30-decisoes-e-licoes.md` D-005.
+**1. ⛔ Toda variável `VITE_*` é embutida no bundle** que vai ao browser — o `.gitignore` protege
+o repositório, não o site. Foi assim que a chave do Gemini ficou pública até 2026-08-27. **Nunca
+ponha segredo atrás de um prefixo `VITE_`**; segredo vai para secret de Edge Function.
+→ `context/30-decisoes-e-licoes.md` D-005
 
 **2. ⚠️ `cores` está sem RLS de propósito.** Todas as tabelas de usuário têm RLS ligada; `cores` é
 paleta global, sem `user_id`. Ligar RLS ali quebra o seletor de cores e não protege nada. → D-009.
@@ -135,9 +155,9 @@ O schema, porém, só existe no painel do Supabase — nada versionado. → P20
 **3. `tsc -b` roda em `strict`.** Import não usado (`TS6133`), campo opcional do Recharts
 (`TS18048`) e assinatura de `formatter` de tooltip (`TS2322`) já quebraram o deploy. → L-001
 
-**4. O prompt da IA está copiado em três lugares** em `Pendentes.tsx` e **já divergiu** entre eles.
-Mudou o contrato? Mude nos três. → P7. ⭐ O id do modelo e a lista de bancos **não** entram aí:
-vêm de `src/lib/ia.ts` (D-010).
+**4. O prompt vive na função, não na tela.** `supabase/functions/ai-agents/prompts/` monta os três
+modos de partes comuns. Mexeu no prompt? **Faça o deploy da função** — o `npm run build` não leva
+nada disso.
 
 **5. `Pendentes.tsx` tem 1.210 linhas** e concentra upload, três pipelines de IA, seed de
 categorias, pós-processamento e revisão. É o arquivo mais arriscado do projeto.
@@ -148,11 +168,11 @@ categorias, pós-processamento e revisão. É o arquivo mais arriscado do projet
 
 ---
 
-## O pipeline de IA em três linhas
+## O pipeline de IA em quatro linhas
 
-Imagem, planilha ou PDF → Gemini com a lista de categorias do usuário e a regra do ciclo dentro do
-prompt → array JSON recortado entre `[` e `]` → JavaScript desloca a data das parcelas, casa a
-categoria por nome e insere com `pendente: true`.
+O browser lê o arquivo → `supabase.functions.invoke('ai-agents', …)` → a função busca as categorias
+e o ciclo do usuário sob a RLS dele, monta o prompt e chama o Gemini → recorta o JSON, desloca a
+data das parcelas e casa a categoria → devolve as linhas, e **o browser insere** com `pendente: true`.
 **Detalhe completo:** `context/03-agentes-de-ia.md`.
 
 ---

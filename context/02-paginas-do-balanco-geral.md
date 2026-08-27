@@ -73,13 +73,15 @@ parcelas.
 
 ## `/novos-registros` · Pendentes
 
-`src/pages/Pendentes.tsx` · escreve `transactions`, lê e semeia `categories`, lê `memory.ciclo_dia`
+`src/pages/Pendentes.tsx` · escreve `transactions`, lê e semeia `categories`
 
 Upload (imagem, planilha ou PDF) → extração por IA → revisão dos rascunhos. É também onde as **27
-categorias padrão são semeadas** no primeiro acesso do usuário. O detalhe do pipeline está em
-`03-agentes-de-ia.md`.
+categorias padrão são semeadas** no primeiro acesso do usuário.
 
-⚠️ Maior arquivo do projeto (1.200+ linhas) e o que concentra mais responsabilidades.
+⭐ **Esta tela não fala com o Gemini.** Ela lê o arquivo, chama a Edge Function `ai-agents` e recebe
+as transações prontas; só o insert é dela. O detalhe está em `03-agentes-de-ia.md`.
+
+⚠️ Ainda é o maior arquivo do projeto (~1.000 linhas), agora concentrado em upload e revisão.
 
 ---
 

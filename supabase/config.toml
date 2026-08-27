@@ -1,0 +1,11 @@
+project_id = "vkrreygxqlfhtodrogyq"
+
+# Roteia todas as chamadas de agente de IA. Exige sessao de usuario: a funcao consulta
+# categories e memory sob a RLS de quem chamou.
+[functions.ai-agents]
+verify_jwt = true
+
+# Disparada por Database Webhook em INSERT nas tabelas leads e profiles. Nao ha usuario
+# na chamada, entao a verificacao de JWT precisa ficar desligada.
+[functions.send-email]
+verify_jwt = false

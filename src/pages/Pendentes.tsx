@@ -1,12 +1,8 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { GoogleGenerativeAI } from '@google/generative-ai';
 import { UploadCloud, FileText, CheckCircle, XCircle, X, Image as ImageIcon, FileSpreadsheet, PlusCircle, ArrowLeft, ChevronDown, ChevronUp, Clock } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ConfirmModal from '../components/ConfirmModal';
-import { MODELO, listaDeBancos } from '../lib/ia';
-
-const genAI = new GoogleGenerativeAI(import.meta.env.VITE_GEMINI_API_KEY);
 
 export default function Pendentes() {
   const [files, setFiles] = useState<File[]>([]);
@@ -151,112 +147,89 @@ export default function Pendentes() {
     }
   }, []);
 
+  /**
+   * Erros que a Edge Function devolve com nome, traduzidos para o usuario.
+   * Antes toda falha virava `alert(error.message)` com o texto cru da excecao -- inclusive
+   * o 503 do Gemini, que e transitorio e nao merece parecer defeito.
+   */
+  const MENSAGENS_DE_ERRO: Record<string, string> = {
+    NAO_AUTENTICADO: 'Sua sessao expirou. Entre novamente.',
+    IA_INDISPONIVEL: 'O servidor da IA esta indisponivel no momento. Tente de novo em alguns instantes.',
+    COTA_EXCEDIDA: 'A cota da IA foi excedida. Tente mais tarde.',
+    RESPOSTA_INVALIDA: 'Nao consegui ler esse arquivo. Tente um print mais nitido ou outro formato.',
+    REQUISICAO_INVALIDA: 'Arquivo invalido para este modo de importacao.',
+  };
+
+  /** Acima disto o payload em base64 fica grande demais para a Edge Function. */
+  const LIMITE_DE_UPLOAD = 8 * 1024 * 1024;
+
+  const lerComoBase64 = (arquivo: File): Promise<string> =>
+    new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.readAsDataURL(arquivo);
+      reader.onload = () => resolve((reader.result as string).split(',')[1]);
+      reader.onerror = reject;
+    });
+
+  /**
+   * A unica porta de saida para a IA. Nenhuma tela fala com o Gemini: a chave vive como
+   * secret da Edge Function `ai-agents`, e o que volta ja vem normalizado e pronto para
+   * insert -- faltando so o `user_id`, que e acrescentado aqui para a escrita continuar
+   * passando pela RLS da sessao do browser.
+   */
+  const chamarAgente = async (corpo: Record<string, unknown>) => {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) throw new Error(MENSAGENS_DE_ERRO.NAO_AUTENTICADO);
+
+    const { data, error } = await supabase.functions.invoke('ai-agents', {
+      body: { agente: 'extrair-transacoes', ...corpo },
+    });
+
+    // `invoke` trata status >= 400 como erro e nao entrega o corpo; sem le-lo, o codigo
+    // que a funcao classificou se perde e o usuario ve "non-2xx status code".
+    if (error) {
+      const resposta = (error as any)?.context;
+      const detalhe = resposta && typeof resposta.json === 'function' ? await resposta.json().catch(() => null) : null;
+      const codigo = detalhe?.erro?.codigo;
+      throw new Error(MENSAGENS_DE_ERRO[codigo] || detalhe?.erro?.mensagem || error.message);
+    }
+    if (data?.erro) {
+      throw new Error(MENSAGENS_DE_ERRO[data.erro.codigo] || data.erro.mensagem);
+    }
+
+    const transacoes = (data?.transacoes ?? []) as any[];
+    if (transacoes.length === 0) {
+      throw new Error('Nenhuma transacao foi encontrada neste arquivo.');
+    }
+
+    const { error: erroInsert } = await supabase
+      .from('transactions')
+      .insert(transacoes.map(t => ({ ...t, user_id: user.id })));
+    if (erroInsert) throw erroInsert;
+
+    await fetchPendentes();
+  };
+
   const processImage = async () => {
     if (files.length === 0) return;
+
+    const total = files.reduce((acc, f) => acc + f.size, 0);
+    if (total > LIMITE_DE_UPLOAD) {
+      alert('Esses prints somam mais de 8 MB. Envie em duas levas.');
+      return;
+    }
+
     setLoading(true);
-
     try {
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) throw new Error("Usuário não autenticado");
+      const arquivos = await Promise.all(
+        files.map(async f => ({ mimeType: f.type, base64: await lerComoBase64(f) }))
+      );
 
-      const imageParts = await Promise.all(files.map(async (f) => {
-        const base64Data = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(f);
-          reader.onload = () => resolve((reader.result as string).split(',')[1]);
-          reader.onerror = (error) => reject(error);
-        });
-        return { inlineData: { data: base64Data, mimeType: f.type } };
-      }));
-
-      const listadeCategorias = categories.map(c => c.nome).join(', ');
-
-      const model = genAI.getGenerativeModel({ model: MODELO.RAPIDO });
-      let prompt = `Você é um assistente financeiro. Analise a imagem fornecida, que é um print de extrato bancário ou fatura de cartão. Extraia todas as transações e retorne APENAS um JSON válido contendo um array de objetos com a seguinte estrutura para cada transação:
-      - "data": Data no formato YYYY-MM-DD
-      - "nome": Nome exato do estabelecimento ou transferência na íntegra (ex: "PGTO MERCADOLIVRE *OSASCO").
-      - "apelido": Um nome limpo e resumido, deduzido a partir do nome na íntegra (ex: "Mercado Livre").
-      - "valor": Valor numérico (positivo para entradas, negativo para saídas).
-      - "banco": Nome do banco deduzido pela interface do print. DEVE obrigatoriamente ser um destes valores exatos: [ ${listaDeBancos()} ], ou null se o print não permitir deduzir.
-      - "mes_fatura": Nome do mês do ciclo da fatura ou do balanço em que a transação entra (ex: "Janeiro", "Fevereiro"). DEVE ser estritamente o nome do mês em português com a primeira letra maiúscula, ou null. A regra é: a fatura (ou balanço) de um determinado Mês engloba as transações do dia ${cicloDia + 1} desse mês até o dia ${cicloDia} do mês seguinte. Exemplo: A fatura de Janeiro contém as transações do dia ${String(cicloDia + 1).padStart(2, '0')} de Janeiro até o dia ${String(cicloDia).padStart(2, '0')} de Fevereiro (inclusive).
-      - "hora": Hora no formato HH:MM:SS. Se não visível, use "12:00:00".
-      - "parcela_atual": Número da parcela atual (se for compra parcelada, ex: "1 de 10" -> 1). Se não houver, retorne null.
-      - "parcela_total": Total de parcelas (ex: "1 de 10" -> 10). Se não houver, retorne null.
-      - "categoria_sugerida": Se o "valor" for negativo (saída), tente deduzir a categoria mais provável de acordo com o nome e apelido da transação, e selecione obrigatoriamente um dos seguintes valores exatos da nossa lista: [ ${listadeCategorias} ]. Se o "valor" for positivo (entrada/receita), ou se nenhuma categoria da lista fizer sentido, retorne null.
-      
-      REGRAS CRÍTICAS:
-      1. Se uma transação NÃO tiver data, OU NÃO tiver nome, OU NÃO tiver valor claro, IGNORE-A COMPLETAMENTE. Não registre transações parcialmente de forma alguma.
-      2. Não use blocos de código (markdown), retorne o JSON puro. A "categoria_sugerida" DEVE ser textualmente idêntica a uma das opções da lista de categorias ou null.`;
-      //3. Nos itens cuja parcela_atual != 0, imprima a data como YYYY-(MM + parcela_atual - 1)-DD`;
-
-      if (customPrompt.trim()) {
-        prompt += `\n\nINSTRUÇÕES ADICIONAIS DO USUÁRIO:\n${customPrompt.trim()}`;
-      }
-
-      const result = await model.generateContent([
-        prompt,
-        ...imageParts
-      ]);
-
-      let responseText = result.response.text();
-      const jsonStartIndex = responseText.indexOf('[');
-      const jsonEndIndex = responseText.lastIndexOf(']');
-
-      if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
-        responseText = responseText.substring(jsonStartIndex, jsonEndIndex + 1);
-      } else {
-        throw new Error("A IA não retornou um formato JSON válido.");
-      }
-
-      const jsonResponse = JSON.parse(responseText);
-
-      const transactionsToInsert = jsonResponse.map((item: any) => {
-        let finalData = item.data;
-
-        // Se for parcela, ajusta o mês: Mês da compra + (parcela_atual - 1)
-        if (item.parcela_total && item.parcela_atual && item.data) {
-          const [anoStr, mesStr, diaStr] = item.data.split('-');
-          if (anoStr && mesStr && diaStr) {
-            const dateObj = new Date(parseInt(anoStr), parseInt(mesStr) - 1, parseInt(diaStr));
-            dateObj.setMonth(dateObj.getMonth() + parseInt(item.parcela_atual) - 1);
-
-            const newAno = dateObj.getFullYear();
-            const newMes = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const newDia = String(dateObj.getDate()).padStart(2, '0');
-            finalData = `${newAno}-${newMes}-${newDia}`;
-          }
-        }
-
-        // Tenta encontrar a categoria correspondente de forma case-insensitive
-        const matchedCategory = item.categoria_sugerida
-          ? categories.find(c => c.nome.toLowerCase() === item.categoria_sugerida.toLowerCase())
-          : null;
-
-        return {
-          user_id: user.id,
-          data: finalData,
-          nome: item.nome,
-          apelido: item.apelido,
-          valor: item.valor,
-          banco: item.banco,
-          mes_fatura: item.mes_fatura || null,
-          categoria_id: matchedCategory ? matchedCategory.id : null,
-          hora: item.hora || '12:00:00',
-          parcela_atual: item.parcela_atual,
-          parcela_total: item.parcela_total,
-          pendente: true
-        };
-      });
-
-      const { error } = await supabase.from('transactions').insert(transactionsToInsert);
-      if (error) throw error;
-
-      await fetchPendentes();
+      await chamarAgente({ modo: 'imagem', arquivos, instrucao: customPrompt });
       setFiles([]);
-
     } catch (error: any) {
-      console.error("Erro detalhado:", error);
-      alert(`Falha na IA ou Leitura: ${error.message || error}`);
+      console.error('Falha ao processar imagens:', error);
+      alert(error.message || String(error));
     } finally {
       setLoading(false);
     }
@@ -267,103 +240,20 @@ export default function Pendentes() {
     setLoading(true);
 
     try {
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) throw new Error("Usuário não autenticado");
+      // A planilha continua sendo lida aqui: converter xlsx em CSV nao e chamada de
+      // agente, e o CSV viaja bem menor que o arquivo binario.
+      const buffer = await spreadsheetFile.arrayBuffer();
+      const workbook = XLSX.read(buffer, { type: 'array' });
+      const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[workbook.SheetNames[0]]);
 
-      // Ler o arquivo como array buffer
-      const data = await spreadsheetFile.arrayBuffer();
-      const workbook = XLSX.read(data, { type: 'array' });
+      await chamarAgente({ modo: 'planilha', csv, instrucao: spreadsheetPrompt });
 
-      // Converter a primeira planilha em texto legível para a IA
-      const firstSheetName = workbook.SheetNames[0];
-      const worksheet = workbook.Sheets[firstSheetName];
-      const csvContent = XLSX.utils.sheet_to_csv(worksheet);
-
-      const listadeCategorias = categories.map(c => c.nome).join(', ');
-
-      const model = genAI.getGenerativeModel({ model: MODELO.RAPIDO });
-      let prompt = `Você é um assistente financeiro de elite. Analise o conteúdo em formato CSV de uma planilha financeira fornecido abaixo e extraia TODAS as transações válidas. 
-      Retorne APENAS um JSON válido contendo um array de objetos com a seguinte estrutura para cada transação:
-      - "data": Data no formato YYYY-MM-DD.
-      - "nome": Nome do estabelecimento, descrição ou transferência na íntegra.
-      - "apelido": Um nome limpo e resumido, deduzido a partir do nome na íntegra.
-      - "valor": Valor numérico (positivo para entradas/receitas, negativo para saídas/despesas). Tente inferir a partir das colunas de débito/crédito ou valores positivos/negativos.
-      - "banco": Sempre retorne null para planilhas.
-      - "mes_fatura": Nome do mês do ciclo da fatura ou do balanço em que a transação entra (ex: "Janeiro", "Fevereiro"). DEVE ser estritamente o nome do mês em português com a primeira letra maiúscula, ou null. A regra é: a fatura (ou balanço) de um determinado Mês engloba as transações do dia ${cicloDia + 1} desse mês até o dia ${cicloDia} do mês seguinte. Exemplo: A fatura de Janeiro contém as transações do dia ${String(cicloDia + 1).padStart(2, '0')} de Janeiro até o dia ${String(cicloDia).padStart(2, '0')} de Fevereiro (inclusive).
-      - "hora": Hora no formato HH:MM:SS. Se não houver, use "12:00:00".
-      - "parcela_atual": Sempre retorne null para planilhas.
-      - "parcela_total": Sempre retorne null para planilhas.
-      - "categoria_sugerida": Se o "valor" for negativo (saída), tente deduzir a categoria mais provável de acordo com o nome, apelido ou qualquer coluna de categoria da planilha, e selecione obrigatoriamente um dos seguintes valores exatos da nossa lista: [ ${listadeCategorias} ]. Se o "valor" for positivo (entrada/receita), ou se nenhuma categoria da lista fizer sentido, retorne null.
-
-      REGRAS CRÍTICAS DE PREENCHIMENTO E FORMATAÇÃO (SIGA À RISCA):
-      1. REGRAS DE NOME E APELIDO: Se o nome da transação na planilha estiver ausente, em branco, for nulo ou não puder ser extraído, coloque o NOME DA CATEGORIA SUGERIDA tanto no campo "nome" quanto no campo "apelido". Se a categoria sugerida também for nula, use "Outros".
-      2. REGRAS DE DATA: 
-         - Se houver data completa, retorne no formato YYYY-MM-DD.
-         - Se NÃO houver data exata (ex: a planilha só tem o mês e o ano, ou o dia está ausente), padronize o DIA como dia ${cicloDia}. Ex: se for Maio/2026, a data será "2026-05-${String(cicloDia).padStart(2, '0')}".
-         - Se até o mês estiver ausente (ex: apenas o ano), padronize o DIA como dia ${cicloDia} e o MÊS como Janeiro (01). Ex: se for 2026, a data será "2026-01-${String(cicloDia).padStart(2, '0')}".
-         - Se não houver nenhuma informação de data/ano/mês na linha, use a data de hoje ou o padrão "2026-01-${String(cicloDia).padStart(2, '0')}".
-      3. REGRAS DE BANCO E PARCELAS:
-         - O campo "banco" DEVE ser obrigatoriamente null para TODAS as transações da planilha.
-         - Os campos "parcela_atual" e "parcela_total" DEVEM ser obrigatoriamente null para TODAS as transações da planilha. NUNCA tente configurar parcelas para planilhas.
-      4. Não use blocos de código (markdown), retorne APENAS o JSON puro. A "categoria_sugerida" DEVE ser idêntica a uma da lista ou null.`;
-
-      if (spreadsheetPrompt.trim()) {
-        prompt += `\n\nINSTRUÇÕES ADICIONAIS DO USUÁRIO SOBRE A ESTRUTURA DA PLANILHA:\n${spreadsheetPrompt.trim()}`;
-      }
-
-      prompt += `\n\nCONTEÚDO DA PLANILHA EM FORMATO CSV:\n${csvContent}`;
-
-      const result = await model.generateContent([prompt]);
-
-      let responseText = result.response.text();
-      const jsonStartIndex = responseText.indexOf('[');
-      const jsonEndIndex = responseText.lastIndexOf(']');
-
-      if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
-        responseText = responseText.substring(jsonStartIndex, jsonEndIndex + 1);
-      } else {
-        throw new Error("A IA não retornou um formato JSON válido.");
-      }
-
-      const jsonResponse = JSON.parse(responseText);
-
-      const transactionsToInsert = jsonResponse.map((item: any) => {
-        // Tenta encontrar a categoria correspondente de forma case-insensitive
-        const matchedCategory = item.categoria_sugerida
-          ? categories.find(c => c.nome.toLowerCase() === item.categoria_sugerida.toLowerCase())
-          : null;
-
-        // Garantir regras de negócio finais
-        const finalNome = item.nome && item.nome.toString().trim() ? item.nome : (matchedCategory ? matchedCategory.nome : 'Outros');
-        const finalApelido = item.apelido && item.apelido.toString().trim() ? item.apelido : (matchedCategory ? matchedCategory.nome : 'Outros');
-
-        return {
-          user_id: user.id,
-          data: item.data,
-          nome: finalNome,
-          apelido: finalApelido,
-          valor: item.valor,
-          banco: null, // Forçar null
-          mes_fatura: item.mes_fatura || null,
-          categoria_id: matchedCategory ? matchedCategory.id : null,
-          hora: item.hora || '12:00:00',
-          parcela_atual: null, // Forçar null
-          parcela_total: null, // Forçar null
-          pendente: true
-        };
-      });
-
-      const { error } = await supabase.from('transactions').insert(transactionsToInsert);
-      if (error) throw error;
-
-      await fetchPendentes();
       setSpreadsheetFile(null);
       setSpreadsheetPrompt('');
       setActiveMode('selection');
-
     } catch (error: any) {
-      console.error("Erro detalhado:", error);
-      alert(`Falha na IA ou Leitura da Planilha: ${error.message || error}`);
+      console.error('Falha ao processar planilha:', error);
+      alert(error.message || String(error));
     } finally {
       setLoading(false);
     }
@@ -371,108 +261,27 @@ export default function Pendentes() {
 
   const processDocument = async () => {
     if (!documentFile) return;
+
+    if (documentFile.size > LIMITE_DE_UPLOAD) {
+      alert('Esse PDF passa de 8 MB. Envie um arquivo menor ou separe as paginas.');
+      return;
+    }
+
     setLoading(true);
-
     try {
-      const user = (await supabase.auth.getUser()).data.user;
-      if (!user) throw new Error("Usuário não autenticado");
+      const arquivos = [{
+        mimeType: documentFile.type || 'application/pdf',
+        base64: await lerComoBase64(documentFile),
+      }];
 
-      const base64Data = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(documentFile);
-        reader.onload = () => resolve((reader.result as string).split(',')[1]);
-        reader.onerror = (error) => reject(error);
-      });
-      const inlineData = { inlineData: { data: base64Data, mimeType: documentFile.type || 'application/pdf' } };
+      await chamarAgente({ modo: 'pdf', arquivos, instrucao: documentPrompt });
 
-      const listadeCategorias = categories.map(c => c.nome).join(', ');
-
-      const model = genAI.getGenerativeModel({ model: MODELO.RAPIDO });
-      let prompt = `Você é um assistente financeiro de elite. Analise o documento PDF fornecido, que é um extrato bancário ou fatura. Extraia TODAS as transações válidas visíveis no extrato.
-      Retorne APENAS um JSON válido contendo um array de objetos com a seguinte estrutura para cada transação:
-      - "data": Data no formato YYYY-MM-DD.
-      - "nome": Nome exato do estabelecimento ou transferência na íntegra.
-      - "apelido": Um nome limpo e resumido, deduzido a partir do nome na íntegra.
-      - "valor": Valor numérico (positivo para entradas/receitas, negativo para saídas/despesas).
-      - "banco": Nome do banco deduzido pelo documento. DEVE obrigatoriamente ser um destes valores exatos: [ ${listaDeBancos()} ], ou null se o documento não permitir deduzir.
-      - "mes_fatura": Nome do mês do ciclo da fatura ou do balanço em que a transação entra (ex: "Janeiro", "Fevereiro"). DEVE ser estritamente o nome do mês em português com a primeira letra maiúscula, ou null. A regra é: a fatura (ou balanço) de um determinado Mês engloba as transações do dia ${cicloDia + 1} desse mês até o dia ${cicloDia} do mês seguinte. Exemplo: A fatura de Janeiro contém as transações do dia ${String(cicloDia + 1).padStart(2, '0')} de Janeiro até o dia ${String(cicloDia).padStart(2, '0')} de Fevereiro (inclusive).
-      - "hora": Hora no formato HH:MM:SS. Se não visível, use "12:00:00".
-      - "parcela_atual": Número da parcela atual. Se não houver, retorne null.
-      - "parcela_total": Total de parcelas. Se não houver, retorne null.
-      - "categoria_sugerida": Se o "valor" for negativo (saída), tente deduzir a categoria mais provável de acordo com o nome e apelido da transação, e selecione obrigatoriamente um dos seguintes valores exatos da nossa lista: [ ${listadeCategorias} ]. Se o "valor" for positivo (entrada/receita), ou se nenhuma categoria da lista fizer sentido, retorne null.
-
-      REGRAS CRÍTICAS:
-      1. Se uma transação NÃO tiver data, OU NÃO tiver nome, OU NÃO tiver valor claro, IGNORE-A COMPLETAMENTE.
-      2. Não use blocos de código (markdown), retorne APENAS o JSON puro. A "categoria_sugerida" DEVE ser textualmente idêntica a uma das opções da lista de categorias ou null.`;
-
-      if (documentPrompt.trim()) {
-        prompt += `\n\nINSTRUÇÕES ADICIONAIS DO USUÁRIO:\n${documentPrompt.trim()}`;
-      }
-
-      const result = await model.generateContent([
-        prompt,
-        inlineData
-      ]);
-
-      let responseText = result.response.text();
-      const jsonStartIndex = responseText.indexOf('[');
-      const jsonEndIndex = responseText.lastIndexOf(']');
-
-      if (jsonStartIndex !== -1 && jsonEndIndex !== -1 && jsonEndIndex > jsonStartIndex) {
-        responseText = responseText.substring(jsonStartIndex, jsonEndIndex + 1);
-      } else {
-        throw new Error("A IA não retornou um formato JSON válido.");
-      }
-
-      const jsonResponse = JSON.parse(responseText);
-
-      const transactionsToInsert = jsonResponse.map((item: any) => {
-        let finalData = item.data;
-
-        if (item.parcela_total && item.parcela_atual && item.data) {
-          const [anoStr, mesStr, diaStr] = item.data.split('-');
-          if (anoStr && mesStr && diaStr) {
-            const dateObj = new Date(parseInt(anoStr), parseInt(mesStr) - 1, parseInt(diaStr));
-            dateObj.setMonth(dateObj.getMonth() + parseInt(item.parcela_atual) - 1);
-
-            const newAno = dateObj.getFullYear();
-            const newMes = String(dateObj.getMonth() + 1).padStart(2, '0');
-            const newDia = String(dateObj.getDate()).padStart(2, '0');
-            finalData = `${newAno}-${newMes}-${newDia}`;
-          }
-        }
-
-        const matchedCategory = item.categoria_sugerida
-          ? categories.find(c => c.nome.toLowerCase() === item.categoria_sugerida.toLowerCase())
-          : null;
-
-        return {
-          user_id: user.id,
-          data: finalData,
-          nome: item.nome,
-          apelido: item.apelido,
-          valor: item.valor,
-          banco: item.banco,
-          mes_fatura: item.mes_fatura || null,
-          categoria_id: matchedCategory ? matchedCategory.id : null,
-          hora: item.hora || '12:00:00',
-          parcela_atual: item.parcela_atual,
-          parcela_total: item.parcela_total,
-          pendente: true
-        };
-      });
-
-      const { error } = await supabase.from('transactions').insert(transactionsToInsert);
-      if (error) throw error;
-
-      await fetchPendentes();
       setDocumentFile(null);
       setDocumentPrompt('');
       setActiveMode('selection');
-
     } catch (error: any) {
-      console.error("Erro detalhado:", error);
-      alert(`Falha na IA ou Leitura do Documento: ${error.message || error}`);
+      console.error('Falha ao processar documento:', error);
+      alert(error.message || String(error));
     } finally {
       setLoading(false);
     }

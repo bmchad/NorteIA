@@ -25,11 +25,23 @@ atualizado_em: 2026-08-27
    agregada entre usuários.
 5. O produto é **pessoal, com ambição de virar produto** — a landing page, o FAQ e a tabela `leads`
    já existem, mas não há cliente. Ver `11-ambicao-de-produto.md`.
-6. ⚠️ **A chave do Gemini está exposta no bundle do browser.** É a dívida mais cara do projeto e a
-   coisa mais importante a saber antes de mexer em qualquer coisa. Ver `20-pendencias-e-dividas.md`.
-7. Esta pasta **não está no git** (`/context` está no `.gitignore`; `supabase/` deixou de estar em
-   2026-08-27). Não existe segunda cópia do `context/` em lugar nenhum. Ver
-   `30-decisoes-e-licoes.md` D-006.
+6. ⭐ **Nenhuma tela fala com o Gemini.** Toda chamada de agente passa pela Edge Function
+   `ai-agents`, onde a chave vive como secret do servidor. Ver `03-agentes-de-ia.md`.
+7. O repositório é **público**, e só metade desta pasta está nele. Ver `30-decisoes-e-licoes.md`
+   D-006 — e o aviso logo abaixo.
+
+---
+
+## ⛔ Quatro arquivos citados aqui podem não existir para você
+
+`10-proximos-passos.md`, `11-ambicao-de-produto.md`, `20-pendencias-e-dividas.md` e
+`30-decisoes-e-licoes.md` **ficam fora do git**. Se você chegou por um clone do repositório público,
+eles não vieram — as referências continuam no texto de propósito, para que se saiba que existem e
+onde o assunto mora.
+
+⚠️ Consequência prática: **`30-decisoes-e-licoes.md`, o registro do porquê, é o arquivo mais citado
+e o que menos gente tem.** Antes de "consertar" algo que parece errado, considere que pode haver uma
+decisão registrada ali. → D-006
 
 ---
 
@@ -58,7 +70,8 @@ deles está velho.
 | Pergunta | Dono da verdade |
 |---|---|
 | Como rodo, faço build, faço deploy? | `CLAUDE.md` (raiz) |
-| Qual é o schema real do banco? | ⚠️ **o painel do Supabase.** Só `leads` tem SQL versionado, em `supabase/supabase-additions/` |
+| Qual é o schema real do banco? | `supabase-backup/supabase/schema.sql` (fora do git). Mudanças novas vão como migration em `supabase/migrations/` |
+| Como a IA extrai as transações? | `supabase/functions/ai-agents/` e `03-agentes-de-ia.md` |
 | Quais são as armadilhas do código? | `CLAUDE.md` (raiz) |
 | O que a IA extrai e com que regras? | `context/03-agentes-de-ia.md` |
 | Por que decidimos assim? | `context/30-decisoes-e-licoes.md` |

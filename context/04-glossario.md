@@ -13,8 +13,9 @@ atualizado_em: 2026-08-27
 
 ## Tempo
 
-**Ciclo (`ciclo_dia`)** · o dia do mês em que a sua fatura fecha. Padrão **5**. Fica em
-`memory.ciclo_dia`, um por usuário, editável em `/perfil`. É o número de maior alcance do sistema:
+**Ciclo (`ciclo_dia`)** · o dia do mês em que a sua fatura fecha. Padrão **5**, e o Postgres exige
+`0 < ciclo_dia < 28` — acima de 27 o ciclo não existiria em fevereiro. Fica em `memory.ciclo_dia`,
+um por usuário, editável em `/perfil`. É o número de maior alcance do sistema:
 mudá-lo reagrupa todo o `/meses` retroativamente.
 
 **Ciclo de fatura** · o intervalo que o `ciclo_dia` define. Com ciclo 5, a fatura de Janeiro vai do
@@ -78,6 +79,10 @@ alcança o `parcela_total`. Antes disso, está em andamento.
 ⚠️ **`memory`** · **não é memória da IA.** É a linha de configuração e anotações do usuário: guarda
 `ciclo_dia` (o ciclo) e `content` (o campo de Notas do Dashboard). Um registro por usuário — daí o
 `.single()` e o tratamento do erro `PGRST116` (zero linhas) espalhado por cinco páginas.
+
+**`profiles`** · uma linha por conta (`id`, `email`), criada automaticamente pelo trigger
+`handle_new_user` a cada cadastro no `auth.users`. Serve de gatilho para o e-mail de boas-vindas da
+Edge Function `send-email`. Nenhuma tela lê esta tabela.
 
 **`leads`** · contatos capturados pelo formulário da landing page. Única tabela escrita sem
 autenticação.
