@@ -19,32 +19,58 @@ export interface CompromissoDoCiclo {
   valor: number;
 }
 
+export interface ContaDaCompra {
+  valorParcela: number;
+  pagas: number;
+  totalParcelas: number;
+  faltam: number;
+  valorPago: number;
+  /** ⭐ Quanto ainda vai ser cobrado desta compra. */
+  valorPendente: number;
+  valorTotal: number;
+  concluida: boolean;
+}
+
 /**
- * Quanto ainda falta pagar, somando todos os grupos que não terminaram.
+ * A conta de uma compra parcelada.
  *
- * ⚠️ `valor` em `transactions` é assinado e a parcela é negativa. O retorno é positivo:
+ * Mora aqui, e não dentro do card, porque o total da tela e o do Dashboard somam exatamente
+ * estes números. Card calculando por conta própria é como o Dashboard e o `/meses`
+ * discordarem por um ano — ver context/30-decisoes-e-licoes.md D-007.
+ *
+ * ⚠️ `valor` em `transactions` é assinado e a parcela é negativa. Tudo aqui sai positivo:
  * é dívida, não saída do ciclo.
  */
+export function contaDaCompra(grupo: GrupoDeParcelas): ContaDaCompra {
+  const base = grupo[0];
+  const valorParcela = base ? Math.abs(Number(base.valor)) : 0;
+  const pagas = grupo.length;
+  const totalParcelas = base?.parcela_total || 1;
+  const faltam = Math.max(totalParcelas - pagas, 0);
+
+  return {
+    valorParcela,
+    pagas,
+    totalParcelas,
+    faltam,
+    valorPago: valorParcela * pagas,
+    valorPendente: valorParcela * faltam,
+    valorTotal: valorParcela * totalParcelas,
+    concluida: faltam === 0,
+  };
+}
+
+/** Quanto ainda falta pagar, somando todos os grupos que não terminaram. */
 export function comprometidoRestante(gruposEmAndamento: GrupoDeParcelas[]): number {
-  return gruposEmAndamento.reduce((total, grupo) => {
-    const base = grupo[0];
-    if (!base) return total;
-
-    const pagas = grupo.length;
-    const totalParcelas = base.parcela_total || 1;
-    const faltam = Math.max(totalParcelas - pagas, 0);
-
-    return total + Math.abs(Number(base.valor)) * faltam;
-  }, 0);
+  return gruposEmAndamento.reduce(
+    (total, grupo) => total + contaDaCompra(grupo).valorPendente,
+    0,
+  );
 }
 
 /** Quantas parcelas ainda vão ser cobradas, somadas todas as compras em andamento. */
 export function parcelasRestantes(gruposEmAndamento: GrupoDeParcelas[]): number {
-  return gruposEmAndamento.reduce((total, grupo) => {
-    const base = grupo[0];
-    if (!base) return total;
-    return total + Math.max((base.parcela_total || 1) - grupo.length, 0);
-  }, 0);
+  return gruposEmAndamento.reduce((total, grupo) => total + contaDaCompra(grupo).faltam, 0);
 }
 
 /**

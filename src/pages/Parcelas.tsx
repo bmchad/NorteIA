@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { CreditCard, Trash2, ListChecks, ChevronDown, ChevronUp } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
-import { comprometidoRestante, parcelasRestantes, projecaoPorCiclo } from '../lib/parcelas';
+import { comprometidoRestante, contaDaCompra, parcelasRestantes, projecaoPorCiclo } from '../lib/parcelas';
 
 export default function Parcelas() {
   const [parcelas, setParcelas] = useState<any[]>([]);
@@ -164,13 +164,9 @@ export default function Parcelas() {
   const renderCard = (nomeKey: string) => {
     const group = groupedParcelas[nomeKey];
     const baseItem = group[0];
-    const current = group.length;
-    const total = baseItem.parcela_total || 1;
+    // A conta vem de src/lib/parcelas.ts: é a mesma que alimenta o card do topo e o Dashboard.
+    const { valorParcela, pagas: current, totalParcelas: total, valorPago, valorPendente, valorTotal: valorTotalCompra } = contaDaCompra(group);
     const percentage = Math.min((current / total) * 100, 100);
-
-    const valorParcela = Math.abs(Number(baseItem.valor));
-    const valorTotalCompra = valorParcela * total;
-    const valorPago = valorParcela * current;
 
     const isCompleted = current >= total;
 
@@ -238,6 +234,13 @@ export default function Parcelas() {
               <span className={`font-medium ${isCompleted ? 'text-[#10b981]' : 'text-primary'}`}>R$ {valorPago.toFixed(2)}</span>
             </div>
             <div className="text-xs text-text-light flex justify-between items-center">
+              <span>Valor Pendente:</span>
+              <span className={`font-medium ${valorPendente > 0 ? 'text-danger' : 'text-text-light'}`}>
+                R$ {valorPendente.toFixed(2)}
+              </span>
+            </div>
+
+            <div className="flex justify-between text-sm">
               <span>Valor Total:</span>
               <span className="font-medium text-text">R$ {valorTotalCompra.toFixed(2)}</span>
             </div>
