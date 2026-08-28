@@ -3,7 +3,7 @@ import { supabase } from '../lib/supabase';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Info, Calculator, ChevronDown, ChevronUp } from 'lucide-react';
 import { getCycleKey } from '../lib/ciclo';
-import { comprometidoRestante, parcelasRestantes } from '../lib/parcelas';
+import { comprometidoMensal, comprometidoRestante, parcelasRestantes } from '../lib/parcelas';
 
 export default function Dashboard() {
   const [ano, setAno] = useState(new Date().getFullYear().toString());
@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [cicloDia, setCicloDia] = useState<number>(5);
   const [restanteParcelas, setRestanteParcelas] = useState(0);
   const [qtdParcelasRestantes, setQtdParcelasRestantes] = useState(0);
+  const [mensalParcelas, setMensalParcelas] = useState(0);
 
   // Calculadora state
   const [calcParcela, setCalcParcela] = useState<number | ''>(100);
@@ -110,6 +111,7 @@ export default function Dashboard() {
       const emAndamento = grupos.filter(g => g.length < (g[0].parcela_total || 1));
       setRestanteParcelas(comprometidoRestante(emAndamento));
       setQtdParcelasRestantes(parcelasRestantes(emAndamento));
+      setMensalParcelas(comprometidoMensal(emAndamento));
     } catch (err) {
       console.error("Erro ao buscar comprometido de parcelas:", err);
     }
@@ -263,8 +265,8 @@ export default function Dashboard() {
               </div>
               <span className="text-3xl font-bold text-primary mt-2">R$ {resultadoLiquido.toFixed(2).replace('.', ',')}</span>
               {restanteParcelas > 0 && (
-                <span className="text-xs text-text-light mt-1" title="Soma das parcelas que ainda vão ser cobradas">
-                  ⏳ R$ {restanteParcelas.toFixed(2).replace('.', ',')} já comprometidos em{' '}
+                <span className="text-xs text-text-light mt-1" title="Dívida: tudo que ainda vai ser cobrado em parcelas">
+                  ⏳ R$ {restanteParcelas.toFixed(2).replace('.', ',')} a pagar em{' '}
                   {qtdParcelasRestantes} parcela{qtdParcelasRestantes === 1 ? '' : 's'}
                 </span>
               )}
@@ -306,6 +308,28 @@ export default function Dashboard() {
               <span className="text-2xl font-bold text-primary mt-2">R$ {(resultadoLiquido / mesesAtivos).toFixed(2).replace('.', ',')}</span>
               <span className="text-[10px] text-text-light uppercase">Por mês ativo</span>
             </div>
+
+            {/* Comprometido por mes: e FLUXO, entao mora na linha das medias, onde a unidade
+                bate com a renda. A divida total fica no card do resultado, que e anual. */}
+            {mensalParcelas > 0 && (
+              <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
+                <div className="absolute top-0 left-0 w-1 h-full bg-danger"></div>
+                <div className="flex justify-between items-start">
+                  <span className="text-sm font-medium text-text-light uppercase tracking-wider">Comprometido por Mês</span>
+                  <div className="bg-danger/10 text-danger p-2 rounded-lg">
+                    <TrendingDown size={20} />
+                  </div>
+                </div>
+                <span className="text-2xl font-bold text-danger mt-2">R$ {mensalParcelas.toFixed(2).replace('.', ',')}</span>
+                {entradas > 0 ? (
+                  <span className="text-[10px] text-text-light uppercase" title="Quanto da sua renda média já tem dono antes de você decidir qualquer coisa">
+                    {((mensalParcelas / (entradas / mesesAtivos)) * 100).toFixed(0)}% da renda média
+                  </span>
+                ) : (
+                  <span className="text-[10px] text-text-light uppercase">Em parcelas</span>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

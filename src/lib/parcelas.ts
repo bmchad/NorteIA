@@ -68,6 +68,22 @@ export function comprometidoRestante(gruposEmAndamento: GrupoDeParcelas[]): numb
   );
 }
 
+/**
+ * Quanto sai **por ciclo** em parcelas — o fluxo, não o estoque.
+ *
+ * ⚠️ Não confundir com `comprometidoRestante`, que é a dívida inteira. Este é o que compara
+ * com a renda mensal; aquele, com o patrimônio. Somar os dois seria somar grandezas
+ * diferentes.
+ *
+ * Cada compra em andamento contribui com exatamente uma parcela por ciclo.
+ */
+export function comprometidoMensal(gruposEmAndamento: GrupoDeParcelas[]): number {
+  return gruposEmAndamento.reduce(
+    (total, grupo) => total + contaDaCompra(grupo).valorParcela,
+    0,
+  );
+}
+
 /** Quantas parcelas ainda vão ser cobradas, somadas todas as compras em andamento. */
 export function parcelasRestantes(gruposEmAndamento: GrupoDeParcelas[]): number {
   return gruposEmAndamento.reduce((total, grupo) => total + contaDaCompra(grupo).faltam, 0);
