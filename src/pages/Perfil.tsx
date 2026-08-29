@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter, TrendingUp, Layers } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter, ArrowLeftRight, Layers } from 'lucide-react';
 import { TETO_TIPOS_ATIVOS, TIPOS_SEMENTE } from '../lib/compromissos';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -9,6 +9,9 @@ export default function Perfil() {
 
   const [tiposCompromisso, setTiposCompromisso] = useState<any[]>([]);
   const [novoTipo, setNovoTipo] = useState('');
+  const [novaEhRenda, setNovaEhRenda] = useState(false);
+  const [arrastando, setArrastando] = useState<string | null>(null);
+  const [alvoRenda, setAlvoRenda] = useState<boolean | null>(null);
   const [editandoTipo, setEditandoTipo] = useState<string | null>(null);
   const [formTipo, setFormTipo] = useState<any>({});
   const [coresList, setCoresList] = useState<any[]>([]);
@@ -119,12 +122,14 @@ export default function Perfil() {
       const { error } = await supabase.from('categories').insert([{
         user_id: user.id,
         nome: newCategoryName.trim(),
-        cor: selectedCor
+        cor: selectedCor,
+        e_renda: novaEhRenda,
       }]);
 
       if (error) throw error;
 
       setNewCategoryName('');
+      setNovaEhRenda(false);
       setIsAdding(false);
       setIsAddColorOpen(false);
       await fetchCategories();
@@ -140,8 +145,8 @@ export default function Perfil() {
    * Nem toda transação positiva é renda: estorno e reembolso entram com valor positivo e
    * não são dinheiro ganho. A marca é o que separa os dois no cálculo de proporção.
    */
-  const toggleRenda = async (category: any) => {
-    const novo = !category.e_renda;
+  const moverPara = async (category: any, novo: boolean) => {
+    if (category.e_renda === novo) return;
     setCategories(prev => prev.map(c => c.id === category.id ? { ...c, e_renda: novo } : c));
 
     const { error } = await supabase
@@ -310,7 +315,10 @@ export default function Perfil() {
       )}
       <header>
         <h2 className="text-3xl font-bold text-text">Seu Perfil</h2>
-        <p className="text-text-light mt-1">Gerencie suas categorias e preferências da conta.</p>
+        <p className="text-text-light mt-1">
+            Aqui você define <strong>o que existe</strong>: as categorias que classificam suas
+            transações, os compromissos que a IA reconhece e o dia em que seu mês começa.
+          </p>
       </header>
 
       <div className="glass-panel p-6">
@@ -410,6 +418,25 @@ export default function Perfil() {
                   className="glass-input flex-1 px-4 py-2"
                 />
               </div>
+
+              {/* ⭐ O lado se escolhe na criação: perguntar depois é o que fazia a categoria
+                  nascer errada e o Dashboard somar reembolso como renda. */}
+              <div className="flex gap-1 p-1 bg-white/40 rounded-xl">
+                {([[false, 'Gasto'], [true, 'Renda']] as const).map(([ehRenda, rotulo]) => (
+                  <button
+                    key={rotulo}
+                    type="button"
+                    onClick={() => setNovaEhRenda(ehRenda)}
+                    className={`flex-1 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                      novaEhRenda === ehRenda
+                        ? ehRenda ? 'bg-[#10b981] text-white' : 'bg-primary text-white'
+                        : 'text-text-light hover:text-text'
+                    }`}
+                  >
+                    {rotulo}
+                  </button>
+                ))}
+              </div>
               <div className="flex gap-2">
                 <button
                   onClick={addCategory}
@@ -435,11 +462,45 @@ export default function Perfil() {
             <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin"></div>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-            {displayedCategories.map((category) => (
+          <div className="space-y-6">
+          {([
+            [true, 'Renda', 'O dinheiro que você ganha. Só estas contam como renda no Dashboard'],
+            [false, 'Gasto', 'Todo o resto'],
+          ] as const).map(([ehRenda, titulo, nota]) => (
+          <section
+            key={String(ehRenda)}
+            onDragOver={(e) => { e.preventDefault(); setAlvoRenda(ehRenda); }}
+            onDragLeave={() => setAlvoRenda(null)}
+            onDrop={(e) => {
+              e.preventDefault();
+              const alvo = displayedCategories.find(c => c.id === e.dataTransfer.getData('text/plain'));
+              if (alvo) moverPara(alvo, ehRenda);
+              setArrastando(null);
+              setAlvoRenda(null);
+            }}
+            className={`rounded-2xl border-2 border-dashed p-4 transition-colors ${
+              alvoRenda === ehRenda && arrastando
+                ? 'border-primary bg-primary/5'
+                : 'border-transparent'
+            }`}
+          >
+            <div className="flex items-baseline gap-2 mb-3">
+              <h4 className={`font-bold ${ehRenda ? 'text-[#10b981]' : 'text-text'}`}>
+                Categorias de {titulo}
+              </h4>
+              <span className="text-xs text-text-light">
+                {displayedCategories.filter(c => !!c.e_renda === ehRenda).length} · {nota}
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+            {displayedCategories.filter(c => !!c.e_renda === ehRenda).map((category) => (
               <div
                 key={category.id}
-                className={`flex items-center justify-between p-3 rounded-xl border border-border bg-white/30 backdrop-blur-sm hover:border-primary/30 transition-colors group ${editingId === category.id ? 'z-30 relative' : 'z-0 relative'}`}
+                draggable={editingId !== category.id}
+                onDragStart={(e) => { e.dataTransfer.setData('text/plain', category.id); setArrastando(category.id); }}
+                onDragEnd={() => { setArrastando(null); setAlvoRenda(null); }}
+                className={`flex items-center justify-between p-3 rounded-xl border border-border bg-white/30 backdrop-blur-sm hover:border-primary/30 transition-all group ${editingId === category.id ? 'z-30 relative' : 'z-0 relative cursor-grab active:cursor-grabbing'} ${arrastando === category.id ? 'opacity-40' : ''}`}
               >
                 {editingId === category.id ? (
                   <div className="flex flex-col gap-3 w-full">
@@ -505,16 +566,14 @@ export default function Perfil() {
                     </div>
                     <div className="flex items-center gap-1">
                       {/* Fica sempre visível quando ligado: é informação, não ação escondida. */}
+                      {/* ⚠️ Arrastar não existe em tela de toque, e o app é usado no celular.
+                          Esta seta faz a mesma coisa e é a única via em telefone. */}
                       <button
-                        onClick={() => toggleRenda(category)}
-                        className={`p-1.5 rounded-lg transition-colors ${category.e_renda
-                          ? 'text-[#10b981] hover:bg-[#10b981]/10'
-                          : 'text-text-light/40 opacity-0 group-hover:opacity-100 hover:text-[#10b981] hover:bg-[#10b981]/10'}`}
-                        title={category.e_renda
-                          ? 'Conta como renda. Clique para desmarcar'
-                          : 'Marcar como categoria de renda'}
+                        onClick={() => moverPara(category, !category.e_renda)}
+                        className="p-1.5 rounded-lg text-text-light/50 opacity-0 group-hover:opacity-100 hover:text-primary hover:bg-primary/10 transition-colors"
+                        title={category.e_renda ? 'Mover para Gasto' : 'Mover para Renda'}
                       >
-                        <TrendingUp size={16} />
+                        {category.e_renda ? <ArrowLeftRight size={16} /> : <ArrowLeftRight size={16} />}
                       </button>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -538,11 +597,16 @@ export default function Perfil() {
               </div>
             ))}
 
-            {displayedCategories.length === 0 && (
-              <div className="col-span-full py-8 text-center text-text-light">
-                Nenhuma categoria encontrada.
+            {displayedCategories.filter(c => !!c.e_renda === ehRenda).length === 0 && (
+              <div className="col-span-full py-6 text-center text-sm text-text-light">
+                {ehRenda
+                  ? 'Nenhuma ainda. Arraste para cá as categorias em que seu dinheiro entra.'
+                  : 'Nenhuma categoria encontrada.'}
               </div>
             )}
+            </div>
+          </section>
+          ))}
           </div>
         )}
       </div>
