@@ -178,21 +178,10 @@ export default function Perfil() {
     setTiposCompromisso(novos ?? []);
   };
 
-  /** ⭐ Desativar tira o tipo do prompt da próxima importação — é o que dá sentido a editar. */
-  const alternarTipo = async (tipo: any) => {
-    const ativos = tiposCompromisso.filter(t => t.ativo).length;
-    if (!tipo.ativo && ativos >= TETO_TIPOS_ATIVOS) {
-      alert(`O limite é ${TETO_TIPOS_ATIVOS} tipos ativos. Desative um para abrir espaço.`);
-      return;
-    }
-    setTiposCompromisso(prev => prev.map(t => t.id === tipo.id ? { ...t, ativo: !t.ativo } : t));
-    await supabase.from('compromissos').update({ ativo: !tipo.ativo }).eq('id', tipo.id);
-  };
-
   const salvarTipo = async (id: string) => {
     const patch = {
       titulo: formTipo.titulo?.trim() || undefined,
-      periodicidade_meses: formTipo.periodicidade_meses ? parseInt(formTipo.periodicidade_meses) : null,
+      periodicidade_dias: formTipo.periodicidade_dias ? parseInt(formTipo.periodicidade_dias) : null,
       dia: formTipo.dia ? parseInt(formTipo.dia) : null,
       valor_mensal: formTipo.valor_mensal ? parseFloat(formTipo.valor_mensal) : null,
     };
@@ -214,6 +203,11 @@ export default function Perfil() {
 
     const slug = titulo.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '')
       .replace(/[^a-z0-9]+/g, '_').replace(/^_|_$/g, '');
+
+    if (tiposCompromisso.length >= TETO_TIPOS_ATIVOS) {
+      alert(`O limite é ${TETO_TIPOS_ATIVOS} compromissos. Exclua um para abrir espaço.`);
+      return;
+    }
 
     const { data, error } = await supabase.from('compromissos')
       .insert([{ user_id: user.id, slug, titulo, origem: 'usuario' }]).select().single();
@@ -561,66 +555,85 @@ export default function Perfil() {
           <h3 className="text-xl font-bold text-text flex items-center gap-2">
             <Layers size={22} className="text-primary" /> Compromissos
           </h3>
-          <span className="text-xs text-text-light">
-            {tiposCompromisso.filter(t => t.ativo).length} de {TETO_TIPOS_ATIVOS} ativos
+          <span className={`text-xs ${tiposCompromisso.length > TETO_TIPOS_ATIVOS ? 'text-danger font-medium' : 'text-text-light'}`}>
+            {tiposCompromisso.length} de {TETO_TIPOS_ATIVOS}
           </span>
         </div>
         <p className="text-sm text-text-light mb-4">
-          Os tipos que a IA reconhece nas suas transações. Desative o que não usa — menos tipos,
-          menos chance de errar. Preencher periodicidade, dia e valor é opcional: ajuda a IA a
-          encontrar os lançamentos certos.
+          Os tipos que a IA reconhece nas suas transações. Exclua o que não usa — menos tipos,
+          menos chance de o modelo forçar encaixe. Preencher periodicidade, dia e valor é opcional:
+          são pistas que ajudam a IA a encontrar os lançamentos certos.
         </p>
 
         <div className="space-y-1">
           {tiposCompromisso.map(tipo => (
             <div key={tipo.id} className="group flex items-center gap-2 p-2 rounded-xl hover:bg-white/50 transition-colors">
-              <button
-                onClick={() => alternarTipo(tipo)}
-                className={`w-4 h-4 rounded shrink-0 border-2 transition-colors ${tipo.ativo
-                  ? 'bg-primary border-primary'
-                  : 'border-border hover:border-primary'}`}
-                title={tipo.ativo ? 'Ativo: entra na leitura da IA' : 'Inativo'}
-              />
-
               {editandoTipo === tipo.id ? (
-                <div className="flex-1 grid grid-cols-2 md:grid-cols-5 gap-2">
+                <div className="flex-1 min-w-0 space-y-2">
                   <input
                     value={formTipo.titulo ?? ''}
                     onChange={e => setFormTipo({ ...formTipo, titulo: e.target.value })}
-                    className="glass-input p-1 text-sm bg-white md:col-span-2"
+                    className="glass-input p-2 text-sm bg-white w-full"
                     placeholder="Nome"
+                    autoFocus
                   />
-                  <input
-                    value={formTipo.periodicidade_meses ?? ''}
-                    onChange={e => setFormTipo({ ...formTipo, periodicidade_meses: e.target.value })}
-                    className="glass-input p-1 text-sm bg-white" placeholder="A cada N meses" type="number"
-                  />
-                  <input
-                    value={formTipo.dia ?? ''}
-                    onChange={e => setFormTipo({ ...formTipo, dia: e.target.value })}
-                    className="glass-input p-1 text-sm bg-white" placeholder="Dia" type="number"
-                  />
-                  <div className="flex gap-1">
-                    <input
-                      value={formTipo.valor_mensal ?? ''}
-                      onChange={e => setFormTipo({ ...formTipo, valor_mensal: e.target.value })}
-                      className="glass-input p-1 text-sm bg-white flex-1" placeholder="R$" type="number" step="0.01"
-                    />
-                    <button onClick={() => salvarTipo(tipo.id)} className="text-primary p-1" title="Salvar">
-                      <Check size={16} />
+                  {/* ⚠️ `inputMode` em vez de `type="number"`: o tipo numérico desenha as setinhas
+                      de incremento, que roubam espaço e não servem para nada aqui. */}
+                  <div className="flex flex-wrap gap-2">
+                    <label className="flex-1 min-w-[104px]">
+                      <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">A cada (dias)</span>
+                      <input
+                        value={formTipo.periodicidade_dias ?? ''}
+                        onChange={e => setFormTipo({ ...formTipo, periodicidade_dias: e.target.value })}
+                        className="glass-input p-2 text-sm bg-white w-full"
+                        inputMode="numeric" placeholder="30"
+                      />
+                    </label>
+                    <label className="flex-1 min-w-[88px]">
+                      <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">Dia do mês</span>
+                      <input
+                        value={formTipo.dia ?? ''}
+                        onChange={e => setFormTipo({ ...formTipo, dia: e.target.value })}
+                        className="glass-input p-2 text-sm bg-white w-full"
+                        inputMode="numeric" placeholder="10"
+                      />
+                    </label>
+                    <label className="flex-1 min-w-[104px]">
+                      <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">Valor</span>
+                      <input
+                        value={formTipo.valor_mensal ?? ''}
+                        onChange={e => setFormTipo({ ...formTipo, valor_mensal: e.target.value })}
+                        className="glass-input p-2 text-sm bg-white w-full"
+                        inputMode="decimal" placeholder="R$"
+                      />
+                    </label>
+                  </div>
+                  <div className="flex justify-end gap-2 pt-1">
+                    <button
+                      onClick={() => setEditandoTipo(null)}
+                      className="px-3 py-1.5 text-sm text-text-light hover:text-text rounded-lg transition-colors"
+                    >
+                      Cancelar
                     </button>
-                    <button onClick={() => setEditandoTipo(null)} className="text-text-light p-1" title="Cancelar">
-                      <X size={16} />
+                    <button
+                      onClick={() => salvarTipo(tipo.id)}
+                      className="flex items-center gap-1 bg-primary text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors"
+                    >
+                      <Check size={14} /> Salvar
                     </button>
                   </div>
                 </div>
               ) : (
                 <>
-                  <div className={`flex-1 min-w-0 ${tipo.ativo ? '' : 'opacity-40'}`}>
+                  <div className="flex-1 min-w-0">
                     <span className="text-sm font-medium text-text">{tipo.titulo}</span>
                     <span className="text-xs text-text-light ml-2">
                       {[
-                        tipo.periodicidade_meses ? (tipo.periodicidade_meses === 1 ? 'mensal' : `a cada ${tipo.periodicidade_meses} meses`) : null,
+                        tipo.periodicidade_dias
+                          ? (tipo.periodicidade_dias === 7 ? 'semanal'
+                            : tipo.periodicidade_dias === 30 ? 'mensal'
+                            : `a cada ${tipo.periodicidade_dias} dias`)
+                          : null,
                         tipo.dia ? `dia ${tipo.dia}` : null,
                         tipo.valor_mensal ? `R$ ${Number(tipo.valor_mensal).toFixed(2).replace('.', ',')}` : null,
                       ].filter(Boolean).join(' · ')}
@@ -630,7 +643,7 @@ export default function Perfil() {
                     <button
                       onClick={() => { setEditandoTipo(tipo.id); setFormTipo({
                         titulo: tipo.titulo,
-                        periodicidade_meses: tipo.periodicidade_meses ?? '',
+                        periodicidade_dias: tipo.periodicidade_dias ?? '',
                         dia: tipo.dia ?? '',
                         valor_mensal: tipo.valor_mensal ?? '',
                       }); }}
