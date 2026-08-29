@@ -628,9 +628,14 @@ export default function Perfil() {
           serve só para orientar a IA; <strong>valor</strong> é somado no comprometido.
         </p>
 
-        <div className="space-y-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {tiposCompromisso.map(tipo => (
-            <div key={tipo.id} className="group flex items-center gap-2 p-2 rounded-xl hover:bg-white/50 transition-colors">
+            <div
+              key={tipo.id}
+              className={`flex items-center justify-between p-3 rounded-xl border border-border bg-white/30 backdrop-blur-sm hover:border-primary/30 transition-colors group ${
+                editandoTipo === tipo.id ? 'md:col-span-2 lg:col-span-3' : ''
+              }`}
+            >
               {editandoTipo === tipo.id ? (
                 <div className="flex-1 min-w-0 space-y-2">
                   <input
@@ -641,7 +646,7 @@ export default function Perfil() {
                     autoFocus
                   />
                   <div className="flex flex-wrap gap-2">
-                    <label className="flex-1 min-w-[180px]">
+                    <label className="flex-1 min-w-[200px]">
                       <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">
                         Quando acontece · pista para a IA
                       </span>
@@ -684,15 +689,19 @@ export default function Perfil() {
               ) : (
                 <>
                   <div className="flex-1 min-w-0">
-                    <span className="text-sm font-medium text-text">{tipo.titulo}</span>
-                    <span className="text-xs text-text-light ml-2">
-                      {[
-                        tipo.periodicidade,
-                        tipo.valor_mensal ? `R$ ${Number(tipo.valor_mensal).toFixed(2).replace('.', ',')}/mês` : null,
-                      ].filter(Boolean).join(' · ')}
-                    </span>
+                    <div className="font-medium text-text truncate" title={tipo.titulo}>
+                      {tipo.titulo}
+                    </div>
+                    {(tipo.periodicidade || tipo.valor_mensal) && (
+                      <div className="text-xs text-text-light truncate">
+                        {[
+                          tipo.periodicidade,
+                          tipo.valor_mensal ? `R$ ${Number(tipo.valor_mensal).toFixed(2).replace('.', ',')}/mês` : null,
+                        ].filter(Boolean).join(' · ')}
+                      </div>
+                    )}
                   </div>
-                  <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
                       onClick={() => { setEditandoTipo(tipo.id); setFormTipo({
                         titulo: tipo.titulo,
@@ -724,7 +733,7 @@ export default function Perfil() {
             onChange={e => setNovoTipo(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && criarTipo()}
             placeholder="Novo compromisso..."
-            className="glass-input flex-1 p-2 text-sm bg-white"
+            className="glass-input flex-1 px-4 py-2 text-sm"
           />
           <button
             onClick={criarTipo}
