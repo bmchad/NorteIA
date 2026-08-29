@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-27
+atualizado_em: 2026-08-29
 ---
 
 # LEIA PRIMEIRO
@@ -13,21 +13,29 @@ atualizado_em: 2026-08-27
 
 ---
 
-## As 7 frases que definem o Balanço Geral
+## As 10 frases que definem o Balanço Geral
 
-1. É um controle financeiro pessoal em que **a IA lê a fatura por você**: print, planilha ou PDF
+1. ⭐⭐ **O produto identifica quanto você está comprometido a pagar, mostra o que sobra, e só então
+   vira consulta de como você gasta.** A ordem é `comprometido → o que sobra → como você gasta`.
+   ⚠️ Isso mudou em 29/08 — antes o objetivo parecia ser extrair, categorizar e consultar. Ver
+   `30-decisoes-e-licoes.md` D-027.
+2. ⭐ **Certeza tem camadas e misturá-las é mentir:** parcela *contratada*, assinatura *recorrente* e
+   mercado *previsível* não são a mesma dívida. O painel nunca mostra um total único.
+3. É um controle financeiro pessoal em que **a IA lê a fatura por você**: print, planilha ou PDF
    entram, transações estruturadas saem.
-2. ⭐ **A IA nunca grava um registro final.** Tudo que ela extrai entra como **rascunho**
+4. ⭐ **A IA nunca grava um registro final.** Tudo que ela extrai entra como **rascunho**
    (`pendente: true`) e só vira registro depois de você revisar em `/novos-registros`.
-3. ⭐ **O mês do Balanço Geral não é o mês do calendário — é o ciclo da fatura.** A fatura de
-   Janeiro vai do dia 6 de Janeiro ao dia 5 de Fevereiro (com `ciclo_dia = 5`).
-4. Todo dado é **por usuário**, isolado por `user_id` no Supabase. Não há administrador nem visão
+5. ⭐ **O mês do Balanço Geral não é o mês do calendário — é o ciclo**, ancorado no dia em que o
+   dinheiro entra. Com `ciclo_dia = 5`, Janeiro vai do dia 6/01 ao dia 5/02.
+6. Todo dado é **por usuário**, isolado por `user_id` no Supabase. Não há administrador nem visão
    agregada entre usuários.
-5. O produto é **pessoal, com ambição de virar produto** — a landing page, o FAQ e a tabela `leads`
+7. ⭐ **É horizontal.** Feito para muitas pessoas, não para um perfil de gasto: decisão de produto
+   se justifica por argumento estrutural, nunca pela frequência de algo no histórico de um usuário.
+8. O produto é **pessoal, com ambição de virar produto** — a landing page, o FAQ e a tabela `leads`
    já existem, mas não há cliente. Ver `11-ambicao-de-produto.md`.
-6. ⭐ **Nenhuma tela fala com o Gemini.** Toda chamada de agente passa pela Edge Function
+9. ⭐ **Nenhuma tela fala com o Gemini.** Toda chamada de agente passa pela Edge Function
    `ai-agents`, onde a chave vive como secret do servidor. Ver `03-agentes-de-ia.md`.
-7. O repositório é **público**, e só metade desta pasta está nele. Ver `30-decisoes-e-licoes.md`
+10. O repositório é **público**, e só metade desta pasta está nele. Ver `30-decisoes-e-licoes.md`
    D-006 — e o aviso logo abaixo.
 
 ---

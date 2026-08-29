@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-28
+atualizado_em: 2026-08-29
 ---
 
 # Glossário
@@ -72,6 +72,30 @@ mesmo valor absoluto, mesmo `parcela_total` e dia de cobrança dentro de ±2 dia
 
 **Em andamento × Concluída** · um grupo está concluído quando o número de parcelas já registradas
 alcança o `parcela_total`. Antes disso, está em andamento.
+
+---
+
+## Compromisso
+
+**Compromisso** · dinheiro que já tem dono antes de você decidir qualquer coisa. Reúne parcela, gasto
+recorrente e gasto previsível numa tela só. ⭐ O termo cobre parcela e assinatura sem mentir sobre
+nenhuma: "recorrente" seria falso para uma compra em 12x, que **acaba**.
+
+⭐ **As três camadas de certeza** · o painel nunca mostra um total único:
+
+| Camada | O que é | Cancelável |
+|---|---|---|
+| **Contratado** | Parcela em andamento. Data de fim conhecida | Não |
+| **Recorrente** | Assinatura, mensalidade. Nome ou valor estáveis | Sim |
+| **Previsível** | Mercado, combustível. Você vai gastar, mas não é contrato | Sim, na teoria |
+
+**Amortizado** · o valor convertido para "quanto sai por mês": `valor ÷ periodicidade`. Uma cobrança
+trimestral de R$ 143,70 amortiza em R$ 47,90/mês. ⚠️ Sem amortizar, uma trimestral entra como mensal
+e infla o comprometido em três vezes.
+
+⚠️ **Entrada × renda** · nem toda transação positiva é renda. Estorno, reembolso e venda entram
+positivos e **não são dinheiro que você ganhou**. `categories.e_renda` marca quais categorias contam.
+Entrada serve para "quanto sobra neste ciclo"; renda, para proporção e projeção. → D-025
 
 ---
 

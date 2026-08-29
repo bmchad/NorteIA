@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-28
+atualizado_em: 2026-08-29
 ---
 
 # Erros comuns — o que se acredita e é falso
@@ -17,6 +17,10 @@ atualizado_em: 2026-08-28
 
 | ❌ Crença errada | ✅ Verdade | Onde conferir |
 |---|---|---|
+| ⭐⭐ O produto serve para consultar quanto se gasta por categoria | É a **terceira** etapa. A ordem é `comprometido → o que sobra → como você gasta`. Consulta sozinha é relatório do passado | `30-decisoes-e-licoes.md` D-027 |
+| O comprometido é um número só | ⭐ São **três camadas de certeza** — contratado, recorrente, previsível — e somá-las esconde o que dá para cancelar | `04-glossario.md` |
+| Toda transação positiva é renda | ⚠️ Não. Estorno, reembolso e venda entram positivos e não são renda. `categories.e_renda` separa | `30-decisoes-e-licoes.md` D-025 |
+| O histórico do Bernardo mede o produto | ⛔ É **horizontal**: uma amostra de um usuário mede o usuário. Decisão se justifica por argumento estrutural | `01-o-que-e-o-balanco-geral.md` |
 | A IA grava a transação direto no histórico | Grava como **rascunho** (`pendente: true`); só a sua revisão a torna real | `03-agentes-de-ia.md` |
 | ⭐ O balanço de Janeiro tem as transações de Janeiro | Tem as do **ciclo** de Janeiro — do dia 6/01 ao dia 5/02, com ciclo 5 | `04-glossario.md` |
 | `data` é o mês em que a transação entra no balanço | Isso é `mes_fatura`. `data` é quando a compra aconteceu | `04-glossario.md` |
