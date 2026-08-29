@@ -6,6 +6,7 @@ import { memoriaDeCategoria } from '../lib/memoria-categoria.ts';
 import { normalizar, type Categoria, type TransacaoBruta } from '../lib/normalizar.ts';
 import { separarEstornos } from '../lib/estornos.ts';
 import { memoriaDeCompromisso, tiposAtivos, vocabularioParaPrompt } from '../lib/compromisso.ts';
+import { aplicarRegras, carregarVocabulario, notasParaPrompt } from '../lib/vocabulario.ts';
 import { montarPrompt, type Modo } from '../prompts/extrair-transacoes.ts';
 
 /**
@@ -80,15 +81,21 @@ export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClien
 
   // O vocabulário de compromissos carrega título e características, nunca as transações de
   // exemplo — é o que impede o prompt de crescer com o histórico.
-  const tipos = await tiposAtivos(supabase);
+  const [tipos, vocabulario] = await Promise.all([
+    tiposAtivos(supabase),
+    carregarVocabulario(supabase),
+  ]);
 
   const prompt = montarPrompt({
     modo,
     cicloDia,
     categorias: categorias.map((c) => c.nome),
-    instrucao: req.instrucao,
     csv,
     compromissos: vocabularioParaPrompt(tipos),
+    // As notas vão junto da instrução avulsa: são a mesma coisa, só que guardadas. As
+    // regras NÃO vêm aqui — elas já rodam no código, sem token.
+    instrucao: [req.instrucao?.trim(), notasParaPrompt(vocabulario.notas).trim()]
+      .filter(Boolean).join(String.fromCharCode(10)) || null,
   });
 
   // A planilha vai como texto dentro do prompt; imagem e PDF vão como conteúdo inline.
@@ -105,7 +112,14 @@ export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClien
 
   // Compra e estorno que se anulam no mesmo lote saem daqui. O front avisa quantos foram:
   // ⚠️ nada some sem o usuário saber. Ver lib/estornos.ts.
-  const { ficam, estornos } = separarEstornos(normalizar(brutas, categorias, memoria, memoriaCompromisso));
+  // ⭐ O que o usuário DECLAROU vence o que ele confirmou e o que a IA inferiu: as regras
+  // são aplicadas por último, sobre o resultado já normalizado. Ver lib/vocabulario.ts.
+  const normalizadas = aplicarRegras(
+    normalizar(brutas, categorias, memoria, memoriaCompromisso),
+    vocabulario.regras,
+  );
+
+  const { ficam, estornos } = separarEstornos(normalizadas);
 
   return { transacoes: ficam, estornos };
 }

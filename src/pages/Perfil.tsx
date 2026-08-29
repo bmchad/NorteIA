@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter, ArrowLeftRight, Layers } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter, ArrowLeftRight, Layers, BookOpen } from 'lucide-react';
 import { TETO_TIPOS_ATIVOS, TIPOS_SEMENTE } from '../lib/compromissos';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -10,6 +10,9 @@ export default function Perfil() {
   const [tiposCompromisso, setTiposCompromisso] = useState<any[]>([]);
   const [novoTipo, setNovoTipo] = useState('');
   const [novaEhRenda, setNovaEhRenda] = useState(false);
+  const [vocabulario, setVocabulario] = useState<any[]>([]);
+  const [novaRegra, setNovaRegra] = useState({ padrao: '', categoria_id: '' });
+  const [novaNota, setNovaNota] = useState('');
   const [arrastando, setArrastando] = useState<string | null>(null);
   const [alvoRenda, setAlvoRenda] = useState<boolean | null>(null);
   const [editandoTipo, setEditandoTipo] = useState<string | null>(null);
@@ -160,7 +163,52 @@ export default function Perfil() {
     }
   };
 
-  useEffect(() => { carregarTipos(); }, []);
+  useEffect(() => { carregarTipos(); carregarVocabulario(); }, []);
+
+  const carregarVocabulario = async () => {
+    const { data } = await supabase.from('vocabulario').select('*').order('criado_em');
+    setVocabulario(data ?? []);
+  };
+
+  /**
+   * Regra: `nome contém X` → categoria. Roda no código, custa zero token, e pega as
+   * variações que a memória de nome exato nunca alcança — `PIX ELIZABETH SILVA` e
+   * `TED ELIZABETH` são o mesmo "Elizabeth".
+   */
+  const criarRegra = async () => {
+    if (!novaRegra.padrao.trim() || !novaRegra.categoria_id) return;
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+
+    const { data, error } = await supabase.from('vocabulario').insert([{
+      user_id: user.id, tipo: 'regra',
+      padrao: novaRegra.padrao.trim(), categoria_id: novaRegra.categoria_id,
+    }]).select().single();
+    if (error) { console.error(error); return; }
+
+    setVocabulario(prev => [...prev, data]);
+    setNovaRegra({ padrao: '', categoria_id: '' });
+  };
+
+  /** ⚠️ Nota é a única forma que custa token: vai ao prompt em toda importação. */
+  const criarNota = async () => {
+    if (!novaNota.trim()) return;
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+
+    const { data, error } = await supabase.from('vocabulario').insert([{
+      user_id: user.id, tipo: 'nota', texto: novaNota.trim(),
+    }]).select().single();
+    if (error) { console.error(error); return; }
+
+    setVocabulario(prev => [...prev, data]);
+    setNovaNota('');
+  };
+
+  const excluirVocabulario = async (id: string) => {
+    setVocabulario(prev => prev.filter(v => v.id !== id));
+    await supabase.from('vocabulario').delete().eq('id', id);
+  };
 
   /**
    * Carrega os tipos de compromisso e semeia os padrão no primeiro acesso.
@@ -609,6 +657,99 @@ export default function Perfil() {
           ))}
           </div>
         )}
+      </div>
+
+      {/* ⭐ Vocabulário — o que só o usuário sabe. A memória de categoria casa nome exato,
+          então nunca aprende que três grafias de "Elizabeth" são a mesma lavanderia. */}
+      <div className="glass-panel p-6">
+        <h3 className="text-xl font-bold text-text flex items-center gap-2 mb-2">
+          <BookOpen size={22} className="text-primary" /> Vocabulário
+        </h3>
+        <p className="text-sm text-text-light mb-5">
+          O que só você sabe. <strong>Regras</strong> são aplicadas direto, sem consultar a IA:
+          use quando um nome sempre significa a mesma coisa. <strong>Notas</strong> vão junto de
+          toda leitura, para o que não é uma correspondência simples.
+        </p>
+
+        <div className="mb-6">
+          <h4 className="font-bold text-text text-sm mb-3">Regras</h4>
+          <div className="space-y-2 mb-3">
+            {vocabulario.filter(v => v.tipo === 'regra').map(v => (
+              <div key={v.id} className="group flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-white/30 backdrop-blur-sm">
+                <span className="text-sm text-text min-w-0">
+                  Se o nome tiver <strong>{v.padrao}</strong> → {' '}
+                  <span style={{ color: categories.find(c => c.id === v.categoria_id)?.cor }}>
+                    {categories.find(c => c.id === v.categoria_id)?.nome ?? '—'}
+                  </span>
+                </span>
+                <button
+                  onClick={() => excluirVocabulario(v.id)}
+                  className="p-1.5 text-text-light hover:text-danger hover:bg-danger/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  title="Excluir"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <input
+              value={novaRegra.padrao}
+              onChange={e => setNovaRegra({ ...novaRegra, padrao: e.target.value })}
+              placeholder="Ex: Elizabeth"
+              className="glass-input px-4 py-2 text-sm flex-1 min-w-[160px]"
+            />
+            <select
+              value={novaRegra.categoria_id}
+              onChange={e => setNovaRegra({ ...novaRegra, categoria_id: e.target.value })}
+              className="glass-input px-4 py-2 text-sm flex-1 min-w-[160px]"
+            >
+              <option value="">Vira qual categoria?</option>
+              {categories.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+            </select>
+            <button
+              onClick={criarRegra}
+              disabled={!novaRegra.padrao.trim() || !novaRegra.categoria_id}
+              className="bg-primary hover:bg-primary-hover text-white px-4 rounded-xl transition-colors disabled:opacity-50"
+            >
+              <PlusCircle size={18} />
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <h4 className="font-bold text-text text-sm mb-3">Notas</h4>
+          <div className="space-y-2 mb-3">
+            {vocabulario.filter(v => v.tipo === 'nota').map(v => (
+              <div key={v.id} className="group flex items-start justify-between gap-3 p-3 rounded-xl border border-border bg-white/30 backdrop-blur-sm">
+                <span className="text-sm text-text-light">{v.texto}</span>
+                <button
+                  onClick={() => excluirVocabulario(v.id)}
+                  className="p-1.5 text-text-light hover:text-danger hover:bg-danger/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity shrink-0"
+                  title="Excluir"
+                >
+                  <Trash2 size={16} />
+                </button>
+              </div>
+            ))}
+          </div>
+          <div className="flex gap-2">
+            <input
+              value={novaNota}
+              onChange={e => setNovaNota(e.target.value)}
+              onKeyDown={e => e.key === 'Enter' && criarNota()}
+              placeholder="Ex: meu cartão XP é usado só em viagens"
+              className="glass-input px-4 py-2 text-sm flex-1"
+            />
+            <button
+              onClick={criarNota}
+              disabled={!novaNota.trim()}
+              className="bg-primary hover:bg-primary-hover text-white px-4 rounded-xl transition-colors disabled:opacity-50"
+            >
+              <PlusCircle size={18} />
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* ⭐ Compromissos — o /perfil é o dono da configuração (D-029). A tela de operação
