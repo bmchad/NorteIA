@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { UploadCloud, FileText, CheckCircle, XCircle, X, Image as ImageIcon, FileSpreadsheet, PlusCircle, ArrowLeft, ChevronDown, ChevronUp, Clock } from 'lucide-react';
+import { UploadCloud, FileText, CheckCircle, XCircle, X, Image as ImageIcon, FileSpreadsheet, PlusCircle, ArrowLeft, ChevronDown, ChevronUp, Clock, Info } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ConfirmModal from '../components/ConfirmModal';
 
@@ -18,6 +18,7 @@ export default function Pendentes() {
   const [cicloDia, setCicloDia] = useState<number>(5);
   const [expandedRascunhos, setExpandedRascunhos] = useState<Set<string>>(new Set());
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
+  const [avisoEstorno, setAvisoEstorno] = useState<string | null>(null);
 
   const toggleRascunho = (id: string) => {
     setExpandedRascunhos(prev => {
@@ -198,8 +199,14 @@ export default function Pendentes() {
     }
 
     const transacoes = (data?.transacoes ?? []) as any[];
+    const estornos = (data?.estornos ?? []) as any[];
+
     if (transacoes.length === 0) {
-      throw new Error('Nenhuma transacao foi encontrada neste arquivo.');
+      throw new Error(
+        estornos.length > 0
+          ? `As ${estornos.length} linhas deste arquivo eram compra e estorno que se anulam. Nada a registrar.`
+          : 'Nenhuma transacao foi encontrada neste arquivo.'
+      );
     }
 
     const { error: erroInsert } = await supabase
@@ -208,6 +215,15 @@ export default function Pendentes() {
     if (erroInsert) throw erroInsert;
 
     await fetchPendentes();
+
+    // ⚠️ Nada some em silencio: se o lote tinha compra e estorno se anulando, o usuario
+    // fica sabendo quantos pares sairam. Ver supabase/functions/ai-agents/lib/estornos.ts.
+    if (estornos.length > 0) {
+      setAvisoEstorno(
+        `${estornos.length / 2} compra(s) estornada(s) foram descartadas: o lancamento e o `
+        + `reembolso se anulam. Nao entraram como despesa nem como entrada.`
+      );
+    }
   };
 
   const processImage = async () => {
@@ -306,7 +322,10 @@ export default function Pendentes() {
         hora: '12:00:00',
         parcela_atual: null,
         parcela_total: null,
-        pendente: true
+        pendente: true,
+        // Sem isto a linha cairia no DEFAULT 'extrato' e entraria nas medições por nome
+        // como se tivesse vindo de um PDF de banco.
+        origem: 'manual'
       }]);
 
       if (error) throw error;
@@ -448,6 +467,20 @@ export default function Pendentes() {
           onConfirm={confirmModal.onConfirm}
           onCancel={() => setConfirmModal({ ...confirmModal, isOpen: false })}
         />
+      )}
+
+      {avisoEstorno && (
+        <div className="glass-panel p-4 flex items-start gap-3 border-l-4 border-primary">
+          <Info size={20} className="text-primary shrink-0 mt-0.5" />
+          <p className="text-sm text-text-light flex-1">{avisoEstorno}</p>
+          <button
+            onClick={() => setAvisoEstorno(null)}
+            className="text-text-light hover:text-text p-1"
+            title="Fechar"
+          >
+            <X size={16} />
+          </button>
+        </div>
       )}
       <header>
         <h2 className="text-3xl font-bold text-text flex items-center gap-3">

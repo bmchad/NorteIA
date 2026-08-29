@@ -4,6 +4,7 @@ import { extrairArrayJson, gerar, type ArquivoInline } from '../lib/gemini.ts';
 import { MODELO } from '../lib/modelos.ts';
 import { memoriaDeCategoria } from '../lib/memoria-categoria.ts';
 import { normalizar, type Categoria, type TransacaoBruta } from '../lib/normalizar.ts';
+import { separarEstornos } from '../lib/estornos.ts';
 import { montarPrompt, type Modo } from '../prompts/extrair-transacoes.ts';
 
 /**
@@ -95,5 +96,9 @@ export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClien
     brutas.map(t => t.nome ?? '').filter(Boolean),
   );
 
-  return { transacoes: normalizar(brutas, categorias, memoria) };
+  // Compra e estorno que se anulam no mesmo lote saem daqui. O front avisa quantos foram:
+  // ⚠️ nada some sem o usuário saber. Ver lib/estornos.ts.
+  const { ficam, estornos } = separarEstornos(normalizar(brutas, categorias, memoria));
+
+  return { transacoes: ficam, estornos };
 }
