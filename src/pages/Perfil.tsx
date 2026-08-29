@@ -649,7 +649,7 @@ export default function Perfil() {
                         value={formTipo.periodicidade ?? ''}
                         onChange={e => setFormTipo({ ...formTipo, periodicidade: e.target.value })}
                         className="glass-input p-2 text-sm bg-white w-full"
-                        placeholder="todo mês, dia 10"
+                        placeholder="Ex: toda semana; todo mês, dia 10..."
                       />
                     </label>
                     {/* ⚠️ Este não é pista: o painel de /compromissos SOMA este número na
