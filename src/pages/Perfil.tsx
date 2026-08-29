@@ -181,8 +181,7 @@ export default function Perfil() {
   const salvarTipo = async (id: string) => {
     const patch = {
       titulo: formTipo.titulo?.trim() || undefined,
-      periodicidade_dias: formTipo.periodicidade_dias ? parseInt(formTipo.periodicidade_dias) : null,
-      dia: formTipo.dia ? parseInt(formTipo.dia) : null,
+      periodicidade: formTipo.periodicidade?.trim() || null,
       valor_mensal: formTipo.valor_mensal ? parseFloat(formTipo.valor_mensal) : null,
     };
     setTiposCompromisso(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t));
@@ -561,8 +560,8 @@ export default function Perfil() {
         </div>
         <p className="text-sm text-text-light mb-4">
           Os tipos que a IA reconhece nas suas transações. Exclua o que não usa — menos tipos,
-          menos chance de o modelo forçar encaixe. Preencher periodicidade, dia e valor é opcional:
-          são pistas que ajudam a IA a encontrar os lançamentos certos.
+          menos chance de o modelo forçar encaixe. <strong>Quando acontece</strong> é texto livre e
+          serve só para orientar a IA; <strong>valor</strong> é somado no comprometido.
         </p>
 
         <div className="space-y-1">
@@ -577,34 +576,29 @@ export default function Perfil() {
                     placeholder="Nome"
                     autoFocus
                   />
-                  {/* ⚠️ `inputMode` em vez de `type="number"`: o tipo numérico desenha as setinhas
-                      de incremento, que roubam espaço e não servem para nada aqui. */}
                   <div className="flex flex-wrap gap-2">
-                    <label className="flex-1 min-w-[104px]">
-                      <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">A cada (dias)</span>
+                    <label className="flex-1 min-w-[180px]">
+                      <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">
+                        Quando acontece · pista para a IA
+                      </span>
                       <input
-                        value={formTipo.periodicidade_dias ?? ''}
-                        onChange={e => setFormTipo({ ...formTipo, periodicidade_dias: e.target.value })}
+                        value={formTipo.periodicidade ?? ''}
+                        onChange={e => setFormTipo({ ...formTipo, periodicidade: e.target.value })}
                         className="glass-input p-2 text-sm bg-white w-full"
-                        inputMode="numeric" placeholder="30"
+                        placeholder="todo mês, dia 10"
                       />
                     </label>
-                    <label className="flex-1 min-w-[88px]">
-                      <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">Dia do mês</span>
-                      <input
-                        value={formTipo.dia ?? ''}
-                        onChange={e => setFormTipo({ ...formTipo, dia: e.target.value })}
-                        className="glass-input p-2 text-sm bg-white w-full"
-                        inputMode="numeric" placeholder="10"
-                      />
-                    </label>
-                    <label className="flex-1 min-w-[104px]">
-                      <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">Valor</span>
+                    {/* ⚠️ Este não é pista: o painel de /compromissos SOMA este número na
+                        camada "Previsível". Por isso o rótulo diz para onde ele vai. */}
+                    <label className="flex-1 min-w-[150px]">
+                      <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">
+                        Valor · entra no comprometido
+                      </span>
                       <input
                         value={formTipo.valor_mensal ?? ''}
                         onChange={e => setFormTipo({ ...formTipo, valor_mensal: e.target.value })}
                         className="glass-input p-2 text-sm bg-white w-full"
-                        inputMode="decimal" placeholder="R$"
+                        inputMode="decimal" placeholder="R$ por mês"
                       />
                     </label>
                   </div>
@@ -629,13 +623,8 @@ export default function Perfil() {
                     <span className="text-sm font-medium text-text">{tipo.titulo}</span>
                     <span className="text-xs text-text-light ml-2">
                       {[
-                        tipo.periodicidade_dias
-                          ? (tipo.periodicidade_dias === 7 ? 'semanal'
-                            : tipo.periodicidade_dias === 30 ? 'mensal'
-                            : `a cada ${tipo.periodicidade_dias} dias`)
-                          : null,
-                        tipo.dia ? `dia ${tipo.dia}` : null,
-                        tipo.valor_mensal ? `R$ ${Number(tipo.valor_mensal).toFixed(2).replace('.', ',')}` : null,
+                        tipo.periodicidade,
+                        tipo.valor_mensal ? `R$ ${Number(tipo.valor_mensal).toFixed(2).replace('.', ',')}/mês` : null,
                       ].filter(Boolean).join(' · ')}
                     </span>
                   </div>
@@ -643,8 +632,7 @@ export default function Perfil() {
                     <button
                       onClick={() => { setEditandoTipo(tipo.id); setFormTipo({
                         titulo: tipo.titulo,
-                        periodicidade_dias: tipo.periodicidade_dias ?? '',
-                        dia: tipo.dia ?? '',
+                        periodicidade: tipo.periodicidade ?? '',
                         valor_mensal: tipo.valor_mensal ?? '',
                       }); }}
                       className="p-1.5 text-text-light hover:text-primary hover:bg-primary/10 rounded-lg"

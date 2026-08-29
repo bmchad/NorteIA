@@ -22,9 +22,14 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 export interface TipoAtivo {
   slug: string;
   titulo: string;
-  /** ⚠️ Em DIAS. `fixos.periodicidade_meses` é outra grandeza, em meses. */
-  periodicidade_dias: number | null;
-  dia: number | null;
+  /**
+   * Texto livre escrito pelo usuário: "todo mês", "2 vezes por semana", "todo dia 10".
+   *
+   * ⭐ É pista, não regra — **nenhum código interpreta este campo**. Ele existe para ser
+   * lido pelo modelo, e para o modelo essas três formas são igualmente compreensíveis.
+   * Estruturar o que só vira frase seria cerimônia sem ganho.
+   */
+  periodicidade: string | null;
   valor_mensal: number | null;
 }
 
@@ -37,7 +42,7 @@ export interface TipoAtivo {
 export async function tiposAtivos(supabase: SupabaseClient): Promise<TipoAtivo[]> {
   const { data, error } = await supabase
     .from('compromissos')
-    .select('slug, titulo, periodicidade_dias, dia, valor_mensal')
+    .select('slug, titulo, periodicidade, valor_mensal')
     .eq('ativo', true)
     .order('titulo');
 
@@ -101,12 +106,8 @@ export function vocabularioParaPrompt(tipos: TipoAtivo[]): string {
 
   const linhas = tipos.map(t => {
     const pistas: string[] = [];
-    if (t.periodicidade_dias) {
-      const d = t.periodicidade_dias;
-      pistas.push(d === 1 ? 'diário' : d === 7 ? 'semanal' : d === 30 ? 'mensal' : `a cada ${d} dias`);
-    }
-    if (t.dia) pistas.push(`por volta do dia ${t.dia}`);
-    if (t.valor_mensal) pistas.push(`cerca de R$ ${Number(t.valor_mensal).toFixed(2)}`);
+    if (t.periodicidade?.trim()) pistas.push(t.periodicidade.trim());
+    if (t.valor_mensal) pistas.push(`cerca de R$ ${Number(t.valor_mensal).toFixed(2)} por mês`);
     return `- "${t.slug}": ${t.titulo}${pistas.length ? ` (${pistas.join(', ')})` : ''}`;
   });
 
