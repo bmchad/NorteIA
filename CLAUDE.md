@@ -145,6 +145,12 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
 6. ⭐ **A regra de ciclo mora só em `src/lib/ciclo.ts`.** Nunca reimplemente localmente — foi assim
    que o Dashboard e o `/meses` passaram a discordar por um ano inteiro. → D-007
 7. ⭐ **Nenhuma tela chama um LLM.** Agente de IA se pede à `ai-agents` pelo nome. → D-012
+8. ⭐ **Determinístico primeiro.** Classificação tenta uma regra sobre o dado que já existe; a IA só
+   entra no que a regra não alcança. O que a regra resolve não vai ao prompt. → D-028
+9. ⭐ **Um limiar só: 3.** Memória de categoria, detecção de recorrente e proposta de compromisso
+   usam o mesmo número. Não invente um quarto.
+10. ⭐ **`/perfil` é o dono da configuração.** Tela de operação que precisa configurar **navega** para
+    lá, não abre editor próprio. → D-029
 
 ---
 
