@@ -8,6 +8,11 @@ import { comprometidoMensal, comprometidoRestante, parcelasRestantes } from '../
 export default function Dashboard() {
   const [ano, setAno] = useState(new Date().getFullYear().toString());
   const [entradas, setEntradas] = useState(0);
+  // Renda é o subconjunto das entradas que vem de categoria marcada como renda. Estorno e
+  // reembolso entram positivos e NÃO são renda -- somá-los infla o divisor e faz o
+  // comprometimento parecer menor do que é. Ver context/30-decisoes-e-licoes.md D-025.
+  const [renda, setRenda] = useState(0);
+  const [temCategoriaRenda, setTemCategoriaRenda] = useState(true);
   const [saidas, setSaidas] = useState(0);
   const [mesesAtivos, setMesesAtivos] = useState(1);
   const [loading, setLoading] = useState(true);
@@ -156,7 +161,18 @@ export default function Dashboard() {
 
       if (error) throw error;
 
+      // Enquanto o usuário não marcar nenhuma categoria, `rendaIds` fica vazio e a tela cai
+      // no comportamento antigo: toda entrada conta como renda, com um aviso discreto.
+      const { data: cats } = await supabase
+        .from('categories')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('e_renda', true);
+      const rendaIds = new Set((cats ?? []).map(c => c.id));
+      setTemCategoriaRenda(rendaIds.size > 0);
+
       let inTotal = 0;
+      let rendaTotal = 0;
       let outTotal = 0;
       const uniqueMonths = new Set();
 
@@ -166,13 +182,17 @@ export default function Dashboard() {
         const cycleKey = getCycleKey(t.data, t.mes_fatura, ciclo);
         if (!cycleKey.startsWith(ano)) return;
 
-        if (t.valor >= 0) inTotal += Number(t.valor);
+        if (t.valor >= 0) {
+          inTotal += Number(t.valor);
+          if (rendaIds.size === 0 || rendaIds.has(t.categoria_id)) rendaTotal += Number(t.valor);
+        }
         else outTotal += Math.abs(Number(t.valor));
 
         uniqueMonths.add(cycleKey);
       });
 
       setEntradas(inTotal);
+      setRenda(rendaTotal);
       setSaidas(outTotal);
       setMesesAtivos(uniqueMonths.size > 0 ? uniqueMonths.size : 1);
 
@@ -321,9 +341,14 @@ export default function Dashboard() {
                   </div>
                 </div>
                 <span className="text-2xl font-bold text-danger mt-2">R$ {mensalParcelas.toFixed(2).replace('.', ',')}</span>
-                {entradas > 0 ? (
-                  <span className="text-[10px] text-text-light uppercase" title="Quanto da sua renda média já tem dono antes de você decidir qualquer coisa">
-                    {((mensalParcelas / (entradas / mesesAtivos)) * 100).toFixed(0)}% da renda média
+                {renda > 0 ? (
+                  <span
+                    className="text-[10px] text-text-light uppercase"
+                    title={temCategoriaRenda
+                      ? 'Quanto da sua renda média já tem dono antes de você decidir qualquer coisa'
+                      : 'Somando toda entrada, inclusive estorno e reembolso. Marque suas categorias de renda no Perfil para este número ficar exato'}
+                  >
+                    {((mensalParcelas / (renda / mesesAtivos)) * 100).toFixed(0)}% da renda média{temCategoriaRenda ? '' : ' *'}
                   </span>
                 ) : (
                   <span className="text-[10px] text-text-light uppercase">Em parcelas</span>

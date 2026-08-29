@@ -120,7 +120,7 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
 |---|---|---|
 | `transactions` | a tabela central, uma linha por lançamento | `user_id` |
 | `profiles` | ⭐ `id` + `email`, criada pelo trigger `handle_new_user` a cada cadastro. Dispara o e-mail de boas-vindas; nenhuma tela lê | `id` |
-| `categories` | categorias do usuário (nome + cor); 27 semeadas no 1º acesso | `user_id` |
+| `categories` | categorias do usuário (nome + cor + `e_renda`); 27 semeadas no 1º acesso | `user_id` |
 | `fixos` | despesas recorrentes (nome, valor, dia) — **hoje desligadas dos balanços** | `user_id` |
 | `memory` | ⚠️ não é memória de IA: guarda `ciclo_dia` e as Notas do Dashboard, 1 linha por usuário | `user_id` |
 | `cores` | ⭐ paleta **global**, sem dono. RLS ligada: legível por todos, **gravável por ninguém** | — |

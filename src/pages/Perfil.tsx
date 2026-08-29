@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter, TrendingUp } from 'lucide-react';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function Perfil() {
@@ -125,6 +125,27 @@ export default function Perfil() {
     } catch (error) {
       console.error('Erro ao adicionar categoria:', error);
       alert('Erro ao adicionar categoria.');
+    }
+  };
+
+  /**
+   * Marca ou desmarca a categoria como renda.
+   *
+   * Nem toda transação positiva é renda: estorno e reembolso entram com valor positivo e
+   * não são dinheiro ganho. A marca é o que separa os dois no cálculo de proporção.
+   */
+  const toggleRenda = async (category: any) => {
+    const novo = !category.e_renda;
+    setCategories(prev => prev.map(c => c.id === category.id ? { ...c, e_renda: novo } : c));
+
+    const { error } = await supabase
+      .from('categories')
+      .update({ e_renda: novo })
+      .eq('id', category.id);
+
+    if (error) {
+      console.error('Erro ao marcar categoria como renda:', error);
+      setCategories(prev => prev.map(c => c.id === category.id ? { ...c, e_renda: !novo } : c));
     }
   };
 
@@ -414,6 +435,20 @@ export default function Perfil() {
                       <span className="font-medium text-text truncate" title={category.nome}>
                         {category.nome}
                       </span>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {/* Fica sempre visível quando ligado: é informação, não ação escondida. */}
+                      <button
+                        onClick={() => toggleRenda(category)}
+                        className={`p-1.5 rounded-lg transition-colors ${category.e_renda
+                          ? 'text-[#10b981] hover:bg-[#10b981]/10'
+                          : 'text-text-light/40 opacity-0 group-hover:opacity-100 hover:text-[#10b981] hover:bg-[#10b981]/10'}`}
+                        title={category.e_renda
+                          ? 'Conta como renda. Clique para desmarcar'
+                          : 'Marcar como categoria de renda'}
+                      >
+                        <TrendingUp size={16} />
+                      </button>
                     </div>
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
