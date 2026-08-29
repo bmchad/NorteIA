@@ -79,6 +79,9 @@ src/
   App.tsx              rotas + guarda de sessão
   lib/supabase.ts      cliente único
   lib/ciclo.ts         ⭐ a regra de ciclo de fatura — dono único, usada por /meses e /dashboard
+  lib/parcelas.ts      a conta de uma compra parcelada e a projeção por ciclo
+  lib/fixos-propostos.ts  ⭐ a cascata de detecção. A ordem importa e quebra em silêncio
+  lib/compromissos.ts  a lista semente de tipos e a amortização por rótulo
   lib/parcelas.ts      comprometido restante e projeção por ciclo — usada por /parcelas e /dashboard
   components/
     Layout.tsx         sidebar + navegação das telas autenticadas
@@ -105,6 +108,7 @@ npx supabase db dump --linked -f supabase-backup/supabase/schema.sql
 ```
 
 **Rotas:** `/` (landing pública) · `/login` · `/dashboard` · `/meses` · `/novos-registros` ·
+⭐ `/compromissos` (⚠️ `/fixos` e `/parcelas` redirecionam para cá) ·
 `/fixos` · `/parcelas` · `/historico` · `/perfil`. Tudo exceto `/` e `/login` exige sessão e
 redireciona sem ela.
 
@@ -123,6 +127,8 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
 | `categories` | categorias do usuário (nome + cor + `e_renda`); 27 semeadas no 1º acesso | `user_id` |
 | `fixos` | despesas recorrentes (nome, valor, dia) — **hoje desligadas dos balanços** | `user_id` |
 | `memory` | ⚠️ não é memória de IA: guarda `ciclo_dia` e as Notas do Dashboard, 1 linha por usuário | `user_id` |
+| `compromissos` | ⭐ tipos que a IA reconhece **e** o compromisso detectado — 1:1, uma tabela só | `user_id` |
+| `vocabulario` | regras (`nome contém X` → categoria) e notas para o prompt (D-030) | `user_id` |
 | `cores` | ⭐ paleta **global**, sem dono. RLS ligada: legível por todos, **gravável por ninguém** | — |
 | `leads` | contatos da landing; única escrita sem autenticação | — |
 

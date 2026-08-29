@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-28
+atualizado_em: 2026-08-29
 ---
 
 # As páginas do Balanço Geral
@@ -93,36 +93,34 @@ as transações prontas; só o insert é dela. O detalhe está em `03-agentes-de
 
 ---
 
-## `/fixos` · Gastos Fixos
+## ⭐ `/compromissos` · Compromissos
 
-`src/pages/Fixos.tsx` · lê e escreve `fixos`
+`src/pages/Compromissos.tsx` · lê `transactions`, `fixos` e `compromissos`
 
-Cadastro manual de despesas recorrentes: nome, valor e (opcional) dia do mês. Filtra entre "com
-dia" e "sem dia", ordena e soma o total mensal comprometido.
+⭐⭐ **A tela central do produto.** Reúne tudo que já tem dono antes de você decidir qualquer coisa.
+Substitui `/fixos` e `/parcelas`, que agora redirecionam para cá.
 
-⭐ **Hoje é só um registro paralelo:** um gasto fixo **não** gera transação automaticamente nem
-aparece nos balanços. Automatizar isso está em `10-proximos-passos.md`.
+**O painel nunca mostra um total único** — três camadas de certeza, porque somá-las esconderia o que
+dá para cancelar:
 
----
+| Camada | De onde vem | Cancelável |
+|---|---|---|
+| **Contratado** | parcelas em andamento (`src/lib/parcelas.ts`) | não, tem data de fim |
+| **Recorrente** | cascata 1.b/1.a (`src/lib/fixos-propostos.ts`) | sim |
+| **Previsível** | rótulo de compromisso (`src/lib/compromissos.ts`) | sim, na teoria |
 
-## `/parcelas` · Parcelas
+⛔ **As três somam conjuntos disjuntos**, e é a cascata que garante isso: uma transação reivindicada
+por uma regra não fica disponível para a seguinte. Se houver dupla contagem, o número do painel é
+errado — e o painel é a tese.
 
-`src/pages/Parcelas.tsx` · lê e apaga `transactions`
+**Duas sub-abas:** *Gastos fixos* (propostas com evidência, ativos, e cadastro manual) e *Parcelas*.
 
-Lista só as transações com `parcela_total` preenchido e as **agrupa por compra**, usando uma
-heurística: mesmo valor absoluto, mesmo `parcela_total` e data de cobrança próxima (tolerância de
-±2 dias, com tratamento para virada de mês). Cada grupo é classificado em **Em andamento**
-(parcelas registradas < total) ou **Concluídas**.
+**Propostas** têm três naturezas: *criar*, *corrigir* (casa com um fixo mas o valor ou o dia
+divergem) e *encerrar* (sem lançamento há dois ciclos além da periodicidade). Cada uma mostra os
+lançamentos que a geraram — proposta que não se explica não é aceita nem revista.
 
-⭐ **No topo, o comprometido restante:** quanto ainda falta pagar somando as compras em andamento, e
-a saída projetada por ciclo nos próximos seis. O cálculo vive em `src/lib/parcelas.ts`, não na tela,
-porque o mesmo total aparece no Dashboard.
-
-⭐ O agrupamento **ignora o nome do estabelecimento de propósito**. O nome vem sujo do extrato e
-muda entre faturas da mesma compra; valor, total de parcelas e dia de cobrança não mudam. Ver
-`30-decisoes-e-licoes.md` D-008.
-
----
+⚠️ **`fixos` é consultativa.** Aceitar não lança transação: um fixo que se auto-lança duplica em
+silêncio quando o lançamento real chega pelo extrato.
 
 ## `/historico` · Histórico
 
@@ -144,11 +142,20 @@ automática lê o histórico confirmado, então cada correção entra no placar 
 
 ## `/perfil` · Perfil
 
-`src/pages/Perfil.tsx` · lê e escreve `categories` e `memory.ciclo_dia`, lê `cores`
+`src/pages/Perfil.tsx` · lê e escreve `categories`, `vocabulario`, `compromissos` e `memory`
 
-Duas coisas: gestão de **categorias** (criar, renomear, recolorir a partir da paleta global da
-tabela `cores`, excluir, buscar) e o **dia do ciclo** — o número que define onde cada fatura começa
-e termina em todo o resto do sistema.
+⭐ **É o dono da configuração** (D-029): aqui se define **o que existe**; a tela de operação trabalha
+com **o que foi encontrado**. Quatro seções:
 
-⭐ Mudar `ciclo_dia` reagrupa retroativamente todo o `/meses`. É o campo de maior alcance do
-sistema.
+**Categorias** · duas listas lado a lado, **Renda** e **Gasto**, e mover entre elas é arrastar (com
+uma seta discreta como alternativa, porque arrastar não existe em tela de toque). O lado se escolhe
+na criação. ⚠️ Só as de renda entram no divisor de "% da renda" do Dashboard → D-025
+
+**Vocabulário** · o que só o usuário sabe. **Regras** (`nome contém X` → categoria) rodam no código,
+sem token; **notas** vão ao prompt. → D-030
+
+**Compromissos** · os tipos que a IA reconhece, semeados no primeiro acesso e editáveis. Cada um tem
+uma periodicidade em **texto livre** — pista para a IA, nenhum código a interpreta — e um valor, que
+⚠️ **entra na camada Previsível do painel**. Teto de 25.
+
+**Ciclos** · o `ciclo_dia`, o campo de maior alcance do sistema.
