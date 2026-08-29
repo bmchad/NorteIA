@@ -21,6 +21,7 @@ export interface TransacaoBruta {
   parcela_atual?: number | null;
   parcela_total?: number | null;
   categoria_sugerida?: string | null;
+  compromisso?: string | null;
 }
 
 /** Uma linha pronta para insert. Falta so o `user_id`, que o frontend acrescenta. */
@@ -36,6 +37,7 @@ export interface TransacaoNormalizada {
   parcela_atual: number | null;
   parcela_total: number | null;
   pendente: true;
+  compromisso: string | null;
 }
 
 export interface Categoria {
@@ -81,6 +83,7 @@ export function normalizar(
   brutas: TransacaoBruta[],
   categorias: Categoria[],
   memoria: Map<string, string> = new Map(),
+  memoriaCompromisso: Map<string, string> = new Map(),
 ): TransacaoNormalizada[] {
   const linhas: TransacaoNormalizada[] = [];
 
@@ -103,6 +106,9 @@ export function normalizar(
       parcela_atual: t.parcela_atual ?? null,
       parcela_total: t.parcela_total ?? null,
       pendente: true,
+      // O rótulo que o nome já recebeu vence o da IA: é determinístico e estável, e
+      // atribuição manual do usuário está na frente da fila. Ver lib/compromisso.ts.
+      compromisso: memoriaCompromisso.get(t.nome) ?? t.compromisso ?? null,
     });
   }
 

@@ -6,9 +6,8 @@ import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import Pendentes from './pages/Pendentes';
 import Meses from './pages/Meses';
-import Parcelas from './pages/Parcelas';
 import Perfil from './pages/Perfil';
-import Fixos from './pages/Fixos';
+import Compromissos from './pages/Compromissos';
 import Historico from './pages/Historico';
 import Layout from './components/Layout';
 import type { Session } from '@supabase/supabase-js';
@@ -54,8 +53,10 @@ function App() {
         <Route path="/novos-registros" element={session ? <Layout><Pendentes /></Layout> : <Navigate to="/login" replace />} />
         <Route path="/meses" element={session ? <Layout><Meses /></Layout> : <Navigate to="/login" replace />} />
         <Route path="/historico" element={session ? <Layout><Historico /></Layout> : <Navigate to="/login" replace />} />
-        <Route path="/parcelas" element={session ? <Layout><Parcelas /></Layout> : <Navigate to="/login" replace />} />
-        <Route path="/fixos" element={session ? <Layout><Fixos /></Layout> : <Navigate to="/login" replace />} />
+        <Route path="/compromissos" element={session ? <Layout><Compromissos /></Layout> : <Navigate to="/login" replace />} />
+        {/* ⚠️ Link salvo não pode morrer: as duas telas viraram uma. */}
+        <Route path="/parcelas" element={<Navigate to="/compromissos" replace />} />
+        <Route path="/fixos" element={<Navigate to="/compromissos" replace />} />
         <Route path="/perfil" element={session ? <Layout><Perfil /></Layout> : <Navigate to="/login" replace />} />
         
         <Route path="*" element={<Navigate to="/" replace />} />

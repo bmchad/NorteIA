@@ -5,6 +5,7 @@ import { MODELO } from '../lib/modelos.ts';
 import { memoriaDeCategoria } from '../lib/memoria-categoria.ts';
 import { normalizar, type Categoria, type TransacaoBruta } from '../lib/normalizar.ts';
 import { separarEstornos } from '../lib/estornos.ts';
+import { memoriaDeCompromisso, tiposAtivos, vocabularioParaPrompt } from '../lib/compromisso.ts';
 import { montarPrompt, type Modo } from '../prompts/extrair-transacoes.ts';
 
 /**
@@ -77,12 +78,17 @@ export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClien
   const { modo, arquivos, csv } = validar(req);
   const { cicloDia, categorias } = await contextoDoUsuario(supabase);
 
+  // O vocabulário de compromissos carrega título e características, nunca as transações de
+  // exemplo — é o que impede o prompt de crescer com o histórico.
+  const tipos = await tiposAtivos(supabase);
+
   const prompt = montarPrompt({
     modo,
     cicloDia,
     categorias: categorias.map((c) => c.nome),
     instrucao: req.instrucao,
     csv,
+    compromissos: vocabularioParaPrompt(tipos),
   });
 
   // A planilha vai como texto dentro do prompt; imagem e PDF vão como conteúdo inline.
@@ -91,14 +97,15 @@ export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClien
 
   // O que o usuário já ensinou vale mais que o palpite do modelo, para os nomes que ele
   // já confirmou 3 vezes ou mais. Invisível para ele. Ver lib/memoria-categoria.ts.
-  const memoria = await memoriaDeCategoria(
-    supabase,
-    brutas.map(t => t.nome ?? '').filter(Boolean),
-  );
+  const nomes = brutas.map(t => t.nome ?? '').filter(Boolean);
+  const [memoria, memoriaCompromisso] = await Promise.all([
+    memoriaDeCategoria(supabase, nomes),
+    memoriaDeCompromisso(supabase, nomes),
+  ]);
 
   // Compra e estorno que se anulam no mesmo lote saem daqui. O front avisa quantos foram:
   // ⚠️ nada some sem o usuário saber. Ver lib/estornos.ts.
-  const { ficam, estornos } = separarEstornos(normalizar(brutas, categorias, memoria));
+  const { ficam, estornos } = separarEstornos(normalizar(brutas, categorias, memoria, memoriaCompromisso));
 
   return { transacoes: ficam, estornos };
 }
