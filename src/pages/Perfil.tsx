@@ -451,10 +451,14 @@ export default function Perfil() {
       )}
       <header>
         <h2 className="text-3xl font-bold text-primary">Seu Perfil</h2>
+        {/* ⚠️ A frase enumera as seções da tela, na ordem em que elas aparecem. Seção nova
+            entra aqui também — senão a promessa "aqui você define o que existe" fica menor
+            que a página. */}
         <p className="text-text-light mt-1">
-            Aqui você define <strong>o que existe</strong>: as categorias que classificam suas
-            transações, os compromissos que a IA reconhece e o dia em que seu mês começa.
-          </p>
+          Aqui você define <strong>o que existe</strong>: as categorias que classificam suas
+          transações, o vocabulário que traduz os nomes do extrato, os compromissos que a IA
+          reconhece e o dia em que seu mês começa.
+        </p>
       </header>
 
       <div className="glass-panel p-6">
