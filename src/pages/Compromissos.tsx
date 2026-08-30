@@ -310,6 +310,9 @@ export default function Compromissos() {
         .map(t => ({ user_id: user.id, slug, transaction_id: t.id }));
 
       if (novos.length > 0) {
+        // ⚠️ O trigger marca estas como `compromisso_manual`. Aqui isso é no-op de rótulo
+        // (elas já têm o slug, foi por ele que foram detectadas), mas passa a protegê-las
+        // de a IA mudar de ideia na importação seguinte — que é o certo: você aceitou.
         const { error } = await supabase.from('compromisso_exemplos').insert(novos);
         if (error) console.error('Exemplos não gravados; o valor fixado continua valendo:', error);
       }

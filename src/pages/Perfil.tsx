@@ -281,6 +281,9 @@ export default function Perfil() {
   const adicionarExemplo = async (slug: string, transactionId: string) => {
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) return;
+    // ⭐ Isto também ROTULA a transação (`compromisso` + `compromisso_manual`), por trigger
+    // no banco — ver 20260830180000_exemplo_rotula_transacao.sql. Declarar que ela é daquele
+    // tipo e fazê-la contar são a mesma coisa, então a regra mora num lugar só.
     const { error } = await supabase
       .from('compromisso_exemplos')
       .insert([{ user_id: user.id, slug, transaction_id: transactionId }]);
@@ -296,6 +299,12 @@ export default function Perfil() {
     await carregarExemplos();
   };
 
+  /**
+   * ⚠️ Isto também TIRA o rótulo da transação, por trigger — e de propósito: a razão mais
+   * comum de remover um exemplo é ter clicado errado, e um desfazer que deixa metade do
+   * efeito no lugar não é desfazer. ⭐ Só limpa se o rótulo ainda for aquele slug: transação
+   * reclassificada depois não perde a classificação nova.
+   */
   const removerExemplo = async (id: string) => {
     await supabase.from('compromisso_exemplos').delete().eq('id', id);
     await carregarExemplos();
@@ -345,6 +354,8 @@ export default function Perfil() {
     if (error) { alert('Já existe um compromisso com esse nome.'); return; }
 
     if (novasTransacoes.length > 0) {
+      // ⭐ O trigger rotula cada uma com o slug novo, então o tipo já nasce contando na
+      // camada Previsível em vez de esperar uma importação.
       const { error: erroExemplos } = await supabase.from('compromisso_exemplos').insert(
         novasTransacoes.slice(0, TETO_EXEMPLOS)
           .map(t => ({ user_id: user.id, slug, transaction_id: t.id })),
