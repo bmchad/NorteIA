@@ -4,26 +4,12 @@ import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter, A
 import { TETO_EXEMPLOS, TETO_TIPOS_ATIVOS, TIPOS_SEMENTE } from '../lib/compromissos';
 import ConfirmModal from '../components/ConfirmModal';
 import ExemplosDoCompromisso from '../components/ExemplosDoCompromisso';
-
-/**
- * As quatro ordens do catálogo de exemplos.
- *
- * ⚠️ `valor` é assinado e saída é negativa, então **maior gasto = ordem crescente do número**.
- * Chamar de "maiores"/"menores" no rótulo e guardar `ascending` aqui evita que alguém leia
- * `ascending: true` na consulta e ache que está errado.
- */
-const ORDEM_EXEMPLO: Record<string, { campo: string; asc: boolean }> = {
-  recentes: { campo: 'data', asc: false },
-  antigas: { campo: 'data', asc: true },
-  maiores: { campo: 'valor', asc: true },
-  menores: { campo: 'valor', asc: false },
-};
+import SeletorDeTransacoes, { type TransacaoEscolhida } from '../components/SeletorDeTransacoes';
 
 export default function Perfil() {
   const [categories, setCategories] = useState<any[]>([]);
 
   const [tiposCompromisso, setTiposCompromisso] = useState<any[]>([]);
-  const [novoTipo, setNovoTipo] = useState('');
   const [novaEhRenda, setNovaEhRenda] = useState(false);
   const [vocabulario, setVocabulario] = useState<any[]>([]);
   const [novaRegra, setNovaRegra] = useState({ padrao: '', categoria_id: '' });
@@ -33,12 +19,9 @@ export default function Perfil() {
   const [editandoTipo, setEditandoTipo] = useState<string | null>(null);
   const [formTipo, setFormTipo] = useState<any>({});
   const [exemplos, setExemplos] = useState<any[]>([]);
-  const [buscaExemplo, setBuscaExemplo] = useState('');
-  const [catalogo, setCatalogo] = useState<any[]>([]);
-  const [limiteCatalogo, setLimiteCatalogo] = useState(100);
-  const [carregandoCatalogo, setCarregandoCatalogo] = useState(false);
-  const [ordemExemplo, setOrdemExemplo] = useState<'recentes' | 'antigas' | 'maiores' | 'menores'>('recentes');
-  const [catExemplo, setCatExemplo] = useState('');
+  const [criando, setCriando] = useState(false);
+  const [formNovo, setFormNovo] = useState({ titulo: '', periodicidade: '', valor_mensal: '' });
+  const [novasTransacoes, setNovasTransacoes] = useState<TransacaoEscolhida[]>([]);
   const [coresList, setCoresList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -279,51 +262,21 @@ export default function Perfil() {
   };
 
   /**
-   * O catálogo de transações para escolher exemplos — rolável, como no /historico.
+   * Os exemplos de um tipo, na forma que o seletor entende.
    *
-   * ⭐ Rolar antes de buscar. Exigir que o usuário digitasse para ver qualquer coisa supõe
-   * que ele já sabe o nome que procura, e o nome do extrato é justamente o que ninguém
-   * lembra. A busca continua existindo: filtra a mesma lista, não a substitui.
-   *
-   * ⚠️ Paginado no servidor, não filtrado em memória: são três anos de transações, e trazer
-   * tudo para o /perfil seria desperdício. `Buscar +` amplia a janela, igual ao /historico.
+   * ⚠️ Vêm de `exemplos`, não do catálogo: uma transação de 2024 pode não estar na janela
+   * carregada, e sumiria da tela se dependesse dela.
    */
-  const carregarCatalogo = async () => {
-    setCarregandoCatalogo(true);
-    try {
-      let consulta = supabase
-        .from('transactions')
-        .select('id, data, nome, apelido, valor')
-        .eq('pendente', false)
-        .lt('valor', 0);
-
-      const termo = buscaExemplo.trim();
-      if (termo.length >= 2) {
-        consulta = consulta.or(`nome.ilike.%${termo}%,apelido.ilike.%${termo}%`);
-      }
-      if (catExemplo) consulta = consulta.eq('categoria_id', catExemplo);
-
-      // ⚠️ Ordenar e filtrar no SERVIDOR, não sobre o que já veio: a janela é de 100 linhas,
-      // e ordenar só ela devolveria "a maior das 100 primeiras", que não é a maior.
-      // ⚠️ `valor` é negativo em saída, então "maiores" é ordem CRESCENTE do número.
-      const { data } = await consulta
-        .order(ORDEM_EXEMPLO[ordemExemplo].campo, { ascending: ORDEM_EXEMPLO[ordemExemplo].asc })
-        .limit(limiteCatalogo);
-      setCatalogo(data ?? []);
-    } finally {
-      setCarregandoCatalogo(false);
-    }
-  };
-
-  /**
-   * ⚠️ Só carrega com um tipo aberto para edição — é o único lugar onde o catálogo aparece.
-   * O atraso agrupa as teclas: sem ele, cada letra digitada vira uma consulta.
-   */
-  useEffect(() => {
-    if (!editandoTipo) return;
-    const id = setTimeout(carregarCatalogo, 250);
-    return () => clearTimeout(id);
-  }, [editandoTipo, buscaExemplo, limiteCatalogo, ordemExemplo, catExemplo]);
+  const exemplosDoTipo = (slug: string): TransacaoEscolhida[] =>
+    exemplos
+      .filter(e => e.slug === slug)
+      .map(e => ({
+        id: e.transaction_id,
+        data: e.transactions?.data ?? '',
+        nome: e.transactions?.nome ?? '',
+        apelido: e.transactions?.apelido,
+        valor: Math.abs(Number(e.transactions?.valor) || 0),
+      }));
 
   const adicionarExemplo = async (slug: string, transactionId: string) => {
     const user = (await supabase.auth.getUser()).data.user;
@@ -353,8 +306,25 @@ export default function Perfil() {
     await supabase.from('compromissos').delete().eq('id', id);
   };
 
+  const fecharNovo = () => {
+    setCriando(false);
+    setFormNovo({ titulo: '', periodicidade: '', valor_mensal: '' });
+    setNovasTransacoes([]);
+  };
+
+  /**
+   * Cria um compromisso com tudo de uma vez.
+   *
+   * ⭐ Antes era só o nome, e os três campos que fazem o tipo funcionar — quando acontece, o
+   * valor que entra na camada Previsível, e os exemplos que ensinam o agente — ficavam atrás
+   * de um segundo passo, no botão de editar. Um tipo criado e nunca editado é um rótulo
+   * vazio: não tem valor para somar nem exemplo para ensinar.
+   *
+   * ⚠️ Falha ao gravar exemplo **não desfaz** o compromisso. O tipo é a decisão; o exemplo é
+   * otimização em cima dela. Mesma tolerância do `fixarValor` em /compromissos.
+   */
   const criarTipo = async () => {
-    const titulo = novoTipo.trim();
+    const titulo = formNovo.titulo.trim();
     if (!titulo) return;
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) return;
@@ -367,12 +337,24 @@ export default function Perfil() {
       return;
     }
 
-    const { data, error } = await supabase.from('compromissos')
-      .insert([{ user_id: user.id, slug, titulo, origem: 'usuario' }]).select().single();
+    const { data, error } = await supabase.from('compromissos').insert([{
+      user_id: user.id, slug, titulo, origem: 'usuario',
+      periodicidade: formNovo.periodicidade.trim() || null,
+      valor_mensal: formNovo.valor_mensal ? parseFloat(formNovo.valor_mensal) : null,
+    }]).select().single();
     if (error) { alert('Já existe um compromisso com esse nome.'); return; }
 
+    if (novasTransacoes.length > 0) {
+      const { error: erroExemplos } = await supabase.from('compromisso_exemplos').insert(
+        novasTransacoes.slice(0, TETO_EXEMPLOS)
+          .map(t => ({ user_id: user.id, slug, transaction_id: t.id })),
+      );
+      if (erroExemplos) console.error('Exemplos não gravados; o compromisso continua criado:', erroExemplos);
+      await carregarExemplos();
+    }
+
     setTiposCompromisso(prev => [...prev, data].sort((a, b) => a.titulo.localeCompare(b.titulo)));
-    setNovoTipo('');
+    fecharNovo();
   };
 
   const startEditing = (category: any) => {
@@ -925,125 +907,36 @@ export default function Perfil() {
                     <span className="block text-[10px] uppercase text-text-light font-bold mb-1">
                       Transações de exemplo · ensinam a IA
                       {' · '}
-                      {exemplos.filter(e => e.slug === tipo.slug).length} de {TETO_EXEMPLOS}
+                      {exemplosDoTipo(tipo.slug).length} de {TETO_EXEMPLOS}
                     </span>
                     <span className="block text-[10px] text-text-light/70 mb-1">
                       Clique para marcar; clique de novo para tirar.
                     </span>
 
-                    <input
-                      value={buscaExemplo}
-                      onChange={e => { setBuscaExemplo(e.target.value); setLimiteCatalogo(100); }}
-                      placeholder="Filtrar por nome..."
-                      className="glass-input p-2 text-sm bg-white w-full"
-                    />
-
-                    {/* ⚠️ Ordem e categoria vão para a consulta, não para a lista já carregada.
-                        Ordenar as 100 que vieram devolveria "a maior das 100 primeiras". */}
-                    <div className="flex gap-2 mt-1">
-                      <select
-                        value={ordemExemplo}
-                        onChange={e => { setOrdemExemplo(e.target.value as any); setLimiteCatalogo(100); }}
-                        className="glass-input p-2 text-xs bg-white flex-1 cursor-pointer"
-                        title="Ordenar"
-                      >
-                        <option value="recentes">Mais recentes</option>
-                        <option value="antigas">Mais antigas</option>
-                        <option value="maiores">Maior valor</option>
-                        <option value="menores">Menor valor</option>
-                      </select>
-                      <select
-                        value={catExemplo}
-                        onChange={e => { setCatExemplo(e.target.value); setLimiteCatalogo(100); }}
-                        className="glass-input p-2 text-xs bg-white flex-1 cursor-pointer"
-                        title="Filtrar por categoria"
-                      >
-                        <option value="">Todas as categorias</option>
-                        {/* Só as de gasto: o catálogo só mostra saída, então categoria de
-                            renda devolveria lista vazia sempre. */}
-                        {categories.filter(c => !c.e_renda).map(c => (
-                          <option key={c.id} value={c.id}>{c.nome}</option>
-                        ))}
-                      </select>
-                    </div>
-
-                    {/* ⭐ Uma lista só. As escolhidas ficam no topo e clicar de novo desmarca
-                        — separar "as minhas" de "as disponíveis" fazia a mesma transação
-                        aparecer em dois lugares, e desmarcar só funcionava em um deles.
-                        ⚠️ As escolhidas vêm de `exemplos`, não do catálogo: uma transação de
-                        2024 pode não estar na janela carregada, e some se depender dela. */}
-                    <div className="mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-white/40">
-                      {(() => {
-                        const meus = exemplos.filter(e => e.slug === tipo.slug);
-                        const escolhidos = new Set(meus.map(e => e.transaction_id));
-                        const noTeto = meus.length >= TETO_EXEMPLOS;
-                        const resto = catalogo.filter(t => !escolhidos.has(t.id));
-
-                        if (carregandoCatalogo && catalogo.length === 0 && meus.length === 0) {
-                          return <div className="p-3 text-center text-xs text-text-light">Carregando...</div>;
-                        }
-                        if (meus.length === 0 && resto.length === 0) {
-                          return (
-                            <div className="p-3 text-center text-xs text-text-light">
-                              Nenhuma transação encontrada.
-                            </div>
+                    {/* ⚠️ Aqui cada clique grava na hora, porque o slug já existe. No
+                        formulário de criação a escolha fica local até salvar. */}
+                    <SeletorDeTransacoes
+                      selecionadas={exemplosDoTipo(tipo.slug)}
+                      teto={TETO_EXEMPLOS}
+                      categorias={categories}
+                      onAlternar={(t, jaEscolhida) => {
+                        if (jaEscolhida) {
+                          const linha = exemplos.find(
+                            e => e.slug === tipo.slug && e.transaction_id === t.id,
                           );
+                          if (linha) removerExemplo(linha.id);
+                        } else {
+                          adicionarExemplo(tipo.slug, t.id);
                         }
-
-                        const linha = (
-                          chave: string, t: any, marcada: boolean, aoClicar: (() => void) | null,
-                        ) => (
-                          <button
-                            key={chave}
-                            onClick={() => aoClicar?.()}
-                            disabled={!aoClicar}
-                            title={marcada ? 'Clique para tirar dos exemplos' : undefined}
-                            className={`w-full flex items-center justify-between gap-2 text-xs py-1.5 px-2 border-b border-border/40 last:border-0 transition-colors ${
-                              marcada
-                                ? 'bg-primary/10 text-primary hover:bg-danger/10 hover:text-danger'
-                                : aoClicar ? 'hover:bg-primary/10' : 'opacity-40 cursor-not-allowed'
-                            }`}
-                          >
-                            <span className="flex items-center gap-1.5 min-w-0">
-                              {marcada && <Check size={12} className="shrink-0" />}
-                              <span className={`truncate ${marcada ? '' : 'text-text-light'}`}>
-                                {t?.data} · {t?.apelido || t?.nome}
-                              </span>
-                            </span>
-                            <span className={`shrink-0 ${marcada ? '' : 'text-text'}`}>
-                              R$ {Math.abs(Number(t?.valor ?? 0)).toFixed(2).replace('.', ',')}
-                            </span>
-                          </button>
-                        );
-
-                        return (
-                          <>
-                            {meus.map(e => linha(e.id, e.transactions, true, () => removerExemplo(e.id)))}
-                            {resto.map(t => linha(
-                              t.id, t, false,
-                              noTeto ? null : () => adicionarExemplo(tipo.slug, t.id),
-                            ))}
-                            {catalogo.length >= limiteCatalogo && (
-                              <button
-                                onClick={() => setLimiteCatalogo(prev => prev + 100)}
-                                disabled={carregandoCatalogo}
-                                className="w-full py-2 text-xs font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
-                              >
-                                {carregandoCatalogo ? 'Carregando...' : 'Buscar +'}
-                              </button>
-                            )}
-                          </>
-                        );
-                      })()}
-                    </div>
+                      }}
+                    />
                   </div>
 
                   <div className="flex justify-end gap-2 pt-1">
                     <button
-                      onClick={() => {
-                        setEditandoTipo(null); setBuscaExemplo(''); setLimiteCatalogo(100);
-                        setOrdemExemplo('recentes'); setCatExemplo('');
-                      }}
+                      /* ⭐ Fechar basta: busca, ordem e janela vivem dentro do seletor, e
+                         ele desmonta junto — não há o que limpar aqui. */
+                      onClick={() => setEditandoTipo(null)}
                       className="px-3 py-1.5 text-sm text-text-light hover:text-text rounded-lg transition-colors"
                     >
                       Cancelar
@@ -1101,21 +994,92 @@ export default function Perfil() {
           ))}
         </div>
 
-        <div className="flex gap-2 mt-4">
-          <input
-            value={novoTipo}
-            onChange={e => setNovoTipo(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && criarTipo()}
-            placeholder="Novo compromisso..."
-            className="glass-input flex-1 px-4 py-2 text-sm"
-          />
+        {/* ⭐ Fechado é um botão; aberto, um painel de largura inteira — a grade tem três
+            colunas e o seletor de transações não caberia numa. */}
+        {!criando ? (
           <button
-            onClick={criarTipo}
-            className="bg-primary text-white px-4 rounded-xl hover:bg-primary-hover transition-colors"
+            onClick={() => setCriando(true)}
+            className="mt-4 w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-border text-sm font-medium text-text-light hover:border-primary/40 hover:text-primary transition-colors"
           >
-            <PlusCircle size={18} />
+            <PlusCircle size={18} /> Novo compromisso
           </button>
-        </div>
+        ) : (
+          <div className="mt-4 p-4 rounded-xl border border-primary/30 bg-white/40 space-y-3">
+            <label className="block">
+              <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">
+                Nome
+              </span>
+              <input
+                value={formNovo.titulo}
+                onChange={e => setFormNovo({ ...formNovo, titulo: e.target.value })}
+                placeholder="Ex: Supermercado"
+                className="glass-input p-2 text-sm bg-white w-full"
+                autoFocus
+              />
+            </label>
+
+            <div className="flex flex-wrap gap-2">
+              <label className="flex-1 min-w-[200px]">
+                <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">
+                  Quando acontece · pista para a IA
+                </span>
+                <input
+                  value={formNovo.periodicidade}
+                  onChange={e => setFormNovo({ ...formNovo, periodicidade: e.target.value })}
+                  className="glass-input p-2 text-sm bg-white w-full"
+                  placeholder="Ex: toda semana; todo mês, dia 10..."
+                />
+              </label>
+              {/* ⚠️ Este não é pista: o painel de /compromissos SOMA este número na camada
+                  "Previsível". Por isso o rótulo diz para onde ele vai. */}
+              <label className="flex-1 min-w-[150px]">
+                <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">
+                  Valor · entra no comprometido
+                </span>
+                <input
+                  value={formNovo.valor_mensal}
+                  onChange={e => setFormNovo({ ...formNovo, valor_mensal: e.target.value })}
+                  className="glass-input p-2 text-sm bg-white w-full"
+                  inputMode="decimal" placeholder="R$ por mês"
+                />
+              </label>
+            </div>
+
+            <div className="pt-2 border-t border-border">
+              <span className="block text-[10px] uppercase text-text-light font-bold mb-1">
+                Transações de exemplo · ensinam a IA
+                {' · '}
+                {novasTransacoes.length} de {TETO_EXEMPLOS}
+              </span>
+              {/* ⛔ Aqui a escolha fica local até salvar: o slug ainda não existe, então não
+                  há em que pendurar a linha de `compromisso_exemplos`. */}
+              <SeletorDeTransacoes
+                selecionadas={novasTransacoes}
+                teto={TETO_EXEMPLOS}
+                categorias={categories}
+                onAlternar={(t, jaEscolhida) => setNovasTransacoes(prev =>
+                  jaEscolhida ? prev.filter(x => x.id !== t.id) : [...prev, t],
+                )}
+              />
+            </div>
+
+            <div className="flex justify-end gap-2 pt-1">
+              <button
+                onClick={fecharNovo}
+                className="px-3 py-1.5 text-sm text-text-light hover:text-text rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={criarTipo}
+                disabled={!formNovo.titulo.trim()}
+                className="flex items-center gap-1 bg-primary text-white px-3 py-1.5 rounded-lg text-sm font-medium hover:bg-primary-hover transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+              >
+                <Check size={14} /> Criar
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Seus Ciclos */}
