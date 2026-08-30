@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react';
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, AlertTriangle, PlusCircle, CheckCheck, PiggyBank, type LucideIcon } from 'lucide-react';
@@ -45,7 +45,25 @@ export default function Compromissos() {
   const [grupoAberto, setGrupoAberto] = useState<string | null>(null);
   const [confirmacao, setConfirmacao] = useState<{ titulo: string; mensagem: string; onConfirmar: () => void } | null>(null);
 
-  useEffect(() => { carregar(); }, []);
+  /**
+   * ⛔ **A guarda existe por um defeito real, não por precaução.** O aceite automático morava
+   * dentro do `carregar()`, e `useEffect` com array vazio roda **duas vezes** sob StrictMode:
+   * as duas chamadas liam o mesmo estado, as duas inseriam, e nasciam gastos fixos
+   * duplicados — que inflavam o comprometido, não só a lista.
+   *
+   * ⭐ `carregar()` voltou a só ler, que é o que o nome promete. Escrever é trabalho de quem
+   * decide escrever, e uma vez por montagem.
+   */
+  const jaAceitouSozinho = useRef(false);
+
+  useEffect(() => {
+    (async () => {
+      await carregar();
+      if (jaAceitouSozinho.current) return;
+      jaAceitouSozinho.current = true;
+      await aceitarAutomaticas();
+    })();
+  }, []);
 
   const carregar = async () => {
     setCarregando(true);
@@ -61,41 +79,9 @@ export default function Compromissos() {
         supabase.from('compromisso_exemplos').select('id, slug, transaction_id, transactions(data, nome, apelido)'),
       ]);
 
-      const ciclo = mem.data?.ciclo_dia ?? 5;
-      const transacoesCarregadas = tx.data ?? [];
-      let fixosCarregados = fx.data ?? [];
-
-      /**
-       * ⭐ Aceita sozinha a criação que já se repetiu `PISO_AUTO` vezes.
-       *
-       * ⚠️ Roda **aqui**, na carga, e não num efeito sobre o valor derivado: escrever a
-       * partir de algo calculado em render é como se cria um laço de recarga.
-       *
-       * ⚠️ Converge porque o fixo é criado com exatamente o valor e o dia da proposta —
-       * na volta, `casarComFixo` acha e o ramo "casa e concorda" não propõe nada.
-       *
-       * ⛔ Recusa continua valendo: `detectarPropostas` já tira as assinaturas recusadas
-       * antes de chegar aqui, então o que você dispensou não volta por esta porta.
-       */
-      const automaticas = detectarPropostas(transacoesCarregadas, fixosCarregados, ciclo)
-        .filter(p => p.natureza === 'criar' && p.evidencia.length >= PISO_AUTO);
-
-      if (automaticas.length > 0) {
-        await supabase.from('fixos').insert(automaticas.map(p => ({
-          user_id: user.id, nome: p.nome, valor: p.valor, dia: p.dia,
-          periodicidade_meses: p.periodicidade_meses, origem: p.origem,
-          status: 'ativo', assinatura: p.assinatura,
-          evidencia: p.evidencia.map((t: any) => ({ id: t.id, data: t.data, nome: t.nome, valor: t.valor })),
-        })));
-        const { data } = await supabase.from('fixos').select('*');
-        fixosCarregados = data ?? fixosCarregados;
-        // ⚠️ Nada aparece em silêncio: o aviso diz o que entrou sem você pedir.
-        setReconhecidos(automaticas.map(p => p.nome));
-      }
-
-      setCicloDia(ciclo);
-      setTransacoes(transacoesCarregadas);
-      setFixos(fixosCarregados);
+      setCicloDia(mem.data?.ciclo_dia ?? 5);
+      setTransacoes(tx.data ?? []);
+      setFixos(fx.data ?? []);
       setTipos(tp.data ?? []);
       setExemplos(ex.data ?? []);
     } catch (err) {
@@ -343,6 +329,49 @@ export default function Compromissos() {
    *
    * ⭐ E a recusa é desfazível, na seção recolhida no fim desta aba.
    */
+  /**
+   * Aceita sozinha a criação que já se repetiu `PISO_AUTO` vezes.
+   *
+   * ⚠️ Converge porque o fixo nasce com exatamente o valor e o dia da proposta — na volta,
+   * `casarComFixo` acha e o ramo "casa e concorda" não propõe nada.
+   *
+   * ⛔ Recusa continua valendo: `detectarPropostas` tira as assinaturas recusadas antes de
+   * chegar aqui, então o que você dispensou não volta por esta porta.
+   *
+   * ⚠️ `upsert` com `ignoreDuplicates`, e não `insert`: se duas chamadas se cruzarem, a
+   * segunda não cria linha nem estoura erro na cara do usuário. O índice único
+   * `fixos_assinatura_unica` é quem garante isso do lado do banco.
+   */
+  const aceitarAutomaticas = async () => {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+
+    const [tx, fx, mem] = await Promise.all([
+      supabase.from('transactions').select('*').eq('pendente', false),
+      supabase.from('fixos').select('*'),
+      supabase.from('memory').select('ciclo_dia').maybeSingle(),
+    ]);
+
+    const automaticas = detectarPropostas(tx.data ?? [], fx.data ?? [], mem.data?.ciclo_dia ?? 5)
+      .filter(p => p.natureza === 'criar' && p.evidencia.length >= PISO_AUTO);
+    if (automaticas.length === 0) return;
+
+    const { error } = await supabase.from('fixos').upsert(
+      automaticas.map(p => ({
+        user_id: user.id, nome: p.nome, valor: p.valor, dia: p.dia,
+        periodicidade_meses: p.periodicidade_meses, origem: p.origem,
+        status: 'ativo', assinatura: p.assinatura,
+        evidencia: p.evidencia.map((t: any) => ({ id: t.id, data: t.data, nome: t.nome, valor: t.valor })),
+      })),
+      { onConflict: 'user_id,assinatura', ignoreDuplicates: true },
+    );
+    if (error) { console.error('Aceite automático falhou:', error); return; }
+
+    // ⚠️ Nada aparece em silêncio: o aviso diz o que entrou sem você pedir.
+    setReconhecidos(automaticas.map(p => p.nome));
+    await carregar();
+  };
+
   const excluirFixo = async (id: string) => {
     const fixo = fixos.find(f => f.id === id);
     if (fixo?.assinatura) {
