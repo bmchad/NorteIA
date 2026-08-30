@@ -904,85 +904,86 @@ export default function Perfil() {
                       {' · '}
                       {exemplos.filter(e => e.slug === tipo.slug).length} de {TETO_EXEMPLOS}
                     </span>
+                    <span className="block text-[10px] text-text-light/70 mb-1">
+                      Clique para marcar; clique de novo para tirar.
+                    </span>
 
-                    <div className="space-y-1 mb-2">
-                      {exemplos.filter(e => e.slug === tipo.slug).map(e => (
-                        <div key={e.id} className="flex items-center justify-between gap-2 text-xs">
-                          <span className="text-text-light truncate">
-                            {e.transactions?.data} · {e.transactions?.apelido || e.transactions?.nome}
-                          </span>
-                          <button
-                            onClick={() => removerExemplo(e.id)}
-                            className="text-text-light hover:text-danger p-1 shrink-0"
-                            title="Tirar dos exemplos"
-                          >
-                            <X size={12} />
-                          </button>
-                        </div>
-                      ))}
-                    </div>
+                    <input
+                      value={buscaExemplo}
+                      onChange={e => { setBuscaExemplo(e.target.value); setLimiteCatalogo(100); }}
+                      placeholder="Filtrar por nome..."
+                      className="glass-input p-2 text-sm bg-white w-full"
+                    />
 
-                    {exemplos.filter(e => e.slug === tipo.slug).length < TETO_EXEMPLOS && (
-                      <>
-                        <input
-                          value={buscaExemplo}
-                          onChange={e => { setBuscaExemplo(e.target.value); setLimiteCatalogo(100); }}
-                          placeholder="Filtrar por nome..."
-                          className="glass-input p-2 text-sm bg-white w-full"
-                        />
+                    {/* ⭐ Uma lista só. As escolhidas ficam no topo e clicar de novo desmarca
+                        — separar "as minhas" de "as disponíveis" fazia a mesma transação
+                        aparecer em dois lugares, e desmarcar só funcionava em um deles.
+                        ⚠️ As escolhidas vêm de `exemplos`, não do catálogo: uma transação de
+                        2024 pode não estar na janela carregada, e some se depender dela. */}
+                    <div className="mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-white/40">
+                      {(() => {
+                        const meus = exemplos.filter(e => e.slug === tipo.slug);
+                        const escolhidos = new Set(meus.map(e => e.transaction_id));
+                        const noTeto = meus.length >= TETO_EXEMPLOS;
+                        const resto = catalogo.filter(t => !escolhidos.has(t.id));
 
-                        {/* ⭐ A lista inteira, rolável: dá para achar pelo olho, sem saber o
-                            nome que o banco escreveu. Clicar seleciona. */}
-                        <div className="mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-white/40">
-                          {carregandoCatalogo && catalogo.length === 0 ? (
-                            <div className="p-3 text-center text-xs text-text-light">Carregando...</div>
-                          ) : catalogo.length === 0 ? (
+                        if (carregandoCatalogo && catalogo.length === 0 && meus.length === 0) {
+                          return <div className="p-3 text-center text-xs text-text-light">Carregando...</div>;
+                        }
+                        if (meus.length === 0 && resto.length === 0) {
+                          return (
                             <div className="p-3 text-center text-xs text-text-light">
                               Nenhuma transação encontrada.
                             </div>
-                          ) : (
-                            <>
-                              {catalogo.map((t: any) => {
-                                const jaEh = exemplos.some(
-                                  e => e.slug === tipo.slug && e.transaction_id === t.id,
-                                );
-                                return (
-                                  <button
-                                    key={t.id}
-                                    onClick={() => !jaEh && adicionarExemplo(tipo.slug, t.id)}
-                                    disabled={jaEh}
-                                    className={`w-full flex items-center justify-between gap-2 text-xs py-1.5 px-2 border-b border-border/40 last:border-0 transition-colors ${
-                                      jaEh
-                                        ? 'bg-primary/5 text-primary cursor-default'
-                                        : 'hover:bg-primary/10'
-                                    }`}
-                                  >
-                                    <span className="flex items-center gap-1.5 min-w-0">
-                                      {jaEh && <Check size={12} className="shrink-0" />}
-                                      <span className={`truncate ${jaEh ? '' : 'text-text-light'}`}>
-                                        {t.data} · {t.apelido || t.nome}
-                                      </span>
-                                    </span>
-                                    <span className="text-text shrink-0">
-                                      R$ {Math.abs(Number(t.valor)).toFixed(2).replace('.', ',')}
-                                    </span>
-                                  </button>
-                                );
-                              })}
-                              {catalogo.length >= limiteCatalogo && (
-                                <button
-                                  onClick={() => setLimiteCatalogo(prev => prev + 100)}
-                                  disabled={carregandoCatalogo}
-                                  className="w-full py-2 text-xs font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
-                                >
-                                  {carregandoCatalogo ? 'Carregando...' : 'Buscar +'}
-                                </button>
-                              )}
-                            </>
-                          )}
-                        </div>
-                      </>
-                    )}
+                          );
+                        }
+
+                        const linha = (
+                          chave: string, t: any, marcada: boolean, aoClicar: (() => void) | null,
+                        ) => (
+                          <button
+                            key={chave}
+                            onClick={() => aoClicar?.()}
+                            disabled={!aoClicar}
+                            title={marcada ? 'Clique para tirar dos exemplos' : undefined}
+                            className={`w-full flex items-center justify-between gap-2 text-xs py-1.5 px-2 border-b border-border/40 last:border-0 transition-colors ${
+                              marcada
+                                ? 'bg-primary/10 text-primary hover:bg-danger/10 hover:text-danger'
+                                : aoClicar ? 'hover:bg-primary/10' : 'opacity-40 cursor-not-allowed'
+                            }`}
+                          >
+                            <span className="flex items-center gap-1.5 min-w-0">
+                              {marcada && <Check size={12} className="shrink-0" />}
+                              <span className={`truncate ${marcada ? '' : 'text-text-light'}`}>
+                                {t?.data} · {t?.apelido || t?.nome}
+                              </span>
+                            </span>
+                            <span className={`shrink-0 ${marcada ? '' : 'text-text'}`}>
+                              R$ {Math.abs(Number(t?.valor ?? 0)).toFixed(2).replace('.', ',')}
+                            </span>
+                          </button>
+                        );
+
+                        return (
+                          <>
+                            {meus.map(e => linha(e.id, e.transactions, true, () => removerExemplo(e.id)))}
+                            {resto.map(t => linha(
+                              t.id, t, false,
+                              noTeto ? null : () => adicionarExemplo(tipo.slug, t.id),
+                            ))}
+                            {catalogo.length >= limiteCatalogo && (
+                              <button
+                                onClick={() => setLimiteCatalogo(prev => prev + 100)}
+                                disabled={carregandoCatalogo}
+                                className="w-full py-2 text-xs font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                              >
+                                {carregandoCatalogo ? 'Carregando...' : 'Buscar +'}
+                              </button>
+                            )}
+                          </>
+                        );
+                      })()}
+                    </div>
                   </div>
 
                   <div className="flex justify-end gap-2 pt-1">
