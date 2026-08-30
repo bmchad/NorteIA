@@ -6,6 +6,7 @@ import {
   agruparParcelas, comprometidoRestante, contaDaCompra, parcelasRestantes, projecaoPorCiclo,
 } from '../lib/parcelas';
 import ConfirmModal from '../components/ConfirmModal';
+import ExemplosDoCompromisso from '../components/ExemplosDoCompromisso';
 import {
   detectarPropostas, lancamentosDoFixo, PISO, PREFIXO_CORRECAO, type PropostaDeFixo,
 } from '../lib/fixos-propostos';
@@ -53,7 +54,7 @@ export default function Compromissos() {
         supabase.from('transactions').select('*').eq('pendente', false),
         supabase.from('fixos').select('*'),
         supabase.from('compromissos').select('*').order('titulo'),
-        supabase.from('compromisso_exemplos').select('slug, transaction_id'),
+        supabase.from('compromisso_exemplos').select('id, slug, transaction_id, transactions(data, nome, apelido)'),
       ]);
 
       setCicloDia(mem.data?.ciclo_dia ?? 5);
@@ -474,6 +475,14 @@ export default function Compromissos() {
                     {expandido === c.slug ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
                   </div>
                 </button>
+
+                {/* ⚠️ Fora do cabeçalho porque ele é um <button> inteiro, e botão dentro de
+                    botão é HTML inválido. Aqui o ícone fica visível com o card fechado, que
+                    é o ponto. */}
+                <ExemplosDoCompromisso
+                  exemplos={exemplos.filter(e => e.slug === c.slug)}
+                  className="mt-2"
+                />
 
                 {/* ⭐ Avisa, não age: valor que persegue a própria média nunca discorda de você. */}
                 {c.divergente && (

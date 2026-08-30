@@ -3,6 +3,7 @@ import { supabase } from '../lib/supabase';
 import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter, ArrowLeftRight, Layers, BookOpen } from 'lucide-react';
 import { TETO_EXEMPLOS, TETO_TIPOS_ATIVOS, TIPOS_SEMENTE } from '../lib/compromissos';
 import ConfirmModal from '../components/ConfirmModal';
+import ExemplosDoCompromisso from '../components/ExemplosDoCompromisso';
 
 export default function Perfil() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -856,7 +857,7 @@ export default function Perfil() {
           {tiposCompromisso.map(tipo => (
             <div
               key={tipo.id}
-              className={`flex items-center justify-between p-3 rounded-xl border border-border bg-white/30 backdrop-blur-sm hover:border-primary/30 transition-colors group ${
+              className={`flex items-start justify-between p-3 rounded-xl border border-border bg-white/30 backdrop-blur-sm hover:border-primary/30 transition-colors group ${
                 editandoTipo === tipo.id ? 'md:col-span-2 lg:col-span-3' : ''
               }`}
             >
@@ -1015,6 +1016,10 @@ export default function Perfil() {
                         ].filter(Boolean).join(' · ')}
                       </div>
                     )}
+                    <ExemplosDoCompromisso
+                      exemplos={exemplos.filter(e => e.slug === tipo.slug)}
+                      className="mt-1"
+                    />
                   </div>
                   <div className="flex gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
