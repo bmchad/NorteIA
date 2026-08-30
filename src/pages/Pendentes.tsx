@@ -1,15 +1,17 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { FileText, CheckCircle, XCircle, X, Image as ImageIcon, PlusCircle, ArrowLeft, ChevronDown, ChevronUp, Clock, Info } from 'lucide-react';
+import { FileText, CheckCircle, XCircle, X, Image as ImageIcon, PlusCircle, ArrowLeft, ChevronDown, ChevronUp, Clock, Info, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ConfirmModal from '../components/ConfirmModal';
 import { grupoDoModo, modoDoArquivo, ROTULO_MODO } from '../lib/arquivos';
+import { baixarDemonstracao } from '../lib/demo';
 
 export default function Pendentes() {
   const [arquivos, setArquivos] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [extractedData, setExtractedData] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
+  const [tipos, setTipos] = useState<any[]>([]);
   const [instrucao, setInstrucao] = useState('');
   const [activeMode, setActiveMode] = useState<'selection' | 'arquivo' | 'manual'>('selection');
   const [formManual, setFormManual] = useState({ nome: '', valor: '', data: '', categoria_id: '' });
@@ -35,8 +37,35 @@ export default function Pendentes() {
   useEffect(() => {
     fetchPendentes();
     fetchCategories();
+    fetchTiposDeCompromisso();
     fetchCiclo();
   }, []);
+
+  /**
+   * Os tipos de compromisso que a revisão oferece.
+   *
+   * ⛔ **Não semeia**, ao contrário do que esta tela faz com as categorias: a semente dos
+   * tipos é do `/perfil`, dono da configuração (D-029). Duas telas semeando a mesma tabela
+   * é a corrida que duplicou os gastos fixos (L-008).
+   */
+  const fetchTiposDeCompromisso = async () => {
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+
+      const { data, error } = await supabase
+        .from('compromissos')
+        .select('slug, titulo')
+        .eq('user_id', user.id)
+        .eq('ativo', true)
+        .order('titulo');
+
+      if (error) throw error;
+      setTipos(data ?? []);
+    } catch (err) {
+      console.error("Erro ao buscar tipos de compromisso:", err);
+    }
+  };
 
   const fetchCiclo = async () => {
     try {
@@ -75,12 +104,27 @@ export default function Pendentes() {
     }
   };
 
+  /**
+   * As categorias do primeiro acesso.
+   *
+   * ⭐ **Três delas carregam uma decisão, e não só um nome.** `Salário` e `Outras Receitas`
+   * nascem marcadas como renda, porque sem nenhuma marcada o card Renda e o "o que sobra"
+   * do Dashboard aparecem vazios até alguém descobrir o interruptor no `/perfil`.
+   *
+   * ⭐⭐ **`Reembolsos` é o que torna `Outras Receitas` segura como renda.** Sem um destino
+   * para o positivo que não é renda, devolução e rateio caem no mesmo balde e inflam o
+   * divisor de "% da renda" com dinheiro que apenas voltou para a conta. → D-025
+   *
+   * ⚠️ **Só roda com `categories` vazia**, isto é, no primeiro acesso. Quem já usa o app não
+   * ganha `Reembolsos` nem as marcas de renda — marcar `e_renda` numa conta em uso mudaria o
+   * divisor do Dashboard sem aviso, e quem configurou à mão pode ter escolhido diferente.
+   */
   const seedDefaultCategories = async (userId: string) => {
-    const defaultList = [
+    const defaultList: { nome: string; cor: string; e_renda?: boolean }[] = [
       { nome: 'Aluguel', cor: '#4B0082' },
       { nome: 'Farmácia', cor: '#D9FF00' },
       { nome: 'Educação', cor: '#FF007F' },
-      { nome: 'Outras Receitas', cor: '#00FF00' },
+      { nome: 'Outras Receitas', cor: '#00FF00', e_renda: true },
       { nome: 'Comércio', cor: '#FF00F4' },
       { nome: 'Lavanderia', cor: '#A020F0' },
       { nome: 'Supermercado', cor: '#00FFFF' },
@@ -101,15 +145,17 @@ export default function Pendentes() {
       { nome: 'Streaming', cor: '#D9FF00' },
       { nome: 'Governo', cor: '#BFFF00' },
       { nome: 'Comida', cor: '#001AFF' },
-      { nome: 'Salário', cor: '#00FF00' },
+      { nome: 'Salário', cor: '#00FF00', e_renda: true },
       { nome: 'Médicos/Saúde', cor: '#FF00FF' },
-      { nome: 'Apostas/Loteria', cor: '#8F00FF' }
+      { nome: 'Apostas/Loteria', cor: '#8F00FF' },
+      { nome: 'Reembolsos', cor: '#22c55e' }
     ];
 
     const insertData = defaultList.map((item) => ({
       user_id: userId,
       nome: item.nome,
-      cor: item.cor
+      cor: item.cor,
+      e_renda: item.e_renda ?? false
     }));
 
     const { error } = await supabase.from('categories').insert(insertData);
@@ -383,6 +429,38 @@ export default function Pendentes() {
     }
   };
 
+  /**
+   * O compromisso escolhido à mão no rascunho.
+   *
+   * ⚠️ **Não basta gravar `compromisso`.** Vai junto `compromisso_manual = true`, que é o
+   * passo 0 da cascata (D-033): sem ele, a próxima importação, um gasto fixo aceito ou o
+   * agente 2 sobrescrevem a escolha, e ela some sem aviso nenhum. Por isso isto não passa
+   * pelo `handleUpdateField` genérico, que gravaria um campo só.
+   *
+   * ⭐ **Limpar também é uma declaração.** "Nenhum" grava `null` COM `compromisso_manual`,
+   * mesma regra do `removerDoCompromisso` em `/compromissos`: a detecção não pode devolver
+   * o que o usuário tirou.
+   *
+   * ⚠️ Escolher aqui **não** cria um exemplo em `compromisso_exemplos`. Exemplo implica
+   * rótulo; rótulo não implica exemplo. Quem quiser ensinar o agente faz isso no `/perfil`.
+   */
+  const handleCompromissoChange = async (id: string, slug: string) => {
+    const compromisso = slug || null;
+    try {
+      const { error } = await supabase
+        .from('transactions')
+        .update({ compromisso, compromisso_manual: true })
+        .eq('id', id);
+
+      if (error) throw error;
+      setExtractedData(prev => prev.map(t => (
+        t.id === id ? { ...t, compromisso, compromisso_manual: true } : t
+      )));
+    } catch (error) {
+      console.error("Erro ao gravar o compromisso:", error);
+    }
+  };
+
   const aprovarTransacao = async (id: string) => {
     try {
       const { error } = await supabase
@@ -489,11 +567,8 @@ export default function Pendentes() {
           <Clock size={32} className="text-primary" /> Novos Registros
         </h2>
         <p className="text-text-light mt-1">
-          <br />
-          Nossa IA interpreta prints e planilhas! <br />
-          Você também pode dar instruções extras para ela. Mande aqui seus arquivos, e confira ou edite a leitura abaixo. <br />
-          O progresso é salvo automaticamente! Crie categorias na aba "perfil", nossa IA usará somente elas. <br />
-          Depois, é só clicar em "aprovar" para que a transação apareça no seu balanço.
+          Envie um print, um PDF ou uma planilha — cada transação entra como rascunho, para você conferir e editar. <br />
+          Nada vai para o balanço antes de você aprovar, e o que você edita salva sozinho.
         </p>
       </header>
 
@@ -533,6 +608,19 @@ export default function Pendentes() {
                 <span className="text-[10px] text-text-light mt-1 font-medium">Você digita, sem IA</span>
               </button>
             </div>
+
+            {/* ⭐ Mora na tela de escolha, e não dentro de "Arquivo": quem não tem o que
+                importar está aqui, e é aqui que ele precisa de um arquivo para experimentar.
+                ⭐ O `.csv` é montado na hora, com datas relativas a hoje — um arquivo fixo no
+                repositório envelheceria e mostraria histórico morto. Ver src/lib/demo.ts. */}
+            <button
+              type="button"
+              onClick={() => baixarDemonstracao()}
+              className="mt-5 flex items-center gap-2 text-xs font-medium text-text-light hover:text-primary transition-colors bg-transparent border-none cursor-pointer"
+              title="Um .csv com seis meses de transações fictícias, para experimentar a plataforma"
+            >
+              <Download size={14} /> Não tem um arquivo à mão? Baixe uma planilha de exemplo
+            </button>
           </div>
         )}
 
@@ -736,7 +824,7 @@ export default function Pendentes() {
             return (
               <div key={item.id} className="glass-panel flex flex-col border-l-4 border-l-primary/50 overflow-hidden">
                 <div className="p-4 flex flex-col xl:flex-row items-center gap-4 justify-between">
-                  <div className="flex-1 grid grid-cols-2 md:grid-cols-4 gap-4 w-full">
+                  <div className="flex-1 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 w-full">
                     {/* Data */}
                     <div>
                       <span className="text-xs text-text-light uppercase">Data</span>
@@ -771,6 +859,29 @@ export default function Pendentes() {
                           <option key={c.id} value={c.id} className="text-black">{c.nome}</option>
                         ))}
                         <option value="ADD_NEW" className="font-bold text-primary bg-primary/10">+ Adicionar Categoria</option>
+                      </select>
+                    </div>
+                    {/* Compromisso — ao lado de Categoria porque os dois são classificação.
+                        ⛔ Sem "+ Adicionar" aqui, ao contrário de Categoria: criar um tipo pede
+                        periodicidade, valor e exemplos, e isso mora no `/perfil` (D-029). Um
+                        prompt() de nome solto criaria tipos vazios. */}
+                    <div>
+                      <span className="text-xs text-text-light uppercase">Compromisso</span>
+                      <select
+                        value={item.compromisso || ''}
+                        onChange={(e) => handleCompromissoChange(item.id, e.target.value)}
+                        className="glass-input w-full p-1 bg-transparent border-transparent hover:border-border text-sm appearance-none cursor-pointer"
+                        title={tipos.length === 0 ? 'Nenhum tipo cadastrado. Crie em Perfil.' : 'Compromisso'}
+                      >
+                        <option value="">Nenhum</option>
+                        {tipos.map(t => (
+                          <option key={t.slug} value={t.slug} className="text-black">{t.titulo}</option>
+                        ))}
+                        {/* ⚠️ Rótulo de um tipo desativado depois da importação: sem esta
+                            opção o select cairia em "Nenhum" e mentiria sobre o dado. */}
+                        {item.compromisso && !tipos.some(t => t.slug === item.compromisso) && (
+                          <option value={item.compromisso} className="text-black">{item.compromisso}</option>
+                        )}
                       </select>
                     </div>
                     {/* Valor */}

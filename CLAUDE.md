@@ -124,7 +124,7 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
 |---|---|---|
 | `transactions` | a tabela central, uma linha por lançamento | `user_id` |
 | `profiles` | ⭐ `id` + `email`, criada pelo trigger `handle_new_user` a cada cadastro. Dispara o e-mail de boas-vindas; nenhuma tela lê | `id` |
-| `categories` | categorias do usuário (nome + cor + `e_renda`); 27 semeadas no 1º acesso | `user_id` |
+| `categories` | categorias do usuário (nome + cor + `e_renda`); ⚠️ **28** semeadas no 1º acesso, duas já marcadas como renda (D-051) | `user_id` |
 | `fixos` | despesas recorrentes (nome, valor, dia) — **hoje desligadas dos balanços**. ⚠️ Guarda três coisas: ativos, recusas e encerrados, com `DEFAULT 'ativo'` | `user_id` |
 | `memory` | ⚠️ não é memória de IA: guarda `ciclo_dia` e as Notas do Dashboard, 1 linha por usuário | `user_id` |
 | `compromissos` | ⭐ tipos que a IA reconhece **e** o compromisso detectado — 1:1, uma tabela só | `user_id` |
@@ -195,6 +195,10 @@ Postgres e a RLS. Olhar só para a RLS vê metade do problema. → L-003
 **5. O prompt vive na função, não na tela.** `supabase/functions/ai-agents/prompts/` monta os três
 modos de partes comuns. Mexeu no prompt? **Faça o deploy da função** — o `npm run build` não leva
 nada disso.
+
+**5a. ⚠️ Parcela numa planilha só sai do padrão `N/M` escrito na linha** — e a data dessa linha é
+lida como a data da **compra**, não da cobrança: `normalizar.ts` a desloca `atual − 1` meses para a
+frente, nos três modos. → D-048, P36
 
 **5b. ⛔ São dois agentes, e `compromisso` só pertence ao segundo.** Se o campo voltar ao prompt de
 extração, os dois respondem, o último a escrever vence, e a classificação passa a mudar sozinha

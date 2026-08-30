@@ -103,8 +103,16 @@ parcelas.
 
 ⭐ **Duas portas: Arquivo e Registro manual.** A extensão do arquivo escolhe o modo — print, PDF e
 planilha entram pelo mesmo lugar. ⚠️ **Um tipo por vez**: um envio carrega um `modo`, e o `modo`
-escolhe um prompt (D-046). Depois vem a revisão dos rascunhos. É também onde as **27
-categorias padrão são semeadas** no primeiro acesso do usuário.
+escolhe um prompt (D-046). Depois vem a revisão dos rascunhos. É também onde as **28 categorias
+padrão são semeadas** no primeiro acesso — três delas com uma decisão junto, e não só um nome
+(D-051).
+
+⭐ **Na revisão, o rascunho tem cinco campos**, e o quinto é **Compromisso**, ao lado de Categoria.
+Escolher ali grava `compromisso_manual` junto: é declaração, não palpite, e nada automático a
+sobrescreve. → D-049
+
+⭐ **A tela de escolha oferece uma planilha de exemplo**, montada no clique com datas relativas a
+hoje — seis meses roteirizados para que cada camada do `/compromissos` tenha o que mostrar. → D-050
 
 ⭐ **Esta tela não fala com o Gemini.** Ela lê o arquivo, chama a Edge Function `ai-agents` e recebe
 as transações prontas; só o insert é dela. O detalhe está em `03-agentes-de-ia.md`.

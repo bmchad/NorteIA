@@ -32,10 +32,24 @@ function campoBanco(modo: Modo): string {
   return `- "banco": Nome do banco deduzido ${onde}. DEVE obrigatoriamente ser um destes valores exatos: [ ${listaDeBancos()} ], ou null se não for possível deduzir.`;
 }
 
-/** Parcelamento: a planilha nunca traz, e inventar parcela ali cria despesa futura falsa. */
+/**
+ * Parcelamento.
+ *
+ * ⚠️ **A planilha proibia parcela por inteiro, e a premissa envelheceu.** A regra existia
+ * para impedir a IA de *inventar* parcela numa planilha feita a mao — olhar "Netflix"
+ * repetido seis vezes e concluir que era uma compra em 6x, criando divida futura que nao
+ * existe. So que CSV exportado de banco costuma trazer `PARC 03/10` na descricao, e ali nao
+ * ha invencao nenhuma: ha leitura.
+ *
+ * ⭐ **O que sobrou da regra antiga e a parte que importava:** ler o padrao `N/M` escrito na
+ * linha e permitido; inferir parcela de qualquer outra coisa continua proibido.
+ *
+ * ⛔ Sem isso, um `.csv` produz zero parcelas e a camada Contratado — a mais forte do
+ * produto — fica muda justamente sobre divida com data de fim.
+ */
 function camposParcela(modo: Modo): string {
   if (modo === 'planilha') {
-    return '- "parcela_atual": Sempre retorne null para planilhas.\n- "parcela_total": Sempre retorne null para planilhas.';
+    return '- "parcela_atual": Só preencha se a própria descrição da linha trouxer o número da parcela (ex: "3/10", "3 de 10", "PARC 03/10"). Nesse caso, extraia o PRIMEIRO número. Caso contrário, null.\n- "parcela_total": O SEGUNDO número do mesmo padrão (ex: "PARC 03/10" -> 10). Caso contrário, null.';
   }
   return '- "parcela_atual": Número da parcela atual (se for compra parcelada, ex: "1 de 10" -> 1). Se não houver, retorne null.\n- "parcela_total": Total de parcelas (ex: "1 de 10" -> 10). Se não houver, retorne null.';
 }
@@ -61,7 +75,9 @@ function regrasDaPlanilha(cicloDia: number): string {
    - Faltando o dia (só mês e ano), padronize o DIA como ${cicloDia}. Ex: Maio/2026 vira "2026-05-${dia}".
    - Faltando também o mês (só o ano), use Janeiro e o mesmo dia. Ex: 2026 vira "2026-01-${dia}".
    - Não havendo informação nenhuma de data na linha, use a data de hoje.
-5. O campo "banco" e os campos de parcela DEVEM ser null em TODAS as linhas da planilha. Nunca configure parcelas para planilhas.`;
+5. O campo "banco" DEVE ser null em TODAS as linhas da planilha.
+6. Os campos de parcela SÓ podem ser preenchidos quando o padrão N/M estiver ESCRITO na descrição da linha. NUNCA os infira do valor, do estabelecimento, nem do fato de a mesma linha se repetir em meses diferentes: uma assinatura mensal não é um parcelamento.
+7. Quando a linha tiver parcela, retorne "mes_fatura" como null. A data de uma linha parcelada é tratada como a data da COMPRA, e o sistema desloca cada parcela para o mês em que ela é cobrada.`;
 }
 
 export interface Contexto {

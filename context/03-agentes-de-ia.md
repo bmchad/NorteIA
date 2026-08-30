@@ -141,7 +141,7 @@ O prompt pede **apenas** um array JSON, um objeto por transação:
 | `banco` | enum de `BANCOS` — os 20 bancos, `Outros` ou `null`. Planilha sempre `null` |
 | `mes_fatura` | nome do mês em português, capitalizado, ou `null` |
 | `hora` | `HH:MM:SS`; padrão `12:00:00` |
-| `parcela_atual` / `parcela_total` | de `"3 de 10"` → `3` e `10`. Planilha sempre `null` |
+| `parcela_atual` / `parcela_total` | de `"3 de 10"` → `3` e `10`. ⚠️ Na planilha, **só** quando o padrão `N/M` está escrito na descrição (D-048) |
 | `categoria_sugerida` | ⭐ **obrigatoriamente** um nome da lista do usuário, injetada no prompt |
 
 **Duas regras críticas que o prompt impõe:**
@@ -152,6 +152,12 @@ O prompt pede **apenas** um array JSON, um objeto por transação:
 
 A porta da planilha carrega regras a mais, porque é a única origem que vem incompleta: nome vazio
 vira o nome da categoria; data sem dia usa o `ciclo_dia`; data só com ano usa Janeiro.
+
+⭐ **Duas dessas regras são sobre parcela, e são novas.** A planilha pode trazer parcela quando o
+padrão `N/M` está **escrito** na linha — ⛔ inferir de valor, estabelecimento ou da repetição da
+mesma linha em meses diferentes continua proibido, e é a parte da regra antiga que importava. E na
+linha parcelada `mes_fatura` vem `null`, porque a data ali é a da **compra**: o ciclo tem de sair da
+data já deslocada. → D-048, P36
 
 ---
 
@@ -234,12 +240,16 @@ com deploy, CORS e auth próprios. → D-012
 
 ---
 
-## As 27 categorias padrão
+## As 28 categorias padrão
 
 Na primeira vez que o usuário abre `/novos-registros`, se `categories` estiver vazia, o sistema
-semeia 27 categorias com cor. A lista literal está em `seedDefaultCategories`, em `Pendentes.tsx`.
+semeia 28 categorias com cor. A lista literal está em `seedDefaultCategories`, em `Pendentes.tsx`.
 
 ⚠️ **Essa lista é o vocabulário da IA.** Apagar uma categoria remove a opção do prompt.
+
+⭐ **Três delas carregam uma decisão, e não só um nome:** `Salário` e `Outras Receitas` nascem com
+`e_renda = true`, e `Reembolsos` existe para o positivo que **não** é renda. ⚠️ Correção de
+2026-08-30: eram 27 e nenhuma nascia marcada. → D-051
 
 ---
 
