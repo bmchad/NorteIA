@@ -19,7 +19,9 @@ export default function Perfil() {
   const [formTipo, setFormTipo] = useState<any>({});
   const [exemplos, setExemplos] = useState<any[]>([]);
   const [buscaExemplo, setBuscaExemplo] = useState('');
-  const [achados, setAchados] = useState<any[]>([]);
+  const [catalogo, setCatalogo] = useState<any[]>([]);
+  const [limiteCatalogo, setLimiteCatalogo] = useState(100);
+  const [carregandoCatalogo, setCarregandoCatalogo] = useState(false);
   const [coresList, setCoresList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -260,23 +262,45 @@ export default function Perfil() {
   };
 
   /**
-   * Busca no histórico para apontar um exemplo.
+   * O catálogo de transações para escolher exemplos — rolável, como no /historico.
    *
-   * ⚠️ Consulta no servidor, não filtro sobre tudo carregado: são três anos de transações, e
-   * trazer o histórico inteiro para o /perfil só para filtrar seria desperdício.
+   * ⭐ Rolar antes de buscar. Exigir que o usuário digitasse para ver qualquer coisa supõe
+   * que ele já sabe o nome que procura, e o nome do extrato é justamente o que ninguém
+   * lembra. A busca continua existindo: filtra a mesma lista, não a substitui.
+   *
+   * ⚠️ Paginado no servidor, não filtrado em memória: são três anos de transações, e trazer
+   * tudo para o /perfil seria desperdício. `Buscar +` amplia a janela, igual ao /historico.
    */
-  const buscarTransacoes = async (termo: string) => {
-    setBuscaExemplo(termo);
-    if (termo.trim().length < 2) { setAchados([]); return; }
-    const { data } = await supabase
-      .from('transactions')
-      .select('id, data, nome, apelido, valor')
-      .lt('valor', 0)
-      .or(`nome.ilike.%${termo.trim()}%,apelido.ilike.%${termo.trim()}%`)
-      .order('data', { ascending: false })
-      .limit(8);
-    setAchados(data ?? []);
+  const carregarCatalogo = async () => {
+    setCarregandoCatalogo(true);
+    try {
+      let consulta = supabase
+        .from('transactions')
+        .select('id, data, nome, apelido, valor')
+        .eq('pendente', false)
+        .lt('valor', 0);
+
+      const termo = buscaExemplo.trim();
+      if (termo.length >= 2) {
+        consulta = consulta.or(`nome.ilike.%${termo}%,apelido.ilike.%${termo}%`);
+      }
+
+      const { data } = await consulta.order('data', { ascending: false }).limit(limiteCatalogo);
+      setCatalogo(data ?? []);
+    } finally {
+      setCarregandoCatalogo(false);
+    }
   };
+
+  /**
+   * ⚠️ Só carrega com um tipo aberto para edição — é o único lugar onde o catálogo aparece.
+   * O atraso agrupa as teclas: sem ele, cada letra digitada vira uma consulta.
+   */
+  useEffect(() => {
+    if (!editandoTipo) return;
+    const id = setTimeout(carregarCatalogo, 250);
+    return () => clearTimeout(id);
+  }, [editandoTipo, buscaExemplo, limiteCatalogo]);
 
   const adicionarExemplo = async (slug: string, transactionId: string) => {
     const user = (await supabase.auth.getUser()).data.user;
@@ -291,8 +315,8 @@ export default function Perfil() {
         : 'Esta transação já é exemplo deste compromisso.');
       return;
     }
-    setBuscaExemplo('');
-    setAchados([]);
+    // ⚠️ Nao limpa o filtro nem recarrega a lista: o usuario esta escolhendo varios em
+    // sequencia, e reposicionar a rolagem a cada clique perderia o lugar dele.
     await carregarExemplos();
   };
 
@@ -902,35 +926,68 @@ export default function Perfil() {
                       <>
                         <input
                           value={buscaExemplo}
-                          onChange={e => buscarTransacoes(e.target.value)}
-                          placeholder="Buscar transação no histórico..."
+                          onChange={e => { setBuscaExemplo(e.target.value); setLimiteCatalogo(100); }}
+                          placeholder="Filtrar por nome..."
                           className="glass-input p-2 text-sm bg-white w-full"
                         />
-                        {achados.length > 0 && (
-                          <div className="mt-1 max-h-40 overflow-y-auto space-y-0.5">
-                            {achados.map((t: any) => (
-                              <button
-                                key={t.id}
-                                onClick={() => adicionarExemplo(tipo.slug, t.id)}
-                                className="w-full flex items-center justify-between gap-2 text-xs py-1 px-2 rounded-lg hover:bg-primary/10 transition-colors"
-                              >
-                                <span className="text-text-light truncate">
-                                  {t.data} · {t.apelido || t.nome}
-                                </span>
-                                <span className="text-text shrink-0">
-                                  R$ {Math.abs(Number(t.valor)).toFixed(2).replace('.', ',')}
-                                </span>
-                              </button>
-                            ))}
-                          </div>
-                        )}
+
+                        {/* ⭐ A lista inteira, rolável: dá para achar pelo olho, sem saber o
+                            nome que o banco escreveu. Clicar seleciona. */}
+                        <div className="mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-white/40">
+                          {carregandoCatalogo && catalogo.length === 0 ? (
+                            <div className="p-3 text-center text-xs text-text-light">Carregando...</div>
+                          ) : catalogo.length === 0 ? (
+                            <div className="p-3 text-center text-xs text-text-light">
+                              Nenhuma transação encontrada.
+                            </div>
+                          ) : (
+                            <>
+                              {catalogo.map((t: any) => {
+                                const jaEh = exemplos.some(
+                                  e => e.slug === tipo.slug && e.transaction_id === t.id,
+                                );
+                                return (
+                                  <button
+                                    key={t.id}
+                                    onClick={() => !jaEh && adicionarExemplo(tipo.slug, t.id)}
+                                    disabled={jaEh}
+                                    className={`w-full flex items-center justify-between gap-2 text-xs py-1.5 px-2 border-b border-border/40 last:border-0 transition-colors ${
+                                      jaEh
+                                        ? 'bg-primary/5 text-primary cursor-default'
+                                        : 'hover:bg-primary/10'
+                                    }`}
+                                  >
+                                    <span className="flex items-center gap-1.5 min-w-0">
+                                      {jaEh && <Check size={12} className="shrink-0" />}
+                                      <span className={`truncate ${jaEh ? '' : 'text-text-light'}`}>
+                                        {t.data} · {t.apelido || t.nome}
+                                      </span>
+                                    </span>
+                                    <span className="text-text shrink-0">
+                                      R$ {Math.abs(Number(t.valor)).toFixed(2).replace('.', ',')}
+                                    </span>
+                                  </button>
+                                );
+                              })}
+                              {catalogo.length >= limiteCatalogo && (
+                                <button
+                                  onClick={() => setLimiteCatalogo(prev => prev + 100)}
+                                  disabled={carregandoCatalogo}
+                                  className="w-full py-2 text-xs font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                                >
+                                  {carregandoCatalogo ? 'Carregando...' : 'Buscar +'}
+                                </button>
+                              )}
+                            </>
+                          )}
+                        </div>
                       </>
                     )}
                   </div>
 
                   <div className="flex justify-end gap-2 pt-1">
                     <button
-                      onClick={() => { setEditandoTipo(null); setBuscaExemplo(''); setAchados([]); }}
+                      onClick={() => { setEditandoTipo(null); setBuscaExemplo(''); setLimiteCatalogo(100); }}
                       className="px-3 py-1.5 text-sm text-text-light hover:text-text rounded-lg transition-colors"
                     >
                       Cancelar
