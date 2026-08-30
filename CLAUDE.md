@@ -154,9 +154,12 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
 7. ⭐ **Nenhuma tela chama um LLM.** Agente de IA se pede à `ai-agents` pelo nome. → D-012
 8. ⭐ **Determinístico primeiro.** Classificação tenta uma regra sobre o dado que já existe; a IA só
    entra no que a regra não alcança. O que a regra resolve não vai ao prompt. → D-028
-9. ⚠️ **Dois limiares, e só dois.** Memória de categoria e compromisso previsível usam **3**;
-   detecção de recorrente usa **2** (`PISO` em `src/lib/fixos-propostos.ts`), porque ali o sinal
-   é mais forte — nome, valor e dia repetindo. Não invente um terceiro.
+9. ⭐ **Detectar exige 2; sobrescrever o usuário exige 3.** As duas camadas do comprometido
+   detectam com **2** ocorrências — `PISO` (`fixos-propostos.ts`) e `PISO_COMPROMISSO`
+   (`compromissos.ts`) —, porque demorar a detectar deixa o comprometido menor do que é. O **3**
+   sobrevive só na memória de categoria, que sobrescreve a escolha da IA em silêncio. E um
+   terceiro limiar, `PISO_AUTO = 3`, decide quando a proposta de gasto fixo é aceita sozinha —
+   propor é barato, criar sem perguntar não.
 10. ⭐ **`/perfil` é o dono da configuração.** Tela de operação que precisa configurar **navega** para
     lá, não abre editor próprio. → D-029
 11. ⛔⛔ **Uma transação pertence a uma camada só.** A cascata é `manual → parcela → fixo → rótulo`,

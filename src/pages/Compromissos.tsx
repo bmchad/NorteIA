@@ -10,7 +10,7 @@ import ExemplosDoCompromisso from '../components/ExemplosDoCompromisso';
 import {
   detectarPropostas, lancamentosDoFixo, PISO_AUTO, PREFIXO_CORRECAO, type PropostaDeFixo,
 } from '../lib/fixos-propostos';
-import { TETO_EXEMPLOS, valorDoCompromisso } from '../lib/compromissos';
+import { PISO_COMPROMISSO, TETO_EXEMPLOS, valorDoCompromisso } from '../lib/compromissos';
 import { comprometidoDoCiclo, proximoAlivio } from '../lib/comprometido';
 
 /**
@@ -642,8 +642,8 @@ export default function Compromissos() {
           </div>
           {detectados.length === 0 ? (
             <div className="glass-panel p-8 text-center text-text-light">
-              Nenhum compromisso previsível detectado. Eles aparecem quando 3 transações do mesmo
-              tipo são importadas.
+              Nenhum compromisso previsível detectado. Eles aparecem quando {PISO_COMPROMISSO}{' '}
+              transações do mesmo tipo são importadas.
             </div>
           ) : (
             detectados.map(c => (

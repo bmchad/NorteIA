@@ -7,8 +7,18 @@
  * fez o Dashboard e o `/meses` discordarem por um ano (D-007).
  */
 
-/** Quantas transações rotuladas até uma proposta aparecer. ⭐ O mesmo 3 de todo o produto. */
-export const PISO_COMPROMISSO = 3;
+/**
+ * Quantas transações rotuladas até o tipo entrar na camada Previsível.
+ *
+ * ⭐ **Dois**, alinhado com o piso da detecção de recorrente. O 3 sobrevive só na memória de
+ * categoria, onde ele decide sobrescrever a IA em silêncio — ali o custo de errar é o
+ * usuário não entender por que a categoria mudou sozinha, e vale exigir mais.
+ *
+ * ⚠️ Aqui o custo de errar é outro: um tipo que demora a aparecer deixa o comprometido
+ * **menor do que é**, e subestimar o que já tem dono é errar para o lado que diz que sobra
+ * mais dinheiro do que sobra.
+ */
+export const PISO_COMPROMISSO = 2;
 
 /** Teto de tipos que entram no prompt. Acima disso o modelo começa a forçar encaixe. */
 export const TETO_TIPOS_ATIVOS = 25;
