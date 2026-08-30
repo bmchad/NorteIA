@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, AlertTriangle, PlusCircle, CheckCheck, type LucideIcon } from 'lucide-react';
+import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, AlertTriangle, PlusCircle, CheckCheck, PiggyBank, type LucideIcon } from 'lucide-react';
 import {
   agruparParcelas, comprometidoRestante, contaDaCompra, parcelasRestantes, projecaoPorCiclo,
 } from '../lib/parcelas';
@@ -12,6 +12,7 @@ import {
 } from '../lib/fixos-propostos';
 import { TETO_EXEMPLOS, valorDoCompromisso } from '../lib/compromissos';
 import { comprometidoDoCiclo, proximoAlivio } from '../lib/comprometido';
+import { cobrancasDoCiclo, type Cobranca } from '../lib/reserva';
 
 /**
  * `/compromissos` — dinheiro que já tem dono antes de você decidir qualquer coisa.
@@ -141,6 +142,23 @@ export default function Compromissos() {
   );
 
   const fixosAtivos = fixos.filter(f => f.status === 'ativo');
+
+  /**
+   * ⭐ O quanto e o quando. O painel diz o que você deve por mês; isto diz o que ainda vai
+   * sair até o fim do ciclo — que é a parte que decide se você pode gastar hoje.
+   */
+  const reserva = useMemo(
+    () => cobrancasDoCiclo(fixosAtivos, transacoes, cicloDia),
+    [fixos, transacoes, cicloDia],
+  );
+
+  /** O estado de cada fixo neste ciclo, para o card dizer "cai dia N" ou "já caiu". */
+  const estadoDoFixo = useMemo(() => {
+    const mapa = new Map<string, { data: string; jaCaiu: boolean }>();
+    for (const c of reserva.jaCairam) mapa.set(c.fixo.id, { data: c.data, jaCaiu: true });
+    for (const c of reserva.pendentes) mapa.set(c.fixo.id, { data: c.data, jaCaiu: false });
+    return mapa;
+  }, [reserva]);
   const recusados = fixos.filter(f => f.status === 'recusado');
 
   /**
@@ -489,6 +507,35 @@ export default function Compromissos() {
             </div>
           )}
 
+          {/* ⭐⭐ A frase que faltava: quanto deixar na conta, e por causa de quê. Um total
+              sozinho não muda comportamento; a data e o nome mudam.
+              ⛔ Some quando não há nada a reservar — "Reserve R$ 0,00" é ruído, e um aviso
+              que aparece sempre deixa de ser aviso. */}
+          {reserva.pendentes.length > 0 && (
+            <div className="glass-panel p-5 border-l-4 border-primary">
+              <div className="flex items-start gap-3">
+                <div className="bg-primary/10 text-primary p-2 rounded-lg shrink-0">
+                  <PiggyBank size={20} />
+                </div>
+                <div className="min-w-0">
+                  <div className="text-[10px] uppercase font-bold text-text-light tracking-wider">
+                    Deixe reservado
+                  </div>
+                  <div className="text-3xl font-bold text-text">{brl(reserva.aReservar)}</div>
+                  <div className="text-xs text-text-light mt-0.5">
+                    até {diaEMes(reserva.fimDoCiclo)}, para as cobranças que ainda faltam
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-4 space-y-1 border-t border-border pt-3">
+                {reserva.pendentes.map(c => (
+                  <LinhaDeCobranca key={c.fixo.id} c={c} brl={brl} />
+                ))}
+              </div>
+            </div>
+          )}
+
           <section className="space-y-3">
             <h3 className="font-bold text-text">Ativos</h3>
             {fixosAtivos.length === 0 ? (
@@ -505,6 +552,7 @@ export default function Compromissos() {
                   f={f}
                   brl={brl}
                   lancamentos={lancamentosDoFixo(f, transacoes)}
+                  estado={estadoDoFixo.get(f.id) ?? null}
                   encerramento={encerramentos.get(f.id) ?? null}
                   onExcluir={() => excluirFixo(f.id)}
                   onEncerrar={() => aceitarProposta(encerramentos.get(f.id)!)}
@@ -931,8 +979,46 @@ function Lancamentos({ itens, brl, rotulo }: {
 }
 
 /** Um gasto fixo ativo, com os lançamentos que o sustentam e o aviso de silêncio. */
-function FixoAtivo({ f, brl, lancamentos, encerramento, onExcluir, onEncerrar, onIgnorar }: {
+/** `2026-02-05` → `5 de fevereiro`. */
+function diaEMes(iso: string): string {
+  const [, mes, dia] = iso.split('-').map(Number);
+  return `${dia} de ${MES_LONGO[mes - 1]}`;
+}
+
+const MES_LONGO = [
+  'janeiro', 'fevereiro', 'março', 'abril', 'maio', 'junho',
+  'julho', 'agosto', 'setembro', 'outubro', 'novembro', 'dezembro',
+];
+
+/**
+ * Uma cobrança que ainda vai cair.
+ *
+ * ⭐ É a frase inteira numa linha: **dia, nome, valor**. Foi para isso que a data foi
+ * calculada — um total sozinho não diz o que fazer.
+ */
+function LinhaDeCobranca({ c, brl }: { c: Cobranca; brl: (v: number) => string }) {
+  const dia = Number(c.data.split('-')[2]);
+  return (
+    <div className="flex items-center justify-between gap-3 text-sm">
+      <span className="flex items-baseline gap-2 min-w-0">
+        <span className="text-text-light text-xs shrink-0">dia {String(dia).padStart(2, '0')}</span>
+        <span className="text-text truncate">{c.fixo.nome}</span>
+        {/* ⚠️ Quando o dia nominal cai em fim de semana, a data muda — e esconder isso faria
+            o usuário achar que o app errou. */}
+        {c.ajustada && (
+          <span className="text-[10px] text-text-light/70 shrink-0" title="O dia caía num fim de semana">
+            ajustado
+          </span>
+        )}
+      </span>
+      <span className="font-medium text-text shrink-0">{brl(c.valor)}</span>
+    </div>
+  );
+}
+
+function FixoAtivo({ f, brl, lancamentos, estado, encerramento, onExcluir, onEncerrar, onIgnorar }: {
   f: any; brl: (v: number) => string; lancamentos: any[];
+  estado: { data: string; jaCaiu: boolean } | null;
   encerramento: PropostaDeFixo | null;
   onExcluir: () => void; onEncerrar: () => void; onIgnorar: () => void;
 }) {
@@ -941,8 +1027,14 @@ function FixoAtivo({ f, brl, lancamentos, encerramento, onExcluir, onEncerrar, o
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
           <span className="font-medium text-text">{f.nome}</span>
+          {/* ⚠️ "dia 3" solto não responde a pergunta que importa: já passou ou vem aí? Sem
+              isto o usuário teria de cruzar este card com a lista de reserva lá em cima. */}
           <div className="text-xs text-text-light">
-            {f.dia ? `dia ${f.dia}` : 'sem dia'}
+            {estado
+              ? (estado.jaCaiu
+                ? <span className="text-text-light/70">já caiu neste ciclo</span>
+                : <span className="text-primary font-medium">cai dia {Number(estado.data.split('-')[2])}</span>)
+              : (f.dia ? `dia ${f.dia}` : 'sem dia')}
             {(f.periodicidade_meses ?? 1) > 1 && ` · a cada ${f.periodicidade_meses} meses`}
             {f.origem === 'manual' && ' · cadastrado por você'}
           </div>
