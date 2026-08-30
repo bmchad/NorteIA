@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, AlertTriangle, type LucideIcon } from 'lucide-react';
+import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, AlertTriangle, PlusCircle, type LucideIcon } from 'lucide-react';
 import {
   agruparParcelas, comprometidoRestante, contaDaCompra, parcelasRestantes, projecaoPorCiclo,
 } from '../lib/parcelas';
@@ -38,6 +38,7 @@ export default function Compromissos() {
   const [expandido, setExpandido] = useState<string | null>(null);
   const [buscaTransacao, setBuscaTransacao] = useState('');
   const [verRecusados, setVerRecusados] = useState(false);
+  const [novo, setNovo] = useState({ nome: '', valor: '', dia: '' });
   const [grupoAberto, setGrupoAberto] = useState<string | null>(null);
   const [confirmacao, setConfirmacao] = useState<{ titulo: string; mensagem: string; onConfirmar: () => void } | null>(null);
 
@@ -216,6 +217,34 @@ export default function Compromissos() {
     });
   };
 
+  /**
+   * Cadastro manual de gasto fixo.
+   *
+   * ⭐ **O nome tem de ser o do extrato**, não um apelido — é por ele que o fixo encontra os
+   * próprios lançamentos e, por consequência, os retira da camada Previsível. "Netflix"
+   * digitado não casa com "NETFLIX.COM": o fixo existiria sem nunca achar uma cobrança, e o
+   * comprometido contaria o valor duas vezes, uma pelo fixo e outra pelo rótulo.
+   *
+   * ⚠️ Dia é opcional de propósito: "gasto uns R$ 300 no mercado" é cadastro legítimo, e
+   * obrigar o dia expulsaria esse caso.
+   */
+  const adicionarManual = async (e: React.FormEvent) => {
+    e.preventDefault();
+    const valor = parseFloat(novo.valor.replace(',', '.'));
+    if (!novo.nome.trim() || isNaN(valor)) return;
+
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+
+    await supabase.from('fixos').insert([{
+      user_id: user.id, nome: novo.nome.trim(), valor,
+      dia: novo.dia ? parseInt(novo.dia) : null,
+      origem: 'manual', status: 'ativo', periodicidade_meses: 1,
+    }]);
+    setNovo({ nome: '', valor: '', dia: '' });
+    await carregar();
+  };
+
   const excluirFixo = async (id: string) => {
     await supabase.from('fixos').delete().eq('id', id);
     await carregar();
@@ -349,9 +378,8 @@ export default function Compromissos() {
           <section className="space-y-3">
             <h3 className="font-bold text-text">Ativos</h3>
             {fixosAtivos.length === 0 ? (
-              /* ⭐ O vazio aqui é espera, não falta de ação: não há nada para o usuário
-                 fazer além de importar. Dizer isso evita que ele procure um botão que não
-                 existe mais. */
+              /* ⭐ A promessa continua sendo a detecção: o formulário abaixo é a exceção,
+                 para quem não quer esperar. */
               <div className="glass-panel p-8 text-center text-text-light">
                 Nada por aqui ainda — seus gastos fixos são importados automaticamente.
                 <div className="text-xs mt-1 text-text-light/70">
@@ -373,6 +401,44 @@ export default function Compromissos() {
               ))
             )}
 
+            {/* ⚠️ O nome é a chave: é por ele que o fixo encontra os próprios lançamentos.
+                Por isso o campo pede o nome do extrato e o rótulo insiste nisso — apelido
+                cria um fixo que nunca casa com nada. */}
+            <form onSubmit={adicionarManual} className="glass-panel p-4 space-y-2">
+              <div className="flex flex-wrap gap-2">
+                <input
+                  value={novo.nome}
+                  onChange={e => setNovo({ ...novo, nome: e.target.value })}
+                  placeholder="Nome exato do extrato (ex: NETFLIX.COM)"
+                  className="glass-input p-2 text-sm bg-white flex-1 min-w-[200px]"
+                />
+                <input
+                  value={novo.valor}
+                  onChange={e => setNovo({ ...novo, valor: e.target.value })}
+                  placeholder="Valor" inputMode="decimal"
+                  className="glass-input p-2 text-sm bg-white w-28"
+                />
+                <input
+                  value={novo.dia}
+                  onChange={e => setNovo({ ...novo, dia: e.target.value })}
+                  placeholder="Dia (opcional)" type="number" min={1} max={31}
+                  className="glass-input p-2 text-sm bg-white w-32"
+                  title="Opcional: 'gasto uns R$ 300 no mercado' é cadastro legítimo"
+                />
+                <button
+                  type="submit"
+                  className="bg-primary text-white px-4 rounded-xl hover:bg-primary-hover transition-colors"
+                  title="Acrescentar"
+                >
+                  <PlusCircle size={18} />
+                </button>
+              </div>
+              <p className="text-[11px] text-text-light/80">
+                ⚠️ Escreva o nome <strong>exatamente como aparece no extrato</strong> — é por ele
+                que o gasto encontra as próprias cobranças. Um apelido cria um fixo que nunca
+                casa com nada.
+              </p>
+            </form>
           </section>
 
           {propostasAbertas.length > 0 && (

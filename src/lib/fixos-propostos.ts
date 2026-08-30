@@ -17,8 +17,20 @@
  */
 import { getCycleKey } from './ciclo';
 
-/** Ocorrências mínimas para virar proposta. ⭐ O mesmo 3 de todo o produto. */
-export const PISO = 3;
+/**
+ * Ocorrências mínimas para virar proposta de gasto fixo.
+ *
+ * ⚠️ **Dois, e não três como o resto do produto.** A memória de categoria e o compromisso
+ * previsível continuam em 3. Aqui o sinal é mais forte: nome igual, valor igual e dia
+ * próximo repetindo é assinatura, e esperar a terceira cobrança atrasa em um mês inteiro o
+ * aviso de um gasto que já está em curso.
+ *
+ * ⚠️ **O que se perde:** com duas ocorrências há **um único intervalo** para deduzir a
+ * cadência. Duas cobranças com três meses de distância viram "trimestral" a partir de uma
+ * observação só. `periodicidadeDe` recusa intervalos irregulares, mas com uma amostra não há
+ * irregularidade para detectar.
+ */
+export const PISO = 2;
 
 /** Tolerância de dia: débito automático cai em dia útil e escorrega. */
 const TOLERANCIA_DIA = 2;
@@ -148,35 +160,28 @@ interface Candidato {
  * | `origem` | casa por |
  * |---|---|
  * | `auto-valor-dia` | **valor e dia** — esta regra existe para cobranças cujo nome muda entre faturas, então nome não serve |
- * | `manual` | ⚠️ **dia** — o nome digitado ("Netflix") nunca bate com o do extrato ("NETFLIX.COM") |
- * | resto | **nome** |
+ * | resto, inclusive `manual` | **nome** |
  *
  * ⛔ **Dia sozinho deixou de ser a regra geral.** Era, por `OR`, e com tolerância de dois
  * dias isso fazia quaisquer dois fixos mensais vizinhos casarem — arbitrariamente, já que
  * quem vencia era o primeiro do array.
  *
- * ⚠️ **`manualCasaPorDia` não é conveniência, é a única diferença real entre os dois usos.**
- * Uma proposta já é um padrão recorrente com valor e cadência, e existem poucas: casar uma
- * delas com um fixo manual pelo dia é um sinal fraco mas contido. Uma transação solta não é
- * nada disso — casar por dia faria o fixo manual reivindicar **toda compra numa janela de
- * cinco dias, todo mês**, e tirá-las da camada Previsível. Por isso a evidência de um fixo
- * manual é vazia, e isso é a resposta honesta.
+ * ⚠️ **`manual` também casa por nome.** Antes casava por dia, porque o nome digitado
+ * ("Netflix") não batia com o do extrato ("NETFLIX.COM"). O formulário agora **pede o nome
+ * exato do extrato**, então o nome voltou a ser o sinal — e some junto o risco de um fixo
+ * manual engolir uma cobrança vizinha só por cair no mesmo dia.
+ *
+ * ⚠️ Fixo manual antigo, com nome amigável, deixa de casar. É o comportamento certo: a
+ * cobrança real ganha proposta própria, visível, em vez de virar uma correção silenciosa.
  *
  * ⚠️ **O valor nunca entra no ramo do nome**, nos dois usos e pelo mesmo motivo: uma
  * mensalidade que subiu continua sendo do mesmo fixo. Exigir valor a tiraria do fixo e a
  * jogaria para a camada de baixo (dupla contagem), e mataria a proposta de correção — que
  * existe justamente para anunciar que o valor divergiu.
  */
-function mesmoCompromisso(
-  fixo: any,
-  c: Candidato,
-  { manualCasaPorDia }: { manualCasaPorDia: boolean },
-): boolean {
-  const diaBate = fixo.dia != null && Math.abs(Number(fixo.dia) - c.dia) <= TOLERANCIA_DIA;
-
-  if (fixo.origem === 'manual') return manualCasaPorDia && diaBate;
-
+function mesmoCompromisso(fixo: any, c: Candidato): boolean {
   if (fixo.origem === 'auto-valor-dia') {
+    const diaBate = fixo.dia != null && Math.abs(Number(fixo.dia) - c.dia) <= TOLERANCIA_DIA;
     return diaBate && Math.abs(Math.abs(Number(fixo.valor) || 0) - c.valor) < 0.01;
   }
 
@@ -196,15 +201,15 @@ function mesmoCompromisso(
  * dupla contagem são a mesma pergunta, então são a mesma função — com um dono só, as duas
  * respostas não têm como divergir.
  *
- * ⚠️ **Fixo criado à mão devolve vazio**, e é a resposta honesta: "Aluguel" digitado não é o
- * nome do extrato, e cair no dia não é evidência de nada — todo mundo compra alguma coisa
- * no dia 3. Vincular à mão é outro recurso.
+ * ⚠️ **Fixo criado à mão só casa se o nome for o do extrato** — é o que o formulário pede.
+ * Nome amigável devolve vazio, e isso é honesto: cair no mesmo dia não é evidência de nada,
+ * porque todo mundo compra alguma coisa no dia 3.
  */
 export function lancamentosDoFixo(fixo: any, transacoes: any[]): any[] {
   return transacoes.filter(
     t => elegivel(t) && mesmoCompromisso(fixo, {
       nome: t.nome, apelido: t.apelido, valor: abs(t), dia: diaDe(t),
-    }, { manualCasaPorDia: false }),
+    }),
   );
 }
 
@@ -390,7 +395,7 @@ function casarComFixo(p: PropostaDeFixo, fixos: any[]): any | null {
     fixos.find(f => {
       if (f.status === 'recusado' || f.status === 'encerrado') return false;
       if ((f.periodicidade_meses ?? 1) !== p.periodicidade_meses) return false;
-      return mesmoCompromisso(f, { nome: p.nome, valor: p.valor, dia: p.dia }, { manualCasaPorDia: true });
+      return mesmoCompromisso(f, { nome: p.nome, valor: p.valor, dia: p.dia });
     }) ?? null
   );
 }
