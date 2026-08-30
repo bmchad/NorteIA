@@ -270,19 +270,34 @@ export default function Compromissos() {
         </button>
       </header>
 
-      {/* ⭐⭐ O painel decomposto: um total só esconderia o que dá para cancelar. */}
-      <div className="glass-panel p-6">
-        <div className="flex items-baseline justify-between flex-wrap gap-2">
-          <span className="text-text-light text-sm uppercase font-bold tracking-wider">
-            Comprometido por mês
-          </span>
-          <span className="text-4xl font-bold text-text">{brl(total)}</span>
-        </div>
+      {/* ⭐ A resposta da tela, sozinha na própria caixa. Dividir a linha com o rótulo à
+          esquerda e o número à direita fazia dele mais um item de cabeçalho. */}
+      <div className="glass-panel p-8 text-center">
+        <span className="text-text-light text-sm uppercase font-bold tracking-wider">
+          Comprometido por mês
+        </span>
+        <div className="text-5xl font-bold text-text mt-2">{brl(total)}</div>
 
-        {/* ⭐ O card É o botão da aba. Três cards e, logo abaixo, três abas repetindo os
-            mesmos nomes seria o mesmo controle duas vezes — e o número fica longe do
-            rótulo que ele explica. */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
+        {/* ⭐ A frase que só existe porque parcela tem fim conhecido — e a razão de as duas
+            telas terem virado uma. Para assinatura não dá para dizer nada: pode durar
+            para sempre. */}
+        {alivio && (
+          <div className="mt-4 inline-flex items-start gap-2 text-sm bg-[#10b981]/5 rounded-xl p-3 text-left">
+            <TrendingDown size={16} className="text-[#10b981] shrink-0 mt-0.5" />
+            <span className="text-text-light">
+              A partir de <strong className="text-text">{alivio.rotulo}</strong>, cai para{' '}
+              <strong className="text-text">{brl(alivio.valor)}</strong> — são{' '}
+              {brl(alivio.diferenca)} a menos por mês, quando as parcelas acabam.
+            </span>
+          </div>
+        )}
+      </div>
+
+      {/* ⭐⭐ O painel decomposto: um total só esconderia o que dá para cancelar.
+          ⭐ E o card É o botão da aba — três cards e, logo abaixo, três abas repetindo os
+          mesmos nomes seria o mesmo controle duas vezes. */}
+      <div className="glass-panel p-6">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
           <CardCamada
             id="contratado"
             titulo="Contratado"
@@ -314,20 +329,6 @@ export default function Compromissos() {
             onClick={() => setAba('previsivel')}
           />
         </div>
-
-        {/* ⭐ A frase que só existe porque parcela tem fim conhecido — e a razão de as duas
-            telas terem virado uma. Para assinatura não dá para dizer nada: pode durar
-            para sempre. */}
-        {alivio && (
-          <div className="mt-4 flex items-start gap-2 text-sm bg-[#10b981]/5 rounded-xl p-3">
-            <TrendingDown size={16} className="text-[#10b981] shrink-0 mt-0.5" />
-            <span className="text-text-light">
-              A partir de <strong className="text-text">{alivio.rotulo}</strong>, cai para{' '}
-              <strong className="text-text">{brl(alivio.valor)}</strong> — são{' '}
-              {brl(alivio.diferenca)} a menos por mês, quando as parcelas acabam.
-            </span>
-          </div>
-        )}
       </div>
 
       {aba === 'recorrente' && (
