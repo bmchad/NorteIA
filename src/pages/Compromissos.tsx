@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, PlusCircle, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, AlertTriangle, type LucideIcon } from 'lucide-react';
+import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, AlertTriangle, type LucideIcon } from 'lucide-react';
 import {
   agruparParcelas, comprometidoRestante, contaDaCompra, parcelasRestantes, projecaoPorCiclo,
 } from '../lib/parcelas';
 import ConfirmModal from '../components/ConfirmModal';
 import {
-  detectarPropostas, lancamentosDoFixo, PREFIXO_CORRECAO, type PropostaDeFixo,
+  detectarPropostas, lancamentosDoFixo, PISO, PREFIXO_CORRECAO, type PropostaDeFixo,
 } from '../lib/fixos-propostos';
 import { valorDoCompromisso } from '../lib/compromissos';
 import { comprometidoDoCiclo, proximoAlivio } from '../lib/comprometido';
@@ -34,7 +34,6 @@ export default function Compromissos() {
   const [tipos, setTipos] = useState<any[]>([]);
   const [cicloDia, setCicloDia] = useState(5);
   const [expandido, setExpandido] = useState<string | null>(null);
-  const [novo, setNovo] = useState({ nome: '', valor: '', dia: '' });
   const [buscaTransacao, setBuscaTransacao] = useState('');
   const [verRecusados, setVerRecusados] = useState(false);
   const [grupoAberto, setGrupoAberto] = useState<string | null>(null);
@@ -185,33 +184,6 @@ export default function Compromissos() {
   };
 
   /**
-   * Cadastro manual de gasto fixo.
-   *
-   * ⭐ Continua existindo, e a deduplicação depende disso: um fixo manual tem o nome que
-   * VOCÊ digitou (`Netflix`), enquanto o candidato tem o do extrato (`NETFLIX.COM`). É por
-   * isso que a chave de casamento aceita dia OU nome, e não só nome.
-   *
-   * ⚠️ Dia é opcional de propósito: "gasto uns R$ 300 no mercado" é cadastro legítimo, e
-   * obrigar o dia expulsaria esse caso.
-   */
-  const adicionarManual = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const valor = parseFloat(novo.valor.replace(',', '.'));
-    if (!novo.nome.trim() || isNaN(valor)) return;
-
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) return;
-
-    await supabase.from('fixos').insert([{
-      user_id: user.id, nome: novo.nome.trim(), valor,
-      dia: novo.dia ? parseInt(novo.dia) : null,
-      origem: 'manual', status: 'ativo', periodicidade_meses: 1,
-    }]);
-    setNovo({ nome: '', valor: '', dia: '' });
-    await carregar();
-  };
-
-  /**
    * Desfaz uma recusa.
    *
    * ⭐ Recusar é permanente **por decisão**, não por falta de saída. A assinatura some e a
@@ -346,8 +318,14 @@ export default function Compromissos() {
           <section className="space-y-3">
             <h3 className="font-bold text-text">Ativos</h3>
             {fixosAtivos.length === 0 ? (
+              /* ⭐ O vazio aqui é espera, não falta de ação: não há nada para o usuário
+                 fazer além de importar. Dizer isso evita que ele procure um botão que não
+                 existe mais. */
               <div className="glass-panel p-8 text-center text-text-light">
-                Nenhum gasto fixo ainda. Importe alguns meses de extrato e as propostas aparecem aqui.
+                Nada por aqui ainda — seus gastos fixos são importados automaticamente.
+                <div className="text-xs mt-1 text-text-light/70">
+                  Depois de {PISO} cobranças iguais, a assinatura aparece como proposta.
+                </div>
               </div>
             ) : (
               fixosAtivos.map(f => (
@@ -364,30 +342,6 @@ export default function Compromissos() {
               ))
             )}
 
-            <form onSubmit={adicionarManual} className="glass-panel p-4 flex flex-wrap gap-2">
-              <input
-                value={novo.nome}
-                onChange={e => setNovo({ ...novo, nome: e.target.value })}
-                placeholder="Nome do gasto fixo"
-                className="glass-input p-2 text-sm bg-white flex-1 min-w-[160px]"
-              />
-              <input
-                value={novo.valor}
-                onChange={e => setNovo({ ...novo, valor: e.target.value })}
-                placeholder="Valor" inputMode="decimal"
-                className="glass-input p-2 text-sm bg-white w-28"
-              />
-              <input
-                value={novo.dia}
-                onChange={e => setNovo({ ...novo, dia: e.target.value })}
-                placeholder="Dia (opcional)" type="number" min={1} max={31}
-                className="glass-input p-2 text-sm bg-white w-32"
-                title="Opcional: 'gasto uns R$ 300 no mercado' é cadastro legítimo"
-              />
-              <button type="submit" className="bg-primary text-white px-4 rounded-xl hover:bg-primary-hover transition-colors">
-                <PlusCircle size={18} />
-              </button>
-            </form>
           </section>
 
           {propostasAbertas.length > 0 && (
