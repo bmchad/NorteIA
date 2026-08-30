@@ -3,7 +3,8 @@ import { supabase } from '../lib/supabase';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
 import { TrendingUp, TrendingDown, DollarSign, Info, Calculator, ChevronDown, ChevronUp } from 'lucide-react';
 import { getCycleKey } from '../lib/ciclo';
-import { comprometidoMensal, comprometidoRestante, parcelasRestantes } from '../lib/parcelas';
+import { comprometidoRestante, parcelasRestantes } from '../lib/parcelas';
+import { comprometidoDoCiclo } from '../lib/comprometido';
 
 export default function Dashboard() {
   const [ano, setAno] = useState(new Date().getFullYear().toString());
@@ -21,7 +22,9 @@ export default function Dashboard() {
   const [cicloDia, setCicloDia] = useState<number>(5);
   const [restanteParcelas, setRestanteParcelas] = useState(0);
   const [qtdParcelasRestantes, setQtdParcelasRestantes] = useState(0);
-  const [mensalParcelas, setMensalParcelas] = useState(0);
+  // ⭐ O comprometido tem três camadas desde o B1, e o card mostrava só a primeira —
+  // subestimando quanto do dinheiro já tem dono, que é errar para o lado perigoso.
+  const [comprometido, setComprometido] = useState({ contratado: 0, recorrente: 0, previsivel: 0, total: 0 });
 
   // Calculadora state
   const [calcParcela, setCalcParcela] = useState<number | ''>(100);
@@ -87,13 +90,22 @@ export default function Dashboard() {
    */
   const fetchComprometido = async (userId: string) => {
     try {
-      const { data, error } = await supabase
-        .from('transactions')
-        .select('*')
-        .eq('user_id', userId)
-        .eq('pendente', false)
-        .not('parcela_total', 'is', null);
+      // ⭐ O cálculo mora em src/lib/comprometido.ts e é o mesmo de /compromissos. Duas
+      // telas calculando o mesmo número por conta própria é o erro da D-007.
+      const [tx, fx, tp, mem] = await Promise.all([
+        supabase.from('transactions').select('*').eq('user_id', userId).eq('pendente', false),
+        supabase.from('fixos').select('*'),
+        supabase.from('compromissos').select('*'),
+        supabase.from('memory').select('ciclo_dia').maybeSingle(),
+      ]);
 
+      const c = comprometidoDoCiclo(
+        tx.data ?? [], fx.data ?? [], tp.data ?? [], mem.data?.ciclo_dia ?? 5,
+      );
+      setComprometido(c);
+
+      const data = (tx.data ?? []).filter(t => t.parcela_total);
+      const error = tx.error;
       if (error) throw error;
 
       const grupos: any[][] = [];
@@ -116,7 +128,6 @@ export default function Dashboard() {
       const emAndamento = grupos.filter(g => g.length < (g[0].parcela_total || 1));
       setRestanteParcelas(comprometidoRestante(emAndamento));
       setQtdParcelasRestantes(parcelasRestantes(emAndamento));
-      setMensalParcelas(comprometidoMensal(emAndamento));
     } catch (err) {
       console.error("Erro ao buscar comprometido de parcelas:", err);
     }
@@ -331,7 +342,7 @@ export default function Dashboard() {
 
             {/* Comprometido por mes: e FLUXO, entao mora na linha das medias, onde a unidade
                 bate com a renda. A divida total fica no card do resultado, que e anual. */}
-            {mensalParcelas > 0 && (
+            {comprometido.total > 0 && (
               <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
                 <div className="absolute top-0 left-0 w-1 h-full bg-danger"></div>
                 <div className="flex justify-between items-start">
@@ -340,19 +351,31 @@ export default function Dashboard() {
                     <TrendingDown size={20} />
                   </div>
                 </div>
-                <span className="text-2xl font-bold text-danger mt-2">R$ {mensalParcelas.toFixed(2).replace('.', ',')}</span>
-                {renda > 0 ? (
+                <span className="text-2xl font-bold text-danger mt-2">R$ {comprometido.total.toFixed(2).replace('.', ',')}</span>
+                {renda > 0 && (
                   <span
                     className="text-[10px] text-text-light uppercase"
                     title={temCategoriaRenda
                       ? 'Quanto da sua renda média já tem dono antes de você decidir qualquer coisa'
                       : 'Somando toda entrada, inclusive estorno e reembolso. Marque suas categorias de renda no Perfil para este número ficar exato'}
                   >
-                    {((mensalParcelas / (renda / mesesAtivos)) * 100).toFixed(0)}% da renda média{temCategoriaRenda ? '' : ' *'}
+                    {((comprometido.total / (renda / mesesAtivos)) * 100).toFixed(0)}% da renda média{temCategoriaRenda ? '' : ' *'}
                   </span>
-                ) : (
-                  <span className="text-[10px] text-text-light uppercase">Em parcelas</span>
                 )}
+
+                {/* ⭐ A composição vale mais que o total: sozinho ele não diz quanto é dívida
+                    assinada e quanto é assinatura que dá para cancelar amanhã. */}
+                <div className="flex flex-wrap gap-x-3 gap-y-1 text-[10px] text-text-light mt-1">
+                  {([
+                    ['Contratado', comprometido.contratado],
+                    ['Recorrente', comprometido.recorrente],
+                    ['Previsível', comprometido.previsivel],
+                  ] as const).filter(([, v]) => v > 0).map(([rotulo, v]) => (
+                    <span key={rotulo}>
+                      {rotulo} <strong className="text-text">R$ {v.toFixed(2).replace('.', ',')}</strong>
+                    </span>
+                  ))}
+                </div>
               </div>
             )}
           </div>

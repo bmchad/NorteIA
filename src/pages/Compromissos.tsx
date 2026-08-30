@@ -1,11 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, PlusCircle, Trash2 } from 'lucide-react';
-import { getCycleKey } from '../lib/ciclo';
-import { contaDaCompra, comprometidoMensal } from '../lib/parcelas';
-import { comprometidoRecorrente, detectarPropostas, type PropostaDeFixo } from '../lib/fixos-propostos';
-import { agruparPorCompromisso, totalPrevisivel, valorDoCompromisso } from '../lib/compromissos';
+import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, PlusCircle, Trash2, TrendingDown } from 'lucide-react';
+import { contaDaCompra } from '../lib/parcelas';
+import { detectarPropostas, type PropostaDeFixo } from '../lib/fixos-propostos';
+import { valorDoCompromisso } from '../lib/compromissos';
+import { comprometidoDoCiclo, proximoAlivio } from '../lib/comprometido';
 
 /**
  * `/compromissos` — dinheiro que já tem dono antes de você decidir qualquer coisa.
@@ -28,6 +28,7 @@ export default function Compromissos() {
   const [cicloDia, setCicloDia] = useState(5);
   const [expandido, setExpandido] = useState<string | null>(null);
   const [novo, setNovo] = useState({ nome: '', valor: '', dia: '' });
+  const [buscaTransacao, setBuscaTransacao] = useState('');
 
   useEffect(() => { carregar(); }, []);
 
@@ -62,25 +63,20 @@ export default function Compromissos() {
     [transacoes, fixos, cicloDia, carregando],
   );
 
-  const gruposParcelas = useMemo(() => agruparParcelas(transacoes), [transacoes]);
-  const emAndamento = useMemo(
-    () => gruposParcelas.filter(g => g.length < (g[0].parcela_total || 1)),
-    [gruposParcelas],
-  );
+  // ⭐ O cálculo mora em src/lib/comprometido.ts, e o Dashboard usa o mesmo. Duas telas
+  // calculando o mesmo número por conta própria é o erro da D-007.
+  const { contratado, recorrente, previsivel, total, gruposEmAndamento: emAndamento, detectados } =
+    useMemo(
+      () => comprometidoDoCiclo(transacoes, fixos, tipos, cicloDia),
+      [transacoes, fixos, tipos, cicloDia],
+    );
 
-  const detectados = useMemo(
-    () => agruparPorCompromisso(transacoes, tipos, t => getCycleKey(t.data, t.mes_fatura, cicloDia)),
-    [transacoes, tipos, cicloDia],
+  const alivio = useMemo(
+    () => proximoAlivio(emAndamento, recorrente + previsivel, cicloDia),
+    [emAndamento, recorrente, previsivel, cicloDia],
   );
 
   const fixosAtivos = fixos.filter(f => f.status === 'ativo');
-
-  // ⛔ As três camadas somam conjuntos disjuntos. Parcela entra só no Contratado; a cascata
-  // garante que uma transação reivindicada por 1.b não chega ao rótulo de compromisso.
-  const contratado = comprometidoMensal(emAndamento);
-  const recorrente = comprometidoRecorrente(fixosAtivos);
-  const previsivel = totalPrevisivel(detectados);
-  const total = contratado + recorrente + previsivel;
 
   const aceitarProposta = async (p: PropostaDeFixo) => {
     const user = (await supabase.auth.getUser()).data.user;
@@ -114,6 +110,24 @@ export default function Compromissos() {
       periodicidade_meses: p.periodicidade_meses, origem: p.origem,
       status: 'recusado', assinatura: prefixo + p.assinatura,
     }]);
+    await carregar();
+  };
+
+  /**
+   * Põe uma transação num compromisso à mão.
+   *
+   * ⭐ Sem isto o usuário só consegue tirar, nunca corrigir para mais — e a IA errar para
+   * menos é o caso mais comum: ela não rotula o que não reconhece.
+   *
+   * ⚠️ `compromisso_manual` marca a decisão como declarada, e é o que a faz vencer a
+   * detecção automática na importação seguinte.
+   */
+  const acrescentarAoCompromisso = async (transacaoId: string, slug: string) => {
+    await supabase
+      .from('transactions')
+      .update({ compromisso: slug, compromisso_manual: true })
+      .eq('id', transacaoId);
+    setBuscaTransacao('');
     await carregar();
   };
 
@@ -222,6 +236,20 @@ export default function Compromissos() {
             cor="text-[#10b981]"
           />
         </div>
+
+        {/* ⭐ A frase que só existe porque parcela tem fim conhecido — e a razão de as duas
+            telas terem virado uma. Para assinatura não dá para dizer nada: pode durar
+            para sempre. */}
+        {alivio && (
+          <div className="mt-4 flex items-start gap-2 text-sm bg-[#10b981]/5 rounded-xl p-3">
+            <TrendingDown size={16} className="text-[#10b981] shrink-0 mt-0.5" />
+            <span className="text-text-light">
+              A partir de <strong className="text-text">{alivio.rotulo}</strong>, cai para{' '}
+              <strong className="text-text">{brl(alivio.valor)}</strong> — são{' '}
+              {brl(alivio.diferenca)} a menos por mês, quando as parcelas acabam.
+            </span>
+          </div>
+        )}
       </div>
 
       <div className="flex gap-2">
@@ -396,6 +424,42 @@ export default function Compromissos() {
                           </div>
                         </div>
                       ))}
+
+                      {/* ⭐ Acrescentar existe porque a IA erra mais para menos que para
+                          mais: ela não rotula o que não reconhece. */}
+                      <div className="pt-2 mt-2 border-t border-border">
+                        <input
+                          value={buscaTransacao}
+                          onChange={e => setBuscaTransacao(e.target.value)}
+                          placeholder="Buscar transação para acrescentar..."
+                          className="glass-input w-full p-2 text-xs bg-white"
+                        />
+                        {buscaTransacao.trim().length >= 2 && (
+                          <div className="mt-1 max-h-40 overflow-y-auto space-y-0.5">
+                            {transacoes
+                              .filter(t =>
+                                Number(t.valor) < 0 &&
+                                t.compromisso !== c.slug &&
+                                `${t.nome} ${t.apelido ?? ''}`.toLowerCase()
+                                  .includes(buscaTransacao.toLowerCase().trim()))
+                              .slice(0, 8)
+                              .map((t: any) => (
+                                <button
+                                  key={t.id}
+                                  onClick={() => acrescentarAoCompromisso(t.id, c.slug)}
+                                  className="w-full flex items-center justify-between text-xs py-1 px-2 rounded-lg hover:bg-primary/10 transition-colors"
+                                >
+                                  <span className="text-text-light truncate">
+                                    {t.data} · {t.apelido || t.nome}
+                                  </span>
+                                  <span className="text-text shrink-0 ml-2">
+                                    {brl(Math.abs(Number(t.valor)))}
+                                  </span>
+                                </button>
+                              ))}
+                          </div>
+                        )}
+                      </div>
                     </div>
                   )}
                 </div>
@@ -496,29 +560,4 @@ function Proposta({ p, brl, onAceitar, onRecusar }: {
       </div>
     </div>
   );
-}
-
-/**
- * Agrupa parcelas soltas na compra original.
- *
- * ⭐ Por valor, total e dia próximo — nunca por nome. O nome vem sujo do extrato e muda
- * entre faturas da mesma compra; estes três não mudam. Ver D-008.
- */
-function agruparParcelas(transacoes: any[]): any[][] {
-  const grupos: any[][] = [];
-  for (const p of transacoes.filter(t => t.parcela_total)) {
-    const valor = Math.abs(Number(p.valor)).toFixed(2);
-    const total = p.parcela_total || 1;
-    const dia = parseInt(String(p.data).split('-')[2], 10);
-
-    const grupo = grupos.find(g => {
-      const b = g[0];
-      return Math.abs(Number(b.valor)).toFixed(2) === valor
-        && (b.parcela_total || 1) === total
-        && Math.abs(parseInt(String(b.data).split('-')[2], 10) - dia) <= 2;
-    });
-    if (grupo) grupo.push(p);
-    else grupos.push([p]);
-  }
-  return grupos;
 }
