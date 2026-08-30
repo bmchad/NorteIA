@@ -8,7 +8,7 @@ import {
 import ConfirmModal from '../components/ConfirmModal';
 import ExemplosDoCompromisso from '../components/ExemplosDoCompromisso';
 import {
-  detectarPropostas, lancamentosDoFixo, PISO, PREFIXO_CORRECAO, type PropostaDeFixo,
+  detectarPropostas, lancamentosDoFixo, PISO, PISO_AUTO, PREFIXO_CORRECAO, type PropostaDeFixo,
 } from '../lib/fixos-propostos';
 import { TETO_EXEMPLOS, valorDoCompromisso } from '../lib/compromissos';
 import { comprometidoDoCiclo, proximoAlivio } from '../lib/comprometido';
@@ -40,6 +40,7 @@ export default function Compromissos() {
   const [verRecusados, setVerRecusados] = useState(false);
   const [novo, setNovo] = useState({ nome: '', valor: '', dia: '' });
   const [aceitandoTudo, setAceitandoTudo] = useState(false);
+  const [reconhecidos, setReconhecidos] = useState<string[]>([]);
   const [grupoAberto, setGrupoAberto] = useState<string | null>(null);
   const [confirmacao, setConfirmacao] = useState<{ titulo: string; mensagem: string; onConfirmar: () => void } | null>(null);
 
@@ -59,9 +60,41 @@ export default function Compromissos() {
         supabase.from('compromisso_exemplos').select('id, slug, transaction_id, transactions(data, nome, apelido)'),
       ]);
 
-      setCicloDia(mem.data?.ciclo_dia ?? 5);
-      setTransacoes(tx.data ?? []);
-      setFixos(fx.data ?? []);
+      const ciclo = mem.data?.ciclo_dia ?? 5;
+      const transacoesCarregadas = tx.data ?? [];
+      let fixosCarregados = fx.data ?? [];
+
+      /**
+       * ⭐ Aceita sozinha a criação que já se repetiu `PISO_AUTO` vezes.
+       *
+       * ⚠️ Roda **aqui**, na carga, e não num efeito sobre o valor derivado: escrever a
+       * partir de algo calculado em render é como se cria um laço de recarga.
+       *
+       * ⚠️ Converge porque o fixo é criado com exatamente o valor e o dia da proposta —
+       * na volta, `casarComFixo` acha e o ramo "casa e concorda" não propõe nada.
+       *
+       * ⛔ Recusa continua valendo: `detectarPropostas` já tira as assinaturas recusadas
+       * antes de chegar aqui, então o que você dispensou não volta por esta porta.
+       */
+      const automaticas = detectarPropostas(transacoesCarregadas, fixosCarregados, ciclo)
+        .filter(p => p.natureza === 'criar' && p.evidencia.length >= PISO_AUTO);
+
+      if (automaticas.length > 0) {
+        await supabase.from('fixos').insert(automaticas.map(p => ({
+          user_id: user.id, nome: p.nome, valor: p.valor, dia: p.dia,
+          periodicidade_meses: p.periodicidade_meses, origem: p.origem,
+          status: 'ativo', assinatura: p.assinatura,
+          evidencia: p.evidencia.map((t: any) => ({ id: t.id, data: t.data, nome: t.nome, valor: t.valor })),
+        })));
+        const { data } = await supabase.from('fixos').select('*');
+        fixosCarregados = data ?? fixosCarregados;
+        // ⚠️ Nada aparece em silêncio: o aviso diz o que entrou sem você pedir.
+        setReconhecidos(automaticas.map(p => p.nome));
+      }
+
+      setCicloDia(ciclo);
+      setTransacoes(transacoesCarregadas);
+      setFixos(fixosCarregados);
       setTipos(tp.data ?? []);
       setExemplos(ex.data ?? []);
     } catch (err) {
@@ -280,8 +313,25 @@ export default function Compromissos() {
     await carregar();
   };
 
+  /**
+   * Exclui um gasto fixo.
+   *
+   * ⛔ **Excluir um fixo detectado registra uma recusa**, e não é zelo: sem isso a detecção
+   * o recria na carga seguinte — como proposta antes, e agora, com o aceite automático, como
+   * fixo ativo. Excluir viraria um botão que não faz nada.
+   *
+   * ⚠️ Fixo manual não tem assinatura, então some de vez. É o que se espera de algo que você
+   * mesmo digitou.
+   *
+   * ⭐ E a recusa é desfazível, na seção recolhida no fim desta aba.
+   */
   const excluirFixo = async (id: string) => {
-    await supabase.from('fixos').delete().eq('id', id);
+    const fixo = fixos.find(f => f.id === id);
+    if (fixo?.assinatura) {
+      await supabase.from('fixos').update({ status: 'recusado' }).eq('id', id);
+    } else {
+      await supabase.from('fixos').delete().eq('id', id);
+    }
     await carregar();
   };
 
@@ -413,6 +463,32 @@ export default function Compromissos() {
 
       {aba === 'recorrente' && (
         <div className="space-y-6">
+          {/* ⚠️ Aceite automático é conveniência, não segredo. Quem não souber o que entrou
+              não confia no total — e o total é a tese. */}
+          {reconhecidos.length > 0 && (
+            <div className="glass-panel p-4 flex items-start gap-3 border-l-4 border-primary">
+              <CheckCheck size={18} className="text-primary shrink-0 mt-0.5" />
+              <div className="flex-1 min-w-0">
+                <div className="text-sm text-text">
+                  {reconhecidos.length === 1
+                    ? '1 gasto fixo foi reconhecido automaticamente'
+                    : `${reconhecidos.length} gastos fixos foram reconhecidos automaticamente`}
+                </div>
+                <div className="text-xs text-text-light mt-0.5">
+                  {reconhecidos.join(' · ')} — apareceram {PISO_AUTO} vezes ou mais. Exclua
+                  qualquer um se não fizer sentido.
+                </div>
+              </div>
+              <button
+                onClick={() => setReconhecidos([])}
+                className="text-text-light hover:text-text p-1 shrink-0"
+                title="Entendi"
+              >
+                <X size={16} />
+              </button>
+            </div>
+          )}
+
           <section className="space-y-3">
             <h3 className="font-bold text-text">Ativos</h3>
             {fixosAtivos.length === 0 ? (
@@ -421,7 +497,8 @@ export default function Compromissos() {
               <div className="glass-panel p-8 text-center text-text-light">
                 Nada por aqui ainda — seus gastos fixos são importados automaticamente.
                 <div className="text-xs mt-1 text-text-light/70">
-                  Depois de {PISO} cobranças iguais, a assinatura aparece como proposta.
+                  Depois de {PISO} cobranças iguais a assinatura vira proposta; a partir
+                  de {PISO_AUTO}, ela entra sozinha.
                 </div>
               </div>
             ) : (

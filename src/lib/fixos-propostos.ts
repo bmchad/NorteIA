@@ -32,6 +32,19 @@ import { getCycleKey } from './ciclo';
  */
 export const PISO = 2;
 
+/**
+ * Ocorrências a partir das quais a proposta de **criação** é aceita sozinha.
+ *
+ * ⭐ Duas ocorrências levantam a hipótese; três a confirmam. Perguntar de novo o que já se
+ * repetiu três vezes é transformar em trabalho o que o produto deveria resolver — e uma fila
+ * de propostas óbvias é o que faz a pessoa parar de revisar e abandonar o comprometido pela
+ * metade.
+ *
+ * ⛔ **Só `criar`.** Correção e encerramento mexem no que você já aceitou, e mudar ou
+ * desligar um gasto sem perguntar é de outra categoria de erro.
+ */
+export const PISO_AUTO = 3;
+
 /** Tolerância de dia: débito automático cai em dia útil e escorrega. */
 const TOLERANCIA_DIA = 2;
 
