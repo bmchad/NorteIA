@@ -8,7 +8,7 @@ import {
 import ConfirmModal from '../components/ConfirmModal';
 import ExemplosDoCompromisso from '../components/ExemplosDoCompromisso';
 import {
-  detectarPropostas, lancamentosDoFixo, PISO, PISO_AUTO, PREFIXO_CORRECAO, type PropostaDeFixo,
+  detectarPropostas, lancamentosDoFixo, PISO_AUTO, PREFIXO_CORRECAO, type PropostaDeFixo,
 } from '../lib/fixos-propostos';
 import { TETO_EXEMPLOS, valorDoCompromisso } from '../lib/compromissos';
 import { comprometidoDoCiclo, proximoAlivio } from '../lib/comprometido';
@@ -495,11 +495,8 @@ export default function Compromissos() {
               /* ⭐ A promessa continua sendo a detecção: o formulário abaixo é a exceção,
                  para quem não quer esperar. */
               <div className="glass-panel p-8 text-center text-text-light">
-                Nada por aqui ainda — seus gastos fixos são importados automaticamente.
-                <div className="text-xs mt-1 text-text-light/70">
-                  Depois de {PISO} cobranças iguais a assinatura vira proposta; a partir
-                  de {PISO_AUTO}, ela entra sozinha.
-                </div>
+                Nada por aqui ainda — seus gastos fixos são importados{' '}
+                <strong className="text-primary">automaticamente</strong>.
               </div>
             ) : (
               fixosAtivos.map(f => (
