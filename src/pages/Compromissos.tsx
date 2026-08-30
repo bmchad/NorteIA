@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, AlertTriangle, PlusCircle, type LucideIcon } from 'lucide-react';
+import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, AlertTriangle, PlusCircle, CheckCheck, type LucideIcon } from 'lucide-react';
 import {
   agruparParcelas, comprometidoRestante, contaDaCompra, parcelasRestantes, projecaoPorCiclo,
 } from '../lib/parcelas';
@@ -39,6 +39,7 @@ export default function Compromissos() {
   const [buscaTransacao, setBuscaTransacao] = useState('');
   const [verRecusados, setVerRecusados] = useState(false);
   const [novo, setNovo] = useState({ nome: '', valor: '', dia: '' });
+  const [aceitandoTudo, setAceitandoTudo] = useState(false);
   const [grupoAberto, setGrupoAberto] = useState<string | null>(null);
   const [confirmacao, setConfirmacao] = useState<{ titulo: string; mensagem: string; onConfirmar: () => void } | null>(null);
 
@@ -126,23 +127,57 @@ export default function Compromissos() {
     [propostas],
   );
 
-  const aceitarProposta = async (p: PropostaDeFixo) => {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) return;
-
+  /**
+   * Aplica uma proposta, sem recarregar.
+   *
+   * ⭐ Separada do handler para que "aceitar tudo" recarregue **uma vez** no fim, em vez de
+   * uma vez por proposta.
+   */
+  const aplicarProposta = async (p: PropostaDeFixo, userId: string) => {
     if (p.natureza === 'corrigir' && p.fixoId) {
       await supabase.from('fixos').update({ valor: p.valor, dia: p.dia }).eq('id', p.fixoId);
     } else if (p.natureza === 'encerrar' && p.fixoId) {
       await supabase.from('fixos').update({ status: 'encerrado' }).eq('id', p.fixoId);
     } else {
       await supabase.from('fixos').insert([{
-        user_id: user.id, nome: p.nome, valor: p.valor, dia: p.dia,
+        user_id: userId, nome: p.nome, valor: p.valor, dia: p.dia,
         periodicidade_meses: p.periodicidade_meses, origem: p.origem,
         status: 'ativo', assinatura: p.assinatura,
         evidencia: p.evidencia.map((t: any) => ({ id: t.id, data: t.data, nome: t.nome, valor: t.valor })),
       }]);
     }
+  };
+
+  const aceitarProposta = async (p: PropostaDeFixo) => {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+    await aplicarProposta(p, user.id);
     await carregar();
+  };
+
+  /**
+   * Aceita todas as propostas abertas de uma vez.
+   *
+   * ⭐ Existe porque a primeira importação de um histórico longo produz dezenas de propostas
+   * verdadeiras, e revisar uma a uma faz a pessoa desistir no meio — deixando o comprometido
+   * pela metade, que é pior do que não ter começado.
+   *
+   * ⚠️ **Só o que está na lista**, ou seja, `criar` e `corrigir`. Encerramento fica de fora
+   * de propósito: ele mora no card do fixo e desligar um gasto por engano é o erro caro.
+   *
+   * ⚠️ Sequencial, não `Promise.all`: duas propostas podem tocar o mesmo `fixos`, e a ordem
+   * importa. São poucas dezenas de linhas, então o ganho de paralelizar não paga o risco.
+   */
+  const aceitarTodas = async () => {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+    setAceitandoTudo(true);
+    try {
+      for (const p of propostasAbertas) await aplicarProposta(p, user.id);
+      await carregar();
+    } finally {
+      setAceitandoTudo(false);
+    }
   };
 
   /**
@@ -443,7 +478,22 @@ export default function Compromissos() {
 
           {propostasAbertas.length > 0 && (
             <section className="space-y-3">
-              <h3 className="font-bold text-text">Propostas</h3>
+              <div className="flex items-center justify-between gap-4 flex-wrap">
+                <h3 className="font-bold text-text">Propostas</h3>
+                {/* ⚠️ Discreto de propósito: aceitar em massa é atalho para quem já confia na
+                    detecção, não o caminho recomendado. Cada proposta continua trazendo a
+                    própria evidência logo abaixo. */}
+                <button
+                  onClick={aceitarTodas}
+                  disabled={aceitandoTudo}
+                  className="flex items-center gap-1.5 text-xs font-medium text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                >
+                  <CheckCheck size={14} />
+                  {aceitandoTudo
+                    ? 'Aceitando...'
+                    : `Aceitar ${propostasAbertas.length > 1 ? `as ${propostasAbertas.length}` : 'a'}`}
+                </button>
+              </div>
               {propostasAbertas.map((p, i) => (
                 <Proposta
                   key={`${p.assinatura}-${i}`}

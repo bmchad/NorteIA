@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { PieChart, Pie, Cell, ResponsiveContainer, Tooltip, Legend } from 'recharts';
-import { TrendingUp, TrendingDown, DollarSign, Info, Calculator, ChevronDown, ChevronUp } from 'lucide-react';
+import { TrendingUp, TrendingDown, DollarSign, Info, Calculator, ChevronDown, ChevronUp, Wallet, PiggyBank, AlertTriangle } from 'lucide-react';
 import { getCycleKey } from '../lib/ciclo';
 import { comprometidoRestante, parcelasRestantes } from '../lib/parcelas';
 import { comprometidoDoCiclo } from '../lib/comprometido';
@@ -25,6 +25,14 @@ export default function Dashboard() {
   // ⭐ O comprometido tem três camadas desde o B1, e o card mostrava só a primeira —
   // subestimando quanto do dinheiro já tem dono, que é errar para o lado perigoso.
   const [comprometido, setComprometido] = useState({ contratado: 0, recorrente: 0, previsivel: 0, total: 0 });
+
+  /**
+   * ⭐⭐ O número que a plataforma existe para dar: o que sobra depois do que já tem dono.
+   *
+   * ⚠️ Negativo não é "sobra negativa" — é **falta**, e a tela troca o rótulo e a cor. As
+   * duas situações pedem reações opostas, e um sinal de menos não comunica isso.
+   */
+  const sobra = renda / mesesAtivos - comprometido.total;
 
   // Calculadora state
   const [calcParcela, setCalcParcela] = useState<number | ''>(100);
@@ -343,8 +351,34 @@ export default function Dashboard() {
               <span className="text-[10px] text-text-light uppercase">Por mês ativo</span>
             </div>
 
-            {/* Comprometido por mes: e FLUXO, entao mora na linha das medias, onde a unidade
-                bate com a renda. A divida total fica no card do resultado, que e anual. */}
+            {/* ⭐⭐ LINHA 3: a tese do produto, em três colunas alinhadas com as de cima —
+                Renda sob Entradas, Comprometido sob Saídas, o que sobra sob Resultado. Lê-se
+                como uma subtração: o que entra, o que já tem dono, o que sobra para decidir.
+                ⚠️ Renda não é "média de entradas": estorno e reembolso entram positivos e não
+                são dinheiro que você ganhou. Ver D-025. */}
+            {renda > 0 && (
+              <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
+                <div className="absolute top-0 left-0 w-1 h-full bg-[#10b981]"></div>
+                <div className="flex justify-between items-start">
+                  <span className="text-sm font-medium text-text-light uppercase tracking-wider">Renda</span>
+                  <div className="bg-[#10b981]/10 p-2 rounded-lg text-[#10b981]">
+                    <Wallet size={20} />
+                  </div>
+                </div>
+                <span className="text-2xl font-bold text-[#10b981] mt-2">
+                  R$ {(renda / mesesAtivos).toFixed(2).replace('.', ',')}
+                </span>
+                <span
+                  className="text-[10px] text-text-light uppercase"
+                  title={temCategoriaRenda
+                    ? 'Só as categorias que você marcou como renda no Perfil'
+                    : 'Somando toda entrada, inclusive estorno e reembolso. Marque suas categorias de renda no Perfil para este número ficar exato'}
+                >
+                  Por mês ativo{temCategoriaRenda ? '' : ' *'}
+                </span>
+              </div>
+            )}
+
             {comprometido.total > 0 && (
               <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
                 <div className="absolute top-0 left-0 w-1 h-full bg-danger"></div>
@@ -379,6 +413,31 @@ export default function Dashboard() {
                     </span>
                   ))}
                 </div>
+              </div>
+            )}
+
+            {/* ⭐⭐ O número que a plataforma existe para dar: o que sobra depois do que já
+                tem dono. ⚠️ Negativo não é "sobra negativa" — é falta, e o card troca de
+                rótulo e de cor, porque as duas situações pedem reações opostas. */}
+            {renda > 0 && (
+              <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group">
+                <div className={`absolute top-0 left-0 w-1 h-full ${sobra >= 0 ? 'bg-[#10b981]' : 'bg-danger'}`}></div>
+                <div className="flex justify-between items-start">
+                  <span className="text-sm font-medium text-text-light uppercase tracking-wider">
+                    {sobra >= 0 ? 'O que sobra' : 'O que falta'}
+                  </span>
+                  <div className={`p-2 rounded-lg ${sobra >= 0 ? 'bg-[#10b981]/10 text-[#10b981]' : 'bg-danger/10 text-danger'}`}>
+                    {sobra >= 0 ? <PiggyBank size={20} /> : <AlertTriangle size={20} />}
+                  </div>
+                </div>
+                <span className={`text-2xl font-bold mt-2 ${sobra >= 0 ? 'text-[#10b981]' : 'text-danger'}`}>
+                  R$ {Math.abs(sobra).toFixed(2).replace('.', ',')}
+                </span>
+                <span className="text-[10px] text-text-light uppercase">
+                  {sobra >= 0
+                    ? 'Por mês, depois do comprometido'
+                    : 'Seu comprometido passa da renda'}
+                </span>
               </div>
             )}
           </div>
