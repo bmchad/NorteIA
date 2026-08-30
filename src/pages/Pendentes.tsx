@@ -1,20 +1,18 @@
 import { useState, useCallback, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { UploadCloud, FileText, CheckCircle, XCircle, X, Image as ImageIcon, FileSpreadsheet, PlusCircle, ArrowLeft, ChevronDown, ChevronUp, Clock, Info } from 'lucide-react';
+import { FileText, CheckCircle, XCircle, X, Image as ImageIcon, PlusCircle, ArrowLeft, ChevronDown, ChevronUp, Clock, Info } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ConfirmModal from '../components/ConfirmModal';
+import { grupoDoModo, modoDoArquivo, ROTULO_MODO } from '../lib/arquivos';
 
 export default function Pendentes() {
-  const [files, setFiles] = useState<File[]>([]);
+  const [arquivos, setArquivos] = useState<File[]>([]);
   const [loading, setLoading] = useState(false);
   const [extractedData, setExtractedData] = useState<any[]>([]);
   const [categories, setCategories] = useState<any[]>([]);
-  const [customPrompt, setCustomPrompt] = useState('');
-  const [spreadsheetFile, setSpreadsheetFile] = useState<File | null>(null);
-  const [spreadsheetPrompt, setSpreadsheetPrompt] = useState('');
-  const [documentFile, setDocumentFile] = useState<File | null>(null);
-  const [documentPrompt, setDocumentPrompt] = useState('');
-  const [activeMode, setActiveMode] = useState<'selection' | 'image' | 'spreadsheet' | 'document'>('selection');
+  const [instrucao, setInstrucao] = useState('');
+  const [activeMode, setActiveMode] = useState<'selection' | 'arquivo' | 'manual'>('selection');
+  const [formManual, setFormManual] = useState({ nome: '', valor: '', data: '', categoria_id: '' });
   const [cicloDia, setCicloDia] = useState<number>(5);
   const [expandedRascunhos, setExpandedRascunhos] = useState<Set<string>>(new Set());
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
@@ -29,8 +27,8 @@ export default function Pendentes() {
     });
   };
 
-  const removeFile = (indexToRemove: number) => {
-    setFiles(prev => prev.filter((_, idx) => idx !== indexToRemove));
+  const removerArquivo = (indexToRemove: number) => {
+    setArquivos(prev => prev.filter((_, idx) => idx !== indexToRemove));
   };
 
   // 1. Buscar transações e categorias ao abrir a página
@@ -140,12 +138,14 @@ export default function Pendentes() {
     }
   };
 
+  /**
+   * ⚠️ O `accept` do input é só filtro do diálogo do sistema, e o arrastar-e-soltar nem o
+   * consulta. A validação de verdade tem de estar aqui e no seletor, não no atributo.
+   */
   const handleDrop = useCallback((e: React.DragEvent) => {
     e.preventDefault();
-    const droppedFiles = Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/'));
-    if (droppedFiles.length > 0) {
-      setFiles(prev => [...prev, ...droppedFiles]);
-    }
+    const soltos = Array.from(e.dataTransfer.files).filter(f => modoDoArquivo(f) !== null);
+    if (soltos.length > 0) setArquivos(prev => [...prev, ...soltos]);
   }, []);
 
   /**
@@ -226,113 +226,115 @@ export default function Pendentes() {
     }
   };
 
-  const processImage = async () => {
-    if (files.length === 0) return;
+  /**
+   * Lê os arquivos escolhidos e manda para a IA.
+   *
+   * ⭐⭐ Uma função no lugar de três. As antigas `processImage`, `processSpreadsheet` e
+   * `processDocument` diferiam em quatro coisas: o valor de `modo`, `arquivos` (base64) contra
+   * `csv` (texto), qual estado de instrução liam, e singular contra plural. O resto era cópia.
+   *
+   * ⚠️ **Um envio carrega um `modo`, e o `modo` escolhe um prompt** — daí a exigência de que
+   * os arquivos sejam do mesmo grupo. Não é limite do modelo: o Gemini aceita mime types
+   * diferentes na mesma chamada, e hoje um PDF enviado como imagem funciona por acidente, com
+   * o prompt errado.
+   */
+  const processarArquivos = async () => {
+    if (arquivos.length === 0) return;
 
-    const total = files.reduce((acc, f) => acc + f.size, 0);
+    const modos = arquivos.map(modoDoArquivo);
+    const desconhecido = arquivos.find((_, i) => modos[i] === null);
+    if (desconhecido) {
+      alert(`Não sei ler "${desconhecido.name}". Envie imagem, PDF ou planilha.`);
+      return;
+    }
+
+    const grupos = new Set(modos.map(m => grupoDoModo(m!)));
+    if (grupos.size > 1) {
+      alert('Envie um tipo de arquivo por vez: planilha separada de imagem e PDF.');
+      return;
+    }
+
+    // ⚠️ O limite agora vale para os três. Antes a planilha não checava nada, e um .xlsx
+    // grande virava um CSV que estourava no prompt sem aviso nenhum.
+    const total = arquivos.reduce((acc, f) => acc + f.size, 0);
     if (total > LIMITE_DE_UPLOAD) {
-      alert('Esses prints somam mais de 8 MB. Envie em duas levas.');
+      alert('Esses arquivos somam mais de 8 MB. Envie em duas levas.');
       return;
     }
 
     setLoading(true);
     try {
-      const arquivos = await Promise.all(
-        files.map(async f => ({ mimeType: f.type, base64: await lerComoBase64(f) }))
-      );
-
-      await chamarAgente({ modo: 'imagem', arquivos, instrucao: customPrompt });
-      setFiles([]);
+      if (modos[0] === 'planilha') {
+        // ⚠️ Só a primeira aba. Converter no browser não é chamada de agente, e o CSV viaja
+        // muito menor que o binário.
+        const buffer = await arquivos[0].arrayBuffer();
+        const workbook = XLSX.read(buffer, { type: 'array' });
+        const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[workbook.SheetNames[0]]);
+        await chamarAgente({ modo: 'planilha', csv, instrucao });
+      } else {
+        const anexos = await Promise.all(arquivos.map(async f => ({
+          mimeType: f.type || (modoDoArquivo(f) === 'pdf' ? 'application/pdf' : 'image/png'),
+          base64: await lerComoBase64(f),
+        })));
+        await chamarAgente({ modo: modos[0], arquivos: anexos, instrucao });
+      }
+      limparEnvio();
     } catch (error: any) {
-      console.error('Falha ao processar imagens:', error);
+      console.error(error);
       alert(error.message || String(error));
     } finally {
       setLoading(false);
     }
   };
 
-  const processSpreadsheet = async () => {
-    if (!spreadsheetFile) return;
-    setLoading(true);
-
-    try {
-      // A planilha continua sendo lida aqui: converter xlsx em CSV nao e chamada de
-      // agente, e o CSV viaja bem menor que o arquivo binario.
-      const buffer = await spreadsheetFile.arrayBuffer();
-      const workbook = XLSX.read(buffer, { type: 'array' });
-      const csv = XLSX.utils.sheet_to_csv(workbook.Sheets[workbook.SheetNames[0]]);
-
-      await chamarAgente({ modo: 'planilha', csv, instrucao: spreadsheetPrompt });
-
-      setSpreadsheetFile(null);
-      setSpreadsheetPrompt('');
-      setActiveMode('selection');
-    } catch (error: any) {
-      console.error('Falha ao processar planilha:', error);
-      alert(error.message || String(error));
-    } finally {
-      setLoading(false);
-    }
+  /** ⚠️ Antes, "Voltar" no modo imagem não limpava nada: os arquivos ficavam presos no estado, invisíveis, e reapareciam. */
+  const limparEnvio = () => {
+    setArquivos([]);
+    setInstrucao('');
+    setActiveMode('selection');
   };
 
-  const processDocument = async () => {
-    if (!documentFile) return;
+  /**
+   * Registro manual.
+   *
+   * ⭐ Era um card que inseria uma linha em branco com valor 0 para você preencher na revisão.
+   * Sendo metade da tela agora, pede os campos antes.
+   *
+   * ⚠️ `origem: 'manual'` tem de sobreviver: sem ele a linha cai no `DEFAULT 'extrato'` e
+   * entra nas medições por origem como se tivesse vindo de um PDF de banco.
+   */
+  const criarManual = async () => {
+    const nome = formManual.nome.trim();
+    const valor = parseFloat(formManual.valor.replace(',', '.'));
+    if (!nome || isNaN(valor)) return;
 
-    if (documentFile.size > LIMITE_DE_UPLOAD) {
-      alert('Esse PDF passa de 8 MB. Envie um arquivo menor ou separe as paginas.');
-      return;
-    }
-
-    setLoading(true);
-    try {
-      const arquivos = [{
-        mimeType: documentFile.type || 'application/pdf',
-        base64: await lerComoBase64(documentFile),
-      }];
-
-      await chamarAgente({ modo: 'pdf', arquivos, instrucao: documentPrompt });
-
-      setDocumentFile(null);
-      setDocumentPrompt('');
-      setActiveMode('selection');
-    } catch (error: any) {
-      console.error('Falha ao processar documento:', error);
-      alert(error.message || String(error));
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const addManualPendente = async () => {
     try {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) return;
 
-      const today = new Date().toISOString().split('T')[0];
-
       const { error } = await supabase.from('transactions').insert([{
         user_id: user.id,
-        data: today,
-        nome: 'Registro Manual "${registerNumber}"',
-        apelido: '',
-        valor: 0,
+        data: formManual.data || new Date().toISOString().split('T')[0],
+        nome,
+        apelido: nome,
+        valor,
         banco: null,
         mes_fatura: null,
-        categoria_id: null,
+        categoria_id: formManual.categoria_id || null,
         hora: '12:00:00',
         parcela_atual: null,
         parcela_total: null,
         pendente: true,
-        // Sem isto a linha cairia no DEFAULT 'extrato' e entraria nas medições por nome
-        // como se tivesse vindo de um PDF de banco.
-        origem: 'manual'
+        origem: 'manual',
       }]);
-
       if (error) throw error;
+
+      setFormManual({ nome: '', valor: '', data: '', categoria_id: '' });
+      setActiveMode('selection');
       await fetchPendentes();
-    } catch (error) {
-      console.error("Erro ao adicionar manualmente:", error);
-      alert("Erro ao criar transação manual.");
+    } catch (error: any) {
+      console.error(error);
+      alert(error.message || String(error));
     }
   };
 
@@ -498,141 +500,116 @@ export default function Pendentes() {
       <div
         className={`glass-panel flex flex-col items-center justify-start pt-8 text-center border-dashed border-2 border-primary/30 transition-colors relative ${extractedData.length > 0 ? 'p-6 min-h-[200px]' : 'px-8 pb-8 min-h-[400px]'} ${activeMode === 'selection' ? '' : 'hover:bg-primary/5'}`}
         onDragOver={(e) => e.preventDefault()}
-        onDrop={activeMode === 'image' ? handleDrop : undefined}
+        onDrop={activeMode === 'arquivo' ? handleDrop : undefined}
       >
         {activeMode === 'selection' && (
           <div className="w-full flex flex-col items-center animate-fade-in">
             <h3 className={`${extractedData.length > 0 ? 'text-xl' : 'text-2xl'} font-bold text-text mb-4`}>
-              {extractedData.length > 0 ? 'Adicionar mais transações via:' : 'O que você quer selecionar?'}
+              {extractedData.length > 0 ? 'Adicionar mais transações via:' : 'Como você quer registrar?'}
             </h3>
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full max-w-4xl justify-center">
+            {/* ⭐ Duas portas. Eram quatro, e três delas perguntavam o que o próprio arquivo
+                já responde — o tipo dele. */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
               <button
-                onClick={() => setActiveMode('image')}
+                onClick={() => setActiveMode('arquivo')}
                 className="flex flex-col items-center justify-center p-6 bg-white/50 backdrop-blur-sm border-2 border-primary/10 hover:border-primary/60 hover:bg-primary/5 rounded-2xl transition-all shadow-sm group"
               >
                 <div className="w-14 h-14 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <ImageIcon size={28} />
                 </div>
-                <span className="font-bold text-text text-lg">Imagem</span>
-                <span className="text-[10px] text-text-light mt-1 font-medium">Formatos: .jpg, .jpeg, .png, .webp</span>
+                <span className="font-bold text-text text-lg">Arquivo</span>
+                <span className="text-[10px] text-text-light mt-1 font-medium">Print, PDF ou planilha — a IA lê</span>
               </button>
 
               <button
-                onClick={() => setActiveMode('spreadsheet')}
-                className="flex flex-col items-center justify-center p-6 bg-white/50 backdrop-blur-sm border-2 border-primary/10 hover:border-primary/60 hover:bg-primary/5 rounded-2xl transition-all shadow-sm group"
-              >
-                <div className="w-14 h-14 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  <FileSpreadsheet size={28} />
-                </div>
-                <span className="font-bold text-text text-lg">Planilha</span>
-                <span className="text-[10px] text-text-light mt-1 font-medium">Formatos: .xlsx, .csv, .xls</span>
-              </button>
-
-              <button
-                onClick={() => setActiveMode('document')}
-                className="flex flex-col items-center justify-center p-6 bg-white/50 backdrop-blur-sm border-2 border-primary/10 hover:border-primary/60 hover:bg-primary/5 rounded-2xl transition-all shadow-sm group"
-              >
-                <div className="w-14 h-14 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
-                  <FileText size={28} />
-                </div>
-                <span className="font-bold text-text text-lg">Documentos</span>
-                <span className="text-[10px] text-text-light mt-1 font-medium">Formatos: .pdf, .docx, .txt</span>
-              </button>
-
-              <button
-                onClick={addManualPendente}
+                onClick={() => setActiveMode('manual')}
                 className="flex flex-col items-center justify-center p-6 bg-white/50 backdrop-blur-sm border-2 border-primary/10 hover:border-primary/60 hover:bg-primary/5 rounded-2xl transition-all shadow-sm group"
               >
                 <div className="w-14 h-14 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <PlusCircle size={28} />
                 </div>
                 <span className="font-bold text-text text-lg">Registro manual</span>
-                <span className="text-[10px] text-text-light mt-1 font-medium">Edite você mesmo!</span>
+                <span className="text-[10px] text-text-light mt-1 font-medium">Você digita, sem IA</span>
               </button>
             </div>
           </div>
         )}
 
-        {activeMode === 'image' && (
+        {activeMode === 'arquivo' && (
           <div className="w-full flex flex-col items-center animate-fade-in">
             <button
-              onClick={() => setActiveMode('selection')}
+              onClick={limparEnvio}
               className="absolute top-4 left-4 flex items-center gap-2 text-sm text-text-light hover:text-primary transition-colors font-medium bg-transparent border-none cursor-pointer"
             >
               <ArrowLeft size={16} /> Voltar
             </button>
 
-            <div className={`${extractedData.length > 0 ? 'w-10 h-10 mb-2' : 'w-16 h-16 mb-4'} bg-primary/10 text-primary rounded-full flex items-center justify-center shadow-inner mt-4`}>
-              <UploadCloud size={extractedData.length > 0 ? 20 : 32} />
+            <div className={`${extractedData.length > 0 ? 'w-10 h-10 mb-2' : 'w-16 h-16 mb-4'} bg-primary/10 text-primary rounded-full flex items-center justify-center`}>
+              <ImageIcon size={extractedData.length > 0 ? 20 : 32} />
             </div>
-            <h3 className={`${extractedData.length > 0 ? 'text-lg' : 'text-xl'} font-bold text-text mb-2`}>
-              Adicionar via Imagem
+            <h3 className={`${extractedData.length > 0 ? 'text-lg' : 'text-xl'} font-bold text-text mb-1`}>
+              Envie seus arquivos
             </h3>
+            <p className="text-text-light text-sm mb-4 max-w-md">
+              Print de extrato, fatura em PDF ou planilha. ⚠️ Um tipo por vez.
+            </p>
 
-            {!extractedData.length && (
-              <p className="text-text-light max-w-md mb-6">Arraste a imagem (png, jpg) do seu banco para que a Inteligência Artificial processe os dados e salve em rascunho.</p>
-            )}
-
-            <div className="w-full max-w-md mb-6 text-left">
-              <label className="text-xs text-text-light uppercase font-bold mb-2 block">Instruções Extras para a IA (Opcional)</label>
-              <textarea
-                className="glass-input w-full p-3 text-sm h-20 resize-none"
-                placeholder="Ex: Ignorar transações abaixo de R$ 5,00. Considerar apenas saídas..."
-                value={customPrompt}
-                onChange={(e) => setCustomPrompt(e.target.value)}
-              />
-            </div>
+            <textarea
+              value={instrucao}
+              onChange={e => setInstrucao(e.target.value)}
+              placeholder="Instruções para a IA (opcional). Ex: ignore as linhas de pagamento de fatura."
+              className="glass-input w-full max-w-lg p-3 text-sm mb-4 resize-none"
+              rows={2}
+            />
 
             <input
               type="file"
               id="fileInput"
               className="hidden"
-              accept="image/*"
               multiple
+              accept="image/*,application/pdf,.pdf,.xlsx,.xls,.csv"
               onChange={(e) => {
-                const selectedFiles = e.target.files;
-                if (selectedFiles) {
-                  setFiles(prev => [...prev, ...Array.from(selectedFiles)]);
-                }
+                const escolhidos = Array.from(e.target.files ?? []).filter(f => modoDoArquivo(f) !== null);
+                if (escolhidos.length > 0) setArquivos(prev => [...prev, ...escolhidos]);
+                e.target.value = '';
               }}
             />
 
-            <div className="flex gap-4">
-              <label
-                htmlFor="fileInput"
-                className="cursor-pointer bg-primary hover:bg-primary-hover text-white font-medium py-2.5 px-6 rounded-xl shadow-lg shadow-primary/30 transition-all text-sm flex items-center justify-center"
-              >
-                Selecionar Imagem
-              </label>
-            </div>
+            <label
+              htmlFor="fileInput"
+              className="cursor-pointer bg-primary hover:bg-primary-hover text-white font-medium py-2.5 px-6 rounded-xl shadow-lg shadow-primary/30 transition-all text-sm flex items-center justify-center"
+            >
+              Selecionar arquivo
+            </label>
 
-            {files.length > 0 && (
+            {arquivos.length > 0 && (
               <div className="mt-4 flex flex-col items-center w-full">
-                <div className={`font-medium mb-3 flex flex-col items-center gap-1 text-sm text-center w-full ${files.length > 10 ? 'text-danger font-bold' : 'text-azul'}`}>
+                <div className={`font-medium mb-3 flex flex-col items-center gap-1 text-sm text-center w-full ${arquivos.length > 10 ? 'text-danger font-bold' : 'text-azul'}`}>
                   <span className="flex items-center gap-2">
                     <FileText size={16} />
-                    <span>{files.length}/10 {files.length === 1 ? 'imagem selecionada' : 'imagens selecionadas'}</span>
+                    <span>
+                      {arquivos.length}/10{' '}
+                      {(() => {
+                        const grupos = new Set(arquivos.map(f => modoDoArquivo(f)).map(m => m && ROTULO_MODO[m]));
+                        return grupos.size === 1 ? [...grupos][0] : 'arquivos';
+                      })()}
+                    </span>
                   </span>
                   <div className="flex flex-wrap gap-2 justify-center max-w-lg mt-2 mb-1">
-                    {files.map((file, index) => (
+                    {arquivos.map((file, index) => (
                       <div
                         key={index}
-                        className={`flex items-center gap-1.5 border rounded-full pl-3 pr-1.5 py-1 text-xs font-semibold ${files.length > 10
+                        className={`flex items-center gap-1.5 border rounded-full pl-3 pr-1.5 py-1 text-xs font-semibold ${arquivos.length > 10
                           ? 'bg-danger/10 border-danger/20 text-danger'
                           : 'bg-primary/10 border-primary/20 text-azul'
                           }`}
                       >
-                        <span className="max-w-[150px] truncate" title={file.name}>
-                          {file.name}
-                        </span>
+                        <span className="max-w-[150px] truncate" title={file.name}>{file.name}</span>
                         <button
-                          onClick={() => removeFile(index)}
-                          className={`rounded-full p-0.5 transition-colors cursor-pointer flex items-center justify-center ${files.length > 10
-                            ? 'hover:bg-danger/20 text-danger hover:text-danger-hover'
-                            : 'hover:bg-primary/20 hover:text-danger text-primary'
-                            }`}
-                          title="Remover imagem"
+                          onClick={() => removerArquivo(index)}
+                          className="rounded-full p-0.5 transition-colors cursor-pointer flex items-center justify-center hover:bg-primary/20 hover:text-danger text-primary"
+                          title="Remover arquivo"
                           type="button"
                         >
                           <X size={12} />
@@ -643,9 +620,9 @@ export default function Pendentes() {
                 </div>
 
                 <button
-                  onClick={processImage}
-                  disabled={loading || files.length > 10}
-                  className={`py-2 px-6 rounded-lg font-medium transition-all flex items-center gap-2 text-sm ${files.length > 10
+                  onClick={processarArquivos}
+                  disabled={loading || arquivos.length > 10}
+                  className={`py-2 px-6 rounded-lg font-medium transition-all flex items-center gap-2 text-sm ${arquivos.length > 10
                     ? 'bg-border text-text-light cursor-not-allowed opacity-60'
                     : 'bg-text text-white hover:bg-black cursor-pointer'
                     }`}
@@ -655,9 +632,9 @@ export default function Pendentes() {
                   ) : 'Iniciar Leitura'}
                 </button>
 
-                {files.length > 10 && (
+                {arquivos.length > 10 && (
                   <p className="text-danger text-xs font-bold mt-2 animate-pulse">
-                    Selecione até 10 imagens para iniciar a leitura
+                    Selecione até 10 arquivos para iniciar a leitura
                   </p>
                 )}
               </div>
@@ -665,174 +642,66 @@ export default function Pendentes() {
           </div>
         )}
 
-        {activeMode === 'spreadsheet' && (
+        {activeMode === 'manual' && (
           <div className="w-full flex flex-col items-center animate-fade-in">
             <button
-              onClick={() => setActiveMode('selection')}
+              onClick={() => { setActiveMode('selection'); setFormManual({ nome: '', valor: '', data: '', categoria_id: '' }); }}
               className="absolute top-4 left-4 flex items-center gap-2 text-sm text-text-light hover:text-primary transition-colors font-medium bg-transparent border-none cursor-pointer"
             >
               <ArrowLeft size={16} /> Voltar
             </button>
 
-            <div className={`${extractedData.length > 0 ? 'w-10 h-10 mb-2' : 'w-16 h-16 mb-4'} bg-primary/10 text-primary rounded-full flex items-center justify-center shadow-inner mt-4`}>
-              <FileSpreadsheet size={extractedData.length > 0 ? 20 : 32} />
+            <div className={`${extractedData.length > 0 ? 'w-10 h-10 mb-2' : 'w-16 h-16 mb-4'} bg-primary/10 text-primary rounded-full flex items-center justify-center`}>
+              <PlusCircle size={extractedData.length > 0 ? 20 : 32} />
             </div>
-            <h3 className={`${extractedData.length > 0 ? 'text-lg' : 'text-xl'} font-bold text-text mb-2`}>
-              Adicionar via Planilha
+            <h3 className={`${extractedData.length > 0 ? 'text-lg' : 'text-xl'} font-bold text-text mb-1`}>
+              Registro manual
             </h3>
+            <p className="text-text-light text-sm mb-4 max-w-md">
+              ⚠️ Valor negativo é saída; positivo é entrada.
+            </p>
 
-            {!extractedData.length && (
-              <p className="text-text-light max-w-md mb-6">Selecione seu arquivo (.xlsx, .xls, .csv) para que a IA realize o mapeamento inteligente dos dados.</p>
-            )}
-
-            <div className="w-full max-w-md mb-6 text-left">
-              <label className="text-xs text-text-light uppercase font-bold mb-2 block">Instruções para a IA (Opcional)</label>
-              <textarea
-                className="glass-input w-full p-3 text-sm h-20 resize-none"
-                placeholder="Descreva como sua planilha funciona para que a IA a interprete adequadamente.
-Ex: as saídas estão de A2 até H7 e as entrada de J2 até K7, ignore A8 até L9, os dados de categoria podem ser obtidos na coluna A, etc."
-                value={spreadsheetPrompt}
-                onChange={(e) => setSpreadsheetPrompt(e.target.value)}
+            <div className="w-full max-w-lg space-y-2 text-left">
+              <input
+                value={formManual.nome}
+                onChange={e => setFormManual({ ...formManual, nome: e.target.value })}
+                placeholder="Nome da transação"
+                className="glass-input w-full p-2 text-sm bg-white"
+                autoFocus
               />
+              <div className="flex flex-wrap gap-2">
+                <input
+                  value={formManual.valor}
+                  onChange={e => setFormManual({ ...formManual, valor: e.target.value })}
+                  placeholder="Valor (ex: -49,90)"
+                  inputMode="decimal"
+                  className="glass-input p-2 text-sm bg-white flex-1 min-w-[140px]"
+                />
+                <input
+                  type="date"
+                  value={formManual.data}
+                  onChange={e => setFormManual({ ...formManual, data: e.target.value })}
+                  className="glass-input p-2 text-sm bg-white flex-1 min-w-[140px]"
+                  title="Em branco, usa hoje"
+                />
+                <select
+                  value={formManual.categoria_id}
+                  onChange={e => setFormManual({ ...formManual, categoria_id: e.target.value })}
+                  className="glass-input p-2 text-sm bg-white flex-1 min-w-[140px] cursor-pointer"
+                >
+                  <option value="">Sem categoria</option>
+                  {categories.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
+                </select>
+              </div>
             </div>
 
-            <input
-              type="file"
-              id="spreadsheetInput"
-              className="hidden"
-              accept=".xlsx,.xls,.csv"
-              onChange={(e) => {
-                const selectedFile = e.target.files?.[0];
-                if (selectedFile) setSpreadsheetFile(selectedFile);
-              }}
-            />
-
-            {!spreadsheetFile ? (
-              <div className="flex gap-4">
-                <label
-                  htmlFor="spreadsheetInput"
-                  className="cursor-pointer bg-primary hover:bg-primary-hover text-white font-medium py-2.5 px-6 rounded-xl shadow-lg shadow-primary/30 transition-all text-sm flex items-center justify-center"
-                >
-                  Selecionar Planilha
-                </label>
-              </div>
-            ) : (
-              <div className="mt-2 flex flex-col items-center w-full">
-                <div className="font-medium mb-3 flex flex-col items-center gap-1 text-sm text-center w-full text-azul">
-                  <span className="flex items-center gap-2">
-                    <FileText size={16} /> Planilha Selecionada
-                  </span>
-                  <div className="flex items-center gap-1.5 border rounded-full pl-3 pr-1.5 py-1 text-xs font-semibold bg-primary/10 border-primary/20 text-azul mt-2 mb-1">
-                    <span className="max-w-[200px] truncate" title={spreadsheetFile.name}>
-                      {spreadsheetFile.name}
-                    </span>
-                    <button
-                      onClick={() => setSpreadsheetFile(null)}
-                      className="rounded-full p-0.5 transition-colors cursor-pointer flex items-center justify-center hover:bg-primary/20 hover:text-danger text-primary"
-                      title="Remover planilha"
-                      type="button"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  onClick={processSpreadsheet}
-                  disabled={loading}
-                  className="py-2 px-6 rounded-lg font-medium transition-all flex items-center gap-2 text-sm bg-text text-white hover:bg-black cursor-pointer"
-                >
-                  {loading ? (
-                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Processando com IA...</>
-                  ) : 'Iniciar Leitura'}
-                </button>
-              </div>
-            )}
-          </div>
-        )}
-
-        {activeMode === 'document' && (
-          <div className="w-full flex flex-col items-center animate-fade-in">
             <button
-              onClick={() => setActiveMode('selection')}
-              className="absolute top-4 left-4 flex items-center gap-2 text-sm text-text-light hover:text-primary transition-colors font-medium bg-transparent border-none cursor-pointer"
+              onClick={criarManual}
+              disabled={!formManual.nome.trim() || formManual.valor.trim() === ''}
+              className="mt-4 py-2 px-6 rounded-lg font-medium bg-text text-white hover:bg-black transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
             >
-              <ArrowLeft size={16} /> Voltar
+              Criar rascunho
             </button>
-
-            <div className={`${extractedData.length > 0 ? 'w-10 h-10 mb-2' : 'w-16 h-16 mb-4'} bg-primary/10 text-primary rounded-full flex items-center justify-center shadow-inner mt-4`}>
-              <FileText size={extractedData.length > 0 ? 20 : 32} />
-            </div>
-            <h3 className={`${extractedData.length > 0 ? 'text-lg' : 'text-xl'} font-bold text-text mb-2`}>
-              Adicionar via Documento
-            </h3>
-
-            {!extractedData.length && (
-              <p className="text-text-light max-w-md mb-6">Selecione seu arquivo (.pdf) do extrato bancário do seu banco para que a IA leia as transações.</p>
-            )}
-
-            <div className="w-full max-w-md mb-6 text-left">
-              <label className="text-xs text-text-light uppercase font-bold mb-2 block">Instruções para a IA (Opcional)</label>
-              <textarea
-                className="glass-input w-full p-3 text-sm h-20 resize-none"
-                placeholder="Ex: Ignorar a fatura do cartão de crédito. Despreza as entradas maiores que R$ 2.000,00, etc."
-                value={documentPrompt}
-                onChange={(e) => setDocumentPrompt(e.target.value)}
-              />
-            </div>
-
-            <input
-              type="file"
-              id="documentInput"
-              className="hidden"
-              accept="application/pdf,.pdf"
-              onChange={(e) => {
-                const selectedFile = e.target.files?.[0];
-                if (selectedFile) setDocumentFile(selectedFile);
-              }}
-            />
-
-            {!documentFile ? (
-              <div className="flex gap-4">
-                <label
-                  htmlFor="documentInput"
-                  className="cursor-pointer bg-primary hover:bg-primary-hover text-white font-medium py-2.5 px-6 rounded-xl shadow-lg shadow-primary/30 transition-all text-sm flex items-center justify-center"
-                >
-                  Selecionar Documento
-                </label>
-              </div>
-            ) : (
-              <div className="mt-2 flex flex-col items-center w-full">
-                <div className="font-medium mb-3 flex flex-col items-center gap-1 text-sm text-center w-full text-azul">
-                  <span className="flex items-center gap-2">
-                    <FileText size={16} /> Documento Selecionado
-                  </span>
-                  <div className="flex items-center gap-1.5 border rounded-full pl-3 pr-1.5 py-1 text-xs font-semibold bg-primary/10 border-primary/20 text-azul mt-2 mb-1">
-                    <span className="max-w-[200px] truncate" title={documentFile.name}>
-                      {documentFile.name}
-                    </span>
-                    <button
-                      onClick={() => setDocumentFile(null)}
-                      className="rounded-full p-0.5 transition-colors cursor-pointer flex items-center justify-center hover:bg-primary/20 hover:text-danger text-primary"
-                      title="Remover documento"
-                      type="button"
-                    >
-                      <X size={12} />
-                    </button>
-                  </div>
-                </div>
-
-                <button
-                  onClick={processDocument}
-                  disabled={loading}
-                  className="py-2 px-6 rounded-lg font-medium transition-all flex items-center gap-2 text-sm bg-text text-white hover:bg-black cursor-pointer"
-                >
-                  {loading ? (
-                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Processando com IA...</>
-                  ) : 'Iniciar Leitura'}
-                </button>
-              </div>
-            )}
           </div>
         )}
       </div>

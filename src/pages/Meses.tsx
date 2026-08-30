@@ -212,7 +212,7 @@ export default function Meses() {
         </div>
       ) : sortedCycleKeys.length === 0 ? (
         <div className="glass-panel p-12 text-center text-text-light">
-          Nenhuma transação concluída encontrada. Aprove prints na aba Novos Registros!
+          Nenhuma transação concluída encontrada. Aprove transações em Novos Registros!
         </div>
       ) : (
         <div className="space-y-4">
