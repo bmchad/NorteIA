@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, AlertTriangle, type LucideIcon } from 'lucide-react';
@@ -624,8 +624,9 @@ export default function Compromissos() {
                     Nenhuma compra parcelada em andamento.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
-                    {emAndamento.map(g => (
+                  <Colunas
+                    itens={emAndamento}
+                    render={g => (
                       <CardParcelas
                         key={g[0].id}
                         grupo={g}
@@ -634,8 +635,8 @@ export default function Compromissos() {
                         onAlternar={() => setGrupoAberto(grupoAberto === g[0].id ? null : g[0].id)}
                         onExcluir={() => excluirGrupo(g)}
                       />
-                    ))}
-                  </div>
+                    )}
+                  />
                 )}
               </section>
 
@@ -644,8 +645,9 @@ export default function Compromissos() {
                   <h3 className="text-xl font-bold text-text mb-4 flex items-center gap-2">
                     <Check size={20} className="text-[#10b981]" /> Quitadas
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
-                    {concluidas.map(g => (
+                  <Colunas
+                    itens={concluidas}
+                    render={g => (
                       <CardParcelas
                         key={g[0].id}
                         grupo={g}
@@ -654,8 +656,8 @@ export default function Compromissos() {
                         onAlternar={() => setGrupoAberto(grupoAberto === g[0].id ? null : g[0].id)}
                         onExcluir={() => excluirGrupo(g)}
                       />
-                    ))}
-                  </div>
+                    )}
+                  />
                 </section>
               )}
             </>
@@ -834,6 +836,50 @@ function Proposta({ p, brl, onAceitar, onRecusar }: {
           </button>
         </div>
       </div>
+    </div>
+  );
+}
+
+/** Os mesmos pontos de quebra do Tailwind: `md` e `xl`. */
+const LARGURAS = ['(min-width: 1280px)', '(min-width: 768px)'];
+
+function quantasColunas(): number {
+  if (typeof window === 'undefined') return 3;
+  if (window.matchMedia(LARGURAS[0]).matches) return 3;
+  return window.matchMedia(LARGURAS[1]).matches ? 2 : 1;
+}
+
+/**
+ * Colunas que crescem de forma independente — o que um grid não faz.
+ *
+ * ⚠️ Num grid, expandir um card faz a **linha inteira** crescer, e tudo abaixo dela desce
+ * junto. `items-start` resolve só metade do problema: os vizinhos param de esticar, mas a
+ * linha continua empurrando o resto da página.
+ *
+ * ⛔ CSS multi-column (`columns-3`) resolveria em uma classe, e é a tentação óbvia. Mas ele
+ * rebalanceia a altura sozinho: ao expandir um card, os outros **pulam de coluna**. Trocaria
+ * um incômodo por um pior.
+ *
+ * ⭐ Distribuir por `i % n` mantém a leitura da esquerda para a direita — os três primeiros
+ * itens continuam sendo a primeira "linha" visual, e nenhum card muda de coluna ao expandir.
+ */
+function Colunas({ itens, render }: { itens: any[]; render: (item: any) => ReactNode }) {
+  const [colunas, setColunas] = useState(quantasColunas);
+
+  useEffect(() => {
+    const consultas = LARGURAS.map(q => window.matchMedia(q));
+    const aoMudar = () => setColunas(quantasColunas());
+    consultas.forEach(c => c.addEventListener('change', aoMudar));
+    return () => consultas.forEach(c => c.removeEventListener('change', aoMudar));
+  }, []);
+
+  return (
+    <div className="flex gap-6 items-start">
+      {Array.from({ length: colunas }, (_, col) => (
+        <div key={col} className="flex-1 min-w-0 flex flex-col gap-6">
+          {itens.filter((_, i) => i % colunas === col).map(render)}
+        </div>
+      ))}
     </div>
   );
 }
