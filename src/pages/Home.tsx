@@ -101,7 +101,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-background font-sans text-text overflow-x-hidden">
+    <div className="min-h-screen bg-background font-sans text-text overflow-x-hidden pb-24">
       {/* Header Fixo */}
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
@@ -282,18 +282,18 @@ export default function Home() {
         </div>
       </section>
       
-      {/* ⚠️ O aviso não é rodapé decorativo: a página usa o nome e a cor do Itaú, e sem
-          dizer que é protótipo de hackathon ela se passa por produto oficial. */}
-      <footer className="bg-text text-white py-8 px-6 text-center">
-        <p className="text-white/70 max-w-2xl mx-auto">
+      {/* ⚠️ Fixo no rodapé da janela, não no fim do documento: a página usa o nome e a cor
+          do Itaú, e um aviso que só aparece para quem rola até o fim não avisa ninguém.
+          ⭐ Por estar sempre visível, ele pode ser curto — e curto é o que o mantém baixo o
+          bastante para não roubar a tela no celular. */}
+      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-text/95 backdrop-blur-sm text-white py-3 px-6 text-center">
+        <p className="text-sm text-white/80 max-w-3xl mx-auto leading-snug">
           Protótipo desenvolvido para o <strong className="text-white">InovaCamp WI</strong> do Itaú.
         </p>
-        <p className="text-white/50 text-sm mt-2 max-w-2xl mx-auto">
-          Não é um produto oficial do Itaú Unibanco, não tem vínculo com o banco e não está
-          associado a nenhum serviço dele. Nome e identidade visual são usados apenas no
-          contexto do desafio.
+        <p className="text-xs text-white/50 max-w-3xl mx-auto leading-snug mt-0.5">
+          Não é um produto oficial do Itaú Unibanco. Nome e identidade visual são usados apenas
+          no contexto do desafio.
         </p>
-        <p className="text-white/40 text-xs mt-4">© {new Date().getFullYear()}</p>
       </footer>
     </div>
   );
