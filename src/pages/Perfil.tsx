@@ -5,6 +5,20 @@ import { TETO_EXEMPLOS, TETO_TIPOS_ATIVOS, TIPOS_SEMENTE } from '../lib/compromi
 import ConfirmModal from '../components/ConfirmModal';
 import ExemplosDoCompromisso from '../components/ExemplosDoCompromisso';
 
+/**
+ * As quatro ordens do catálogo de exemplos.
+ *
+ * ⚠️ `valor` é assinado e saída é negativa, então **maior gasto = ordem crescente do número**.
+ * Chamar de "maiores"/"menores" no rótulo e guardar `ascending` aqui evita que alguém leia
+ * `ascending: true` na consulta e ache que está errado.
+ */
+const ORDEM_EXEMPLO: Record<string, { campo: string; asc: boolean }> = {
+  recentes: { campo: 'data', asc: false },
+  antigas: { campo: 'data', asc: true },
+  maiores: { campo: 'valor', asc: true },
+  menores: { campo: 'valor', asc: false },
+};
+
 export default function Perfil() {
   const [categories, setCategories] = useState<any[]>([]);
 
@@ -23,6 +37,8 @@ export default function Perfil() {
   const [catalogo, setCatalogo] = useState<any[]>([]);
   const [limiteCatalogo, setLimiteCatalogo] = useState(100);
   const [carregandoCatalogo, setCarregandoCatalogo] = useState(false);
+  const [ordemExemplo, setOrdemExemplo] = useState<'recentes' | 'antigas' | 'maiores' | 'menores'>('recentes');
+  const [catExemplo, setCatExemplo] = useState('');
   const [coresList, setCoresList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -285,8 +301,14 @@ export default function Perfil() {
       if (termo.length >= 2) {
         consulta = consulta.or(`nome.ilike.%${termo}%,apelido.ilike.%${termo}%`);
       }
+      if (catExemplo) consulta = consulta.eq('categoria_id', catExemplo);
 
-      const { data } = await consulta.order('data', { ascending: false }).limit(limiteCatalogo);
+      // ⚠️ Ordenar e filtrar no SERVIDOR, não sobre o que já veio: a janela é de 100 linhas,
+      // e ordenar só ela devolveria "a maior das 100 primeiras", que não é a maior.
+      // ⚠️ `valor` é negativo em saída, então "maiores" é ordem CRESCENTE do número.
+      const { data } = await consulta
+        .order(ORDEM_EXEMPLO[ordemExemplo].campo, { ascending: ORDEM_EXEMPLO[ordemExemplo].asc })
+        .limit(limiteCatalogo);
       setCatalogo(data ?? []);
     } finally {
       setCarregandoCatalogo(false);
@@ -301,7 +323,7 @@ export default function Perfil() {
     if (!editandoTipo) return;
     const id = setTimeout(carregarCatalogo, 250);
     return () => clearTimeout(id);
-  }, [editandoTipo, buscaExemplo, limiteCatalogo]);
+  }, [editandoTipo, buscaExemplo, limiteCatalogo, ordemExemplo, catExemplo]);
 
   const adicionarExemplo = async (slug: string, transactionId: string) => {
     const user = (await supabase.auth.getUser()).data.user;
@@ -916,6 +938,35 @@ export default function Perfil() {
                       className="glass-input p-2 text-sm bg-white w-full"
                     />
 
+                    {/* ⚠️ Ordem e categoria vão para a consulta, não para a lista já carregada.
+                        Ordenar as 100 que vieram devolveria "a maior das 100 primeiras". */}
+                    <div className="flex gap-2 mt-1">
+                      <select
+                        value={ordemExemplo}
+                        onChange={e => { setOrdemExemplo(e.target.value as any); setLimiteCatalogo(100); }}
+                        className="glass-input p-2 text-xs bg-white flex-1 cursor-pointer"
+                        title="Ordenar"
+                      >
+                        <option value="recentes">Mais recentes</option>
+                        <option value="antigas">Mais antigas</option>
+                        <option value="maiores">Maior valor</option>
+                        <option value="menores">Menor valor</option>
+                      </select>
+                      <select
+                        value={catExemplo}
+                        onChange={e => { setCatExemplo(e.target.value); setLimiteCatalogo(100); }}
+                        className="glass-input p-2 text-xs bg-white flex-1 cursor-pointer"
+                        title="Filtrar por categoria"
+                      >
+                        <option value="">Todas as categorias</option>
+                        {/* Só as de gasto: o catálogo só mostra saída, então categoria de
+                            renda devolveria lista vazia sempre. */}
+                        {categories.filter(c => !c.e_renda).map(c => (
+                          <option key={c.id} value={c.id}>{c.nome}</option>
+                        ))}
+                      </select>
+                    </div>
+
                     {/* ⭐ Uma lista só. As escolhidas ficam no topo e clicar de novo desmarca
                         — separar "as minhas" de "as disponíveis" fazia a mesma transação
                         aparecer em dois lugares, e desmarcar só funcionava em um deles.
@@ -989,7 +1040,10 @@ export default function Perfil() {
 
                   <div className="flex justify-end gap-2 pt-1">
                     <button
-                      onClick={() => { setEditandoTipo(null); setBuscaExemplo(''); setLimiteCatalogo(100); }}
+                      onClick={() => {
+                        setEditandoTipo(null); setBuscaExemplo(''); setLimiteCatalogo(100);
+                        setOrdemExemplo('recentes'); setCatExemplo('');
+                      }}
                       className="px-3 py-1.5 text-sm text-text-light hover:text-text rounded-lg transition-colors"
                     >
                       Cancelar
