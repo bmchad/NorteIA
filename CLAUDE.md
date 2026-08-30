@@ -167,6 +167,10 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
     contagem infla o total, e o total é a tese do produto. → D-033
 12. ⭐ **A cor de tema mora em `src/index.css`**, como variável CSS. O `tailwind.config.js` só aponta
     para ela. Nunca escreva um hex de marca num componente. → D-037
+13. ⛔ **O gasto fixo é identificado pela `assinatura`, nunca pelo `nome`.** `fixos.nome` guarda o
+    apelido e é só rótulo de exibição. Índice único em `(user_id, assinatura)`. → D-043
+14. ⛔ **Função de carga só lê.** `insert`/`update`/`upsert` dentro de um `carregar()` vira corrida
+    sob `StrictMode`, que roda o efeito duas vezes. → L-008
 
 ---
 
@@ -220,6 +224,9 @@ volta sem sessão. → P34
 `#`** — é o que o Tailwind precisa para aplicar opacidade. Trocar por hex quebra `bg-primary/10`
 **em silêncio**, sem erro de build. E `text-primary` pinta ícone e texto: dentro da plataforma o
 texto usa `text-azul`. → D-037
+
+**12b. ⚠️ Fixture que iguala `nome` e `apelido` não consegue falhar.** Campo que existe para ser
+diferente tem de ser diferente no teste, senão ele prova só o caso degenerado. → L-009
 
 **12. ⚠️ Não existe runner de teste.** Os casos que cobrem ciclo, camadas e cascata foram escritos
 como scripts avulsos e rodados fora do repositório. Mudou `comprometido.ts`, `fixos-propostos.ts` ou

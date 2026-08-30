@@ -33,7 +33,13 @@ atualizado_em: 2026-08-30
 | Existem três agentes de IA | São **dois** — extrair e classificar compromisso —, e o de extração tem três portas de entrada (imagem, planilha, PDF). ⚠️ Era um só até 30/08 | `03-agentes-de-ia.md` |
 | ⭐ A IA escolhe o `compromisso` no mesmo prompt em que extrai | Não. É o **agente 2**, numa segunda chamada, e o campo foi retirado do prompt de extração de propósito | `30-decisoes-e-licoes.md` D-034 |
 | ⭐⭐ Se cada regra reivindica sua transação, o total está certo | ⛔ A cascata precisa atravessar as **três camadas**. Ela parava dentro da detecção de fixos, e uma academia rotulada + aceita como fixo virava o dobro | `30-decisoes-e-licoes.md` D-033 |
-| Gasto fixo se cadastra à mão em `/compromissos` | ⚠️ **Não mais.** É detectado depois de 3 cobranças iguais. Fixos manuais antigos continuam funcionando | `30-decisoes-e-licoes.md` D-036 |
+| Gasto fixo se cadastra à mão em `/compromissos` | ⚠️ **Cadastra sim** — mas o campo pede o **nome exato do extrato**, porque é por ele que o fixo acha as próprias cobranças | `30-decisoes-e-licoes.md` D-045 |
+| ⭐ O gasto fixo é identificado pelo `nome` | ⛔ Pela **assinatura**. `fixos.nome` guarda o apelido e é só rótulo — usá-lo como chave fez um fixo com 4 cobranças mostrar 1 | `30-decisoes-e-licoes.md` D-043 |
+| ⭐ Um limiar só, 3, para tudo | São **dois critérios**: detectar exige 2, sobrescrever o usuário exige 3. Demorar a detectar subestima o comprometido | `30-decisoes-e-licoes.md` D-040 |
+| Toda proposta de gasto fixo espera sua aprovação | Com 3+ ocorrências ela **entra sozinha**, com aviso. E excluir um fixo detectado registra recusa — senão ele voltaria | `30-decisoes-e-licoes.md` D-041 |
+| Apontar uma transação como exemplo não muda nada nela | ⭐ **Rotula.** Exemplo implica rótulo, por trigger no banco. O contrário não vale | `30-decisoes-e-licoes.md` D-042 |
+| Encerrar um gasto fixo é só arquivar | Ele **suprime a redetecção**, como a recusa. Aparece em "dispensados", com desfazer | `30-decisoes-e-licoes.md` D-044 |
+| `/novos-registros` pede que você escolha o tipo de importação | ⚠️ **Duas portas**: Arquivo e Registro manual. A extensão escolhe o modo | `30-decisoes-e-licoes.md` D-046 |
 | A evidência de um gasto fixo vem da coluna `fixos.evidencia` | Vem **derivada na hora**, de `lancamentosDoFixo`. A coluna é registro do que justificou o aceite, e envelhece | `30-decisoes-e-licoes.md` D-033 |
 | Para trocar a cor do produto, edite o `tailwind.config.js` | ⭐ Edite **`src/index.css`** — é o único lugar onde uma cor de tema é escrita. O config só aponta para as variáveis | `30-decisoes-e-licoes.md` D-037 |
 | Entrar leva ao `/dashboard` | Leva a `/compromissos` desde 30/08. ⚠️ São **dois** caminhos até lá: o redirect pós-login e o `redirectTo` do SSO | `30-decisoes-e-licoes.md` D-038 |

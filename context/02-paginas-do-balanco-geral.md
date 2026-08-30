@@ -101,7 +101,9 @@ parcelas.
 
 `src/pages/Pendentes.tsx` · escreve `transactions`, lê e semeia `categories`
 
-Upload (imagem, planilha ou PDF) → extração por IA → revisão dos rascunhos. É também onde as **27
+⭐ **Duas portas: Arquivo e Registro manual.** A extensão do arquivo escolhe o modo — print, PDF e
+planilha entram pelo mesmo lugar. ⚠️ **Um tipo por vez**: um envio carrega um `modo`, e o `modo`
+escolhe um prompt (D-046). Depois vem a revisão dos rascunhos. É também onde as **27
 categorias padrão são semeadas** no primeiro acesso do usuário.
 
 ⭐ **Esta tela não fala com o Gemini.** Ela lê o arquivo, chama a Edge Function `ai-agents` e recebe
@@ -147,7 +149,7 @@ tem caixa própria, acima delas.
 | Aba | O que tem |
 |---|---|
 | **Contratado** | comprometido restante, projeção de 6 ciclos, cards de compra com progresso e histórico, e a seção *Quitadas* — ⚠️ que não entra em total nenhum |
-| **Recorrente** | ativos, propostas, recusadas. ⚠️ **Sem cadastro manual** desde 30/08 (D-036) |
+| **Recorrente** | ⭐ o card **"deixe reservado"** (o que ainda cai neste ciclo, com data e nome), ativos, propostas, dispensados, e o cadastro manual — que pede o **nome exato do extrato** (D-045, D-047) |
 | **Previsível** | tipos detectados, com acrescentar/remover transação e o botão que leva ao `/perfil` |
 
 **Propostas** têm três naturezas: *criar*, *corrigir* (casa com um fixo mas o valor ou o dia
