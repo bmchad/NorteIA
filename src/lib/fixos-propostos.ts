@@ -150,11 +150,16 @@ export function ajusteDeDia(ocorrencias: any[]): 'adiar' | 'antecipar' {
   return depois > antes ? 'adiar' : 'antecipar';
 }
 
-/** O que se compara contra um fixo: uma transação solta ou uma proposta inteira. */
+/**
+ * Uma transação, reduzida ao que decide se ela é de um fixo.
+ *
+ * ⛔ **Não tem apelido de propósito.** O apelido é rótulo de exibição — a IA gera um por
+ * transação e o usuário edita à mão —, e usá-lo como chave foi o defeito que fez um fixo com
+ * quatro cobranças no banco mostrar uma só.
+ */
 interface Candidato {
+  /** O nome **cru** do extrato. É por ele que a detecção agrupou. */
   nome: string;
-  /** Segundo nome aceito. Numa transação é o apelido; numa proposta não existe. */
-  apelido?: string | null;
   valor: number;
   dia: number;
 }
@@ -168,29 +173,32 @@ interface Candidato {
  * dia — `SEGURO CTP PIX` de R$ 5,00 e `SEGURO CARTAO CTP` de R$ 3,90 — viravam uma
  * "correção de valor" uma da outra.
  *
- * ⭐ A regra espelha a que detectou cada fixo, porque é a mesma pergunta invertida:
+ * ⭐⭐ **A chave é a assinatura, não o nome.** `fixos.nome` guarda o **apelido** — é o que se
+ * lê melhor no card ("Seguro Cartão Inter" em vez de "SEGURO CARTAO CTP") —, mas a detecção
+ * agrupou pelo nome **cru**, e a assinatura é calculada dele. Casar pelo nome de exibição fez
+ * um fixo com quatro cobranças no banco mostrar **uma**: as outras três tinham o mesmo nome
+ * cru e apelidos diferentes.
+ *
+ * ⭐ Reusar `assinaturaDe` nos dois lados é o ponto. Se um deles montar a chave à mão, ela
+ * volta a divergir — e foi assim das duas vezes (ver L-006).
  *
  * | `origem` | casa por |
  * |---|---|
  * | `auto-valor-dia` | **valor e dia** — esta regra existe para cobranças cujo nome muda entre faturas, então nome não serve |
- * | resto, inclusive `manual` | **nome** |
+ * | com `assinatura` | ⭐ **a própria assinatura**, recalculada a partir do nome cru da transação |
+ * | `manual` (sem assinatura) | o **nome digitado**, que o formulário pede exato |
  *
  * ⛔ **Dia sozinho deixou de ser a regra geral.** Era, por `OR`, e com tolerância de dois
  * dias isso fazia quaisquer dois fixos mensais vizinhos casarem — arbitrariamente, já que
  * quem vencia era o primeiro do array.
  *
- * ⚠️ **`manual` também casa por nome.** Antes casava por dia, porque o nome digitado
- * ("Netflix") não batia com o do extrato ("NETFLIX.COM"). O formulário agora **pede o nome
- * exato do extrato**, então o nome voltou a ser o sinal — e some junto o risco de um fixo
- * manual engolir uma cobrança vizinha só por cair no mesmo dia.
- *
- * ⚠️ Fixo manual antigo, com nome amigável, deixa de casar. É o comportamento certo: a
+ * ⚠️ Fixo manual antigo, com nome amigável, não casa com nada. É o comportamento certo: a
  * cobrança real ganha proposta própria, visível, em vez de virar uma correção silenciosa.
  *
- * ⚠️ **O valor nunca entra no ramo do nome**, nos dois usos e pelo mesmo motivo: uma
- * mensalidade que subiu continua sendo do mesmo fixo. Exigir valor a tiraria do fixo e a
- * jogaria para a camada de baixo (dupla contagem), e mataria a proposta de correção — que
- * existe justamente para anunciar que o valor divergiu.
+ * ⚠️ **O valor nunca entra**, e pelo mesmo motivo de sempre: uma mensalidade que subiu
+ * continua sendo do mesmo fixo. Exigir valor a tiraria dele e a jogaria para a camada de
+ * baixo (dupla contagem), e mataria a proposta de correção — que existe justamente para
+ * anunciar que o valor divergiu.
  */
 function mesmoCompromisso(fixo: any, c: Candidato): boolean {
   if (fixo.origem === 'auto-valor-dia') {
@@ -198,12 +206,12 @@ function mesmoCompromisso(fixo: any, c: Candidato): boolean {
     return diaBate && Math.abs(Math.abs(Number(fixo.valor) || 0) - c.valor) < 0.01;
   }
 
+  if (fixo.assinatura) {
+    return assinaturaDe(c.nome, fixo.periodicidade_meses ?? 1) === fixo.assinatura;
+  }
+
   const nome = String(fixo.nome ?? '').trim().toUpperCase();
-  if (!nome) return false;
-  return (
-    String(c.nome ?? '').trim().toUpperCase() === nome ||
-    String(c.apelido ?? '').trim().toUpperCase() === nome
-  );
+  return !!nome && String(c.nome ?? '').trim().toUpperCase() === nome;
 }
 
 /**
@@ -220,9 +228,7 @@ function mesmoCompromisso(fixo: any, c: Candidato): boolean {
  */
 export function lancamentosDoFixo(fixo: any, transacoes: any[]): any[] {
   return transacoes.filter(
-    t => elegivel(t) && mesmoCompromisso(fixo, {
-      nome: t.nome, apelido: t.apelido, valor: abs(t), dia: diaDe(t),
-    }),
+    t => elegivel(t) && mesmoCompromisso(fixo, { nome: t.nome, valor: abs(t), dia: diaDe(t) }),
   );
 }
 
@@ -408,6 +414,12 @@ function casarComFixo(p: PropostaDeFixo, fixos: any[]): any | null {
     fixos.find(f => {
       if (f.status === 'recusado' || f.status === 'encerrado') return false;
       if ((f.periodicidade_meses ?? 1) !== p.periodicidade_meses) return false;
+
+      // ⭐ A proposta já carrega a própria assinatura, calculada do nome cru. Comparar as
+      // duas é mais direto e mais correto que remontar a chave a partir de `p.nome`, que é
+      // o apelido — e era por ali que a identidade se perdia.
+      if (f.assinatura && p.assinatura) return f.assinatura === p.assinatura;
+
       return mesmoCompromisso(f, { nome: p.nome, valor: p.valor, dia: p.dia });
     }) ?? null
   );
@@ -426,9 +438,10 @@ function detectarEncerramentos(transacoes: any[], fixos: any[], cicloDia: number
   return fixos
     .filter(f => f.status === 'ativo' && f.origem !== 'manual')
     .flatMap(f => {
-      const relacionadas = transacoes.filter(
-        t => elegivel(t) && String(t.nome).trim().toUpperCase() === String(f.nome).trim().toUpperCase(),
-      );
+      // ⛔ Isto reimplementava o casamento por `f.nome` -- que é o APELIDO. Para um fixo
+      // cujo apelido não é o nome do extrato, `relacionadas` vinha sempre vazio e o aviso de
+      // encerramento NUNCA aparecia, sem erro nenhum. Um dono só para a pergunta.
+      const relacionadas = lancamentosDoFixo(f, transacoes);
       if (relacionadas.length === 0) return [];
 
       const ultima = relacionadas
@@ -451,7 +464,9 @@ function detectarEncerramentos(transacoes: any[], fixos: any[], cicloDia: number
         dia: Number(f.dia ?? 1),
         periodicidade_meses: f.periodicidade_meses ?? 1,
         evidencia: relacionadas.slice(-3),
-        assinatura: `ENCERRAR::${assinaturaDe(f.nome, f.periodicidade_meses ?? 1)}`,
+        // ⚠️ Da assinatura do fixo, não do nome: `f.nome` é o apelido, e uma recusa
+        // ancorada nele deixaria de casar assim que o apelido mudasse.
+        assinatura: `ENCERRAR::${f.assinatura ?? assinaturaDe(f.nome, f.periodicidade_meses ?? 1)}`,
         fixoId: f.id,
         silencioCiclos: silencio,
       }];
