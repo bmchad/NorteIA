@@ -152,16 +152,13 @@ export function agruparParcelas(transacoes: any[]): GrupoDeParcelas[] {
   const grupos: GrupoDeParcelas[] = [];
 
   for (const p of transacoes.filter(t => t.parcela_total)) {
-    const valor = Math.abs(Number(p.valor));
+    const valor = Math.abs(Number(p.valor)).toFixed(2);
     const total = p.parcela_total || 1;
     const dia = parseInt(String(p.data).split('-')[2], 10);
 
     const grupo = grupos.find(g => {
       const b = g[0];
-      // ⚠️ Tolerância de um centavo, não igualdade exata: o banco distribui o arredondamento
-      // da compra entre as parcelas, e a última costuma diferir de um centavo. Comparar o
-      // texto de `toFixed(2)` deixava essa parcela fora da própria compra.
-      return Math.abs(Math.abs(Number(b.valor)) - valor) < 0.01
+      return Math.abs(Number(b.valor)).toFixed(2) === valor
         && (b.parcela_total || 1) === total
         && Math.abs(parseInt(String(b.data).split('-')[2], 10) - dia) <= 2;
     });
