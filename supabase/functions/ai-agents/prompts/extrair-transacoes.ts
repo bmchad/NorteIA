@@ -70,11 +70,14 @@ export interface Contexto {
   categorias: string[];
   instrucao?: string | null;
   csv?: string | null;
-  /** Vocabulário de compromissos, já formatado. Vazio quando não há tipo ativo. */
-  compromissos?: string;
 }
 
-export function montarPrompt({ modo, cicloDia, categorias, instrucao, csv, compromissos }: Contexto): string {
+/**
+ * ⚠️ **`compromisso` não está aqui, e não pode voltar.** Ele é trabalho do agente 2. Se o
+ * campo existir nos dois prompts, os dois respondem, o último a escrever vence, e o sintoma
+ * é uma classificação que muda sozinha entre importações.
+ */
+export function montarPrompt({ modo, cicloDia, categorias, instrucao, csv }: Contexto): string {
   const lista = categorias.join(', ');
 
   let prompt = `Você é um assistente financeiro de elite. Analise ${ORIGEM[modo]} e extraia TODAS as transações válidas.
@@ -87,7 +90,7 @@ ${campoBanco(modo)}
 - "mes_fatura": ${regraDoCiclo(cicloDia)}
 - "hora": Hora no formato HH:MM:SS. Se não houver, use "12:00:00".
 ${camposParcela(modo)}
-${campoCategoria(modo, lista)}${compromissos ?? ''}
+${campoCategoria(modo, lista)}
 
 REGRAS CRÍTICAS (SIGA À RISCA):
 1. Se uma transação NÃO tiver data, OU NÃO tiver nome, OU NÃO tiver valor claro, IGNORE-A COMPLETAMENTE. Nunca registre transações pela metade.

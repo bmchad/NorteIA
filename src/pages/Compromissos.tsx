@@ -9,7 +9,7 @@ import ConfirmModal from '../components/ConfirmModal';
 import {
   detectarPropostas, lancamentosDoFixo, PISO, PREFIXO_CORRECAO, type PropostaDeFixo,
 } from '../lib/fixos-propostos';
-import { valorDoCompromisso } from '../lib/compromissos';
+import { TETO_EXEMPLOS, valorDoCompromisso } from '../lib/compromissos';
 import { comprometidoDoCiclo, proximoAlivio } from '../lib/comprometido';
 
 /**
@@ -32,6 +32,7 @@ export default function Compromissos() {
   const [transacoes, setTransacoes] = useState<any[]>([]);
   const [fixos, setFixos] = useState<any[]>([]);
   const [tipos, setTipos] = useState<any[]>([]);
+  const [exemplos, setExemplos] = useState<any[]>([]);
   const [cicloDia, setCicloDia] = useState(5);
   const [expandido, setExpandido] = useState<string | null>(null);
   const [buscaTransacao, setBuscaTransacao] = useState('');
@@ -47,17 +48,19 @@ export default function Compromissos() {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) return;
 
-      const [mem, tx, fx, tp] = await Promise.all([
+      const [mem, tx, fx, tp, ex] = await Promise.all([
         supabase.from('memory').select('ciclo_dia').maybeSingle(),
         supabase.from('transactions').select('*').eq('pendente', false),
         supabase.from('fixos').select('*'),
         supabase.from('compromissos').select('*').order('titulo'),
+        supabase.from('compromisso_exemplos').select('slug, transaction_id'),
       ]);
 
       setCicloDia(mem.data?.ciclo_dia ?? 5);
       setTransacoes(tx.data ?? []);
       setFixos(fx.data ?? []);
       setTipos(tp.data ?? []);
+      setExemplos(ex.data ?? []);
     } catch (err) {
       console.error('Erro ao carregar compromissos:', err);
     } finally {
@@ -217,8 +220,35 @@ export default function Compromissos() {
     await carregar();
   };
 
-  const fixarValor = async (slug: string, valor: number) => {
+  /**
+   * Aceitar um compromisso previsível: fixa o valor e guarda as transações como exemplo.
+   *
+   * ⭐⭐ **É o laço que fecha o aprendizado.** Você confirmou que aquelas transações são
+   * daquele tipo; o agente que classifica compromisso passa a receber os nomes delas no
+   * prompt. Sem isso, você ensinaria a mesma coisa a cada importação.
+   *
+   * ⚠️ Falha ao gravar exemplo não desfaz o valor fixado: o número é a decisão que o
+   * usuário tomou, e o exemplo é otimização em cima dela. O teto de 10 e a unicidade são do
+   * banco, então tentar de novo o que já existe simplesmente não passa — e está certo.
+   */
+  const fixarValor = async (slug: string, valor: number, transacoes?: any[]) => {
+    const user = (await supabase.auth.getUser()).data.user;
     await supabase.from('compromissos').update({ valor_mensal: valor, status: 'aceito' }).eq('slug', slug);
+
+    if (user && transacoes?.length) {
+      const jaTem = new Set(
+        exemplos.filter(e => e.slug === slug).map(e => e.transaction_id),
+      );
+      const novos = transacoes
+        .filter(t => !jaTem.has(t.id))
+        .slice(0, Math.max(0, TETO_EXEMPLOS - jaTem.size))
+        .map(t => ({ user_id: user.id, slug, transaction_id: t.id }));
+
+      if (novos.length > 0) {
+        const { error } = await supabase.from('compromisso_exemplos').insert(novos);
+        if (error) console.error('Exemplos não gravados; o valor fixado continua valendo:', error);
+      }
+    }
     await carregar();
   };
 
@@ -453,7 +483,7 @@ export default function Compromissos() {
                       Os lançamentos recentes dão {brl(c.amortizadoObservado)}/mês, e você fixou{' '}
                       {brl(c.valorFixado!)}.{' '}
                       <button
-                        onClick={() => fixarValor(c.slug, c.amortizadoObservado)}
+                        onClick={() => fixarValor(c.slug, c.amortizadoObservado, c.transacoes)}
                         className="text-primary font-medium underline"
                       >
                         Atualizar
@@ -466,7 +496,7 @@ export default function Compromissos() {
                   <div className="mt-4 space-y-1 border-t border-border pt-3">
                     {c.valorFixado == null && (
                       <button
-                        onClick={() => fixarValor(c.slug, c.amortizadoObservado)}
+                        onClick={() => fixarValor(c.slug, c.amortizadoObservado, c.transacoes)}
                         className="text-xs text-primary font-medium mb-2"
                       >
                         Fixar {brl(c.amortizadoObservado)}/mês

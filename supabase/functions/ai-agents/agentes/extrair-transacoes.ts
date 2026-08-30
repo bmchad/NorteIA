@@ -5,7 +5,8 @@ import { MODELO } from '../lib/modelos.ts';
 import { memoriaDeCategoria } from '../lib/memoria-categoria.ts';
 import { normalizar, type Categoria, type TransacaoBruta } from '../lib/normalizar.ts';
 import { separarEstornos } from '../lib/estornos.ts';
-import { memoriaDeCompromisso, tiposAtivos, vocabularioParaPrompt } from '../lib/compromisso.ts';
+import { memoriaDeCompromisso } from '../lib/compromisso.ts';
+import { classificarPendentes } from './classificar-compromisso.ts';
 import { aplicarRegras, carregarVocabulario, notasParaPrompt } from '../lib/vocabulario.ts';
 import { montarPrompt, type Modo } from '../prompts/extrair-transacoes.ts';
 
@@ -79,19 +80,13 @@ export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClien
   const { modo, arquivos, csv } = validar(req);
   const { cicloDia, categorias } = await contextoDoUsuario(supabase);
 
-  // O vocabulário de compromissos carrega título e características, nunca as transações de
-  // exemplo — é o que impede o prompt de crescer com o histórico.
-  const [tipos, vocabulario] = await Promise.all([
-    tiposAtivos(supabase),
-    carregarVocabulario(supabase),
-  ]);
+  const vocabulario = await carregarVocabulario(supabase);
 
   const prompt = montarPrompt({
     modo,
     cicloDia,
     categorias: categorias.map((c) => c.nome),
     csv,
-    compromissos: vocabularioParaPrompt(tipos),
     // As notas vão junto da instrução avulsa: são a mesma coisa, só que guardadas. As
     // regras NÃO vêm aqui — elas já rodam no código, sem token.
     instrucao: [req.instrucao?.trim(), notasParaPrompt(vocabulario.notas).trim()]
@@ -99,7 +94,7 @@ export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClien
   });
 
   // A planilha vai como texto dentro do prompt; imagem e PDF vão como conteúdo inline.
-  const texto = await gerar(MODELO.RAPIDO, prompt, modo === 'planilha' ? [] : arquivos);
+  const texto = await gerar(MODELO.EXTRACAO, prompt, modo === 'planilha' ? [] : arquivos);
   const brutas = extrairArrayJson<TransacaoBruta>(texto);
 
   // O que o usuário já ensinou vale mais que o palpite do modelo, para os nomes que ele
@@ -121,5 +116,10 @@ export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClien
 
   const { ficam, estornos } = separarEstornos(normalizadas);
 
-  return { transacoes: ficam, estornos };
+  // ⭐ O agente 2 entra aqui, e só sobre o que ficou: classificar uma compra que vai ser
+  // descartada como estorno seria token gasto num rótulo que ninguém vê.
+  // ⚠️ Depois da memória, nunca antes — o que o usuário já confirmou vence o palpite.
+  const classificadas = await classificarPendentes(supabase, ficam);
+
+  return { transacoes: classificadas, estornos };
 }

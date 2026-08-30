@@ -2,6 +2,7 @@ import { tratarPreflight } from '../_shared/cors.ts';
 import { erro, ErroDeAgente, ok } from '../_shared/resposta.ts';
 import { clienteDoUsuario } from '../_shared/supabase.ts';
 import { extrairTransacoes } from './agentes/extrair-transacoes.ts';
+import { classificarCompromisso } from './agentes/classificar-compromisso.ts';
 
 /**
  * `ai-agents` — a porta única de todas as chamadas de agente de IA.
@@ -19,6 +20,10 @@ type Agente = (corpo: Record<string, unknown>, supabase: ReturnType<typeof clien
 
 const AGENTES: Record<string, Agente> = {
   'extrair-transacoes': extrairTransacoes as Agente,
+  // ⚠️ A importação já chama a classificação por dentro. Esta entrada existe para
+  // reclassificar um lote depois — criar um tipo novo no /perfil não deveria obrigar a
+  // reimportar o extrato para vê-lo aplicado.
+  'classificar-compromisso': classificarCompromisso as Agente,
 };
 
 Deno.serve(async (req: Request) => {

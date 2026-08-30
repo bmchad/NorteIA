@@ -15,8 +15,8 @@ import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
  * nunca comprou não casa com nada, e só o modelo sabe que `SUPERMERCADO SAO LUIZ` é
  * supermercado.
  *
- * ⭐ É por isso que os exemplos escolhidos pelo usuário **não vão ao prompt** — os nomes
- * vivem no banco e alimentam esta consulta. O prompt carrega só o vocabulário.
+ * ⭐ A camada determinística é o que mantém o prompt pequeno: num extrato mensal, a maior
+ * parte dos nomes já foi vista, e só os novos chegam ao modelo.
  */
 
 export interface TipoAtivo {
@@ -95,21 +95,39 @@ export async function memoriaDeCompromisso(
 }
 
 /**
- * O trecho de vocabulário que vai no prompt.
+ * As transações que o usuário apontou como exemplo de cada tipo, já em texto.
  *
- * ⚠️ Carrega **título e características**, nunca as transações de exemplo. É o que impede o
- * prompt de crescer com o histórico: vinte e cinco tipos são vinte e cinco linhas curtas,
- * independentemente de quantas transações cada um já acumulou.
+ * ⭐ **O exemplo é o que o vocabulário sozinho não dá.** "Elizabeth" não parece lavanderia
+ * para ninguém, e nenhuma descrição de tipo resolve isso — uma linha de exemplo resolve.
+ *
+ * ⛔ O teto de 10 por tipo é o que impede o prompt de crescer com o histórico. Ele é
+ * imposto pelo banco (trigger `teto_exemplos`); aqui só se lê o que já está lá.
  */
-export function vocabularioParaPrompt(tipos: TipoAtivo[]): string {
-  if (tipos.length === 0) return '';
+export async function exemplosPorTipo(
+  supabase: SupabaseClient,
+  slugs: string[],
+): Promise<Map<string, string[]>> {
+  const mapa = new Map<string, string[]>();
+  if (slugs.length === 0) return mapa;
 
-  const linhas = tipos.map(t => {
-    const pistas: string[] = [];
-    if (t.periodicidade?.trim()) pistas.push(t.periodicidade.trim());
-    if (t.valor_mensal) pistas.push(`cerca de R$ ${Number(t.valor_mensal).toFixed(2)} por mês`);
-    return `- "${t.slug}": ${t.titulo}${pistas.length ? ` (${pistas.join(', ')})` : ''}`;
-  });
+  const { data, error } = await supabase
+    .from('compromisso_exemplos')
+    .select('slug, transactions(nome, apelido)')
+    .in('slug', slugs);
 
-  return `\n      - "compromisso": Se a transação for uma despesa recorrente ou previsível, classifique-a em UM dos tipos abaixo, devolvendo o slug exato. Se nenhum se aplicar, retorne null. Julgue pelo estabelecimento: uma compra em qualquer supermercado é "supermercado", um abastecimento em qualquer posto é "combustivel".\n${linhas.join('\n')}`;
+  // Sem exemplos o vocabulário ainda funciona; falhar aqui não pode derrubar a importação.
+  if (error || !data) {
+    console.error('Exemplos de compromisso indisponíveis, seguindo só com o vocabulário:', error);
+    return mapa;
+  }
+
+  for (const linha of data as any[]) {
+    const t = linha.transactions;
+    const nome = String(t?.apelido || t?.nome || '').trim();
+    if (!nome) continue;
+    const lista = mapa.get(linha.slug) ?? [];
+    if (!lista.includes(nome)) lista.push(nome);
+    mapa.set(linha.slug, lista);
+  }
+  return mapa;
 }
