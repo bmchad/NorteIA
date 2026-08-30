@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-29
+atualizado_em: 2026-08-30
 ---
 
 # Glossário
@@ -88,6 +88,18 @@ nenhuma: "recorrente" seria falso para uma compra em 12x, que **acaba**.
 | **Contratado** | Parcela em andamento. Data de fim conhecida | Não |
 | **Recorrente** | Assinatura, mensalidade. Nome ou valor estáveis | Sim |
 | **Previsível** | Mercado, combustível. Você vai gastar, mas não é contrato | Sim, na teoria |
+
+⛔ **Cascata** · a ordem em que as camadas reivindicam uma transação. Cada uma só enxerga o que
+sobrou, e é isso que garante que as três somem **conjuntos disjuntos**. Se houver dupla contagem, o
+total é falso — e o total é a tese. → D-033
+
+**Reivindicar** · uma transação "pertence" à camada que a reivindicou primeiro. Ela pode ser as
+duas coisas ao mesmo tempo (uma academia é assinatura **e** compromisso do tipo `academia`); o que
+não pode é ser **contada** duas vezes.
+
+**Exemplo de compromisso** · transação que o usuário apontou como sendo de um tipo, guardada em
+`compromisso_exemplos`. Vai ao prompt do agente de classificação. ⭐ É o que o vocabulário sozinho
+não dá: "Elizabeth" não parece lavanderia para ninguém. Teto de 10 por tipo, imposto no banco. → D-035
 
 **Amortizado** · o valor convertido para "quanto sai por mês": `valor ÷ periodicidade`. Uma cobrança
 trimestral de R$ 143,70 amortiza em R$ 47,90/mês. ⚠️ Sem amortizar, uma trimestral entra como mensal

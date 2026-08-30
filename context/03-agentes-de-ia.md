@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-28
+atualizado_em: 2026-08-30
 ---
 
 # Os agentes de IA — a Edge Function `ai-agents`
@@ -18,8 +18,12 @@ pelo nome. → `30-decisoes-e-licoes.md` D-005 e D-012.
 ## O caminho, ponta a ponta
 
 ```
-/novos-registros  →  ai-agents (Deno, no Supabase)  →  Gemini
-       ↑                        ↓
+/novos-registros  →  ai-agents (Deno, no Supabase)
+       ↑                   │
+       │                   ├─ 1. extrair-transacoes ──→ Gemini  (imagem/PDF/CSV)
+       │                   ├─ 2. memória + estorno      (sem token)
+       │                   └─ 3. classificar-compromisso → Gemini  (só texto)
+       │                   ↓
        └──── transações normalizadas, prontas para insert
 ```
 
@@ -27,11 +31,33 @@ O browser lê o arquivo, manda para a função e recebe as linhas prontas. **Que
 `transactions` é o browser**, com a própria sessão, para que a escrita continue passando pela RLS do
 usuário — a função nunca precisa da service role.
 
+⭐ **Uma chamada do browser, duas ao Gemini.** O encadeamento acontece dentro da função: mandar as
+linhas extraídas de volta ao browser só para ele reenviá-las ao agente 2 seria a mesma informação
+atravessando a rede duas vezes. → D-034.
+
 ---
 
-## A forma geral
+## Os dois agentes
 
-> ⭐ **Não existem três agentes. Existe um agente com três portas de entrada.**
+⚠️ **Correção de 2026-08-30:** até aqui existia **um** agente com três portas de entrada. Agora são
+**dois**, e a divisão é por tarefa, não por formato de arquivo. → D-034.
+
+| | 1 · `extrair-transacoes` | 2 · `classificar-compromisso` |
+|---|---|---|
+| Entra | imagem / PDF / CSV | as linhas já extraídas, em texto |
+| Sai | todas as chaves **menos** `compromisso` | só `compromisso`, por transação |
+| Contexto no prompt | categorias, notas do vocabulário | tipos ativos + até 10 exemplos de cada |
+| Custo | caro: anexo multimodal | barato: texto puro, sem anexo |
+
+⭐ **Por que separar melhora o resultado:** extrair é ler o que está escrito; classificar compromisso
+é comparar contra um vocabulário que o usuário configurou. Num prompt só, o vocabulário disputava
+espaço com as regras de data, banco e parcela — e exemplo nenhum cabia.
+
+⛔ **`compromisso` saiu do prompt do agente 1 e não pode voltar.** Se o campo existir nos dois, os
+dois respondem, o último a escrever vence, e o sintoma é uma classificação que muda sozinha entre
+importações. Há um comentário no `Contexto` de `prompts/extrair-transacoes.ts` dizendo isso.
+
+### As três portas do agente 1
 
 | Porta | Como o conteúdo chega ao modelo |
 |---|---|
@@ -42,8 +68,33 @@ usuário — a função nunca precisa da service role.
 A planilha continua sendo parseada no cliente porque converter `xlsx` em CSV não é chamada de
 agente — e o CSV viaja muito menor que o binário.
 
-O modelo é `MODELO.RAPIDO` (`gemini-3.5-flash`), definido em
-`supabase/functions/ai-agents/lib/modelos.ts`.
+### O agente 2, em detalhe
+
+Recebe **só o que sobrou**: transações de saída ainda sem `compromisso`, depois de a memória ter
+resolvido os nomes já conhecidos (D-028) e de os estornos terem sido descartados (D-026). Num
+extrato mensal isso costuma ser um punhado de nomes novos, não a fatura inteira.
+
+Devolve `[{"i": <índice>, "compromisso": "<slug>"}]`, **omitindo** o que não se encaixa.
+
+⚠️ **Slug inventado é barrado** contra a lista de tipos ativos. Rótulo órfão não some só da tela —
+ele **tira a transação da camada Previsível**, porque a cascata da D-033 confia nesse campo.
+
+⚠️ **Falha aqui não derruba a importação.** Sem rótulo, a transação entra e o usuário atribui à mão.
+
+### Os modelos
+
+`supabase/functions/ai-agents/lib/modelos.ts` — nomeados pelo papel, nunca pela versão:
+
+| Constante | Valor | Usado por |
+|---|---|---|
+| `MODELO.EXTRACAO` | `gemini-3.7-flash` | agente 1 |
+| `MODELO.CLASSIFICACAO` | `gemini-3.7-flash` | agente 2 |
+
+⭐ **Mesmo id, constantes separadas de propósito:** trocar o modelo de um agente deixa de tocar no
+outro, que é o motivo de eles serem separados. `MODELO.RAPIDO` não existe mais.
+
+⚠️ **Id de modelo inválido falha em runtime, com 404 da API** — não em build, não em `tsc`, não em
+`deno check`. → `20-pendencias-e-dividas.md`.
 
 ---
 

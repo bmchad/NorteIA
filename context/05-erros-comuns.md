@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-29
+atualizado_em: 2026-08-30
 ---
 
 # Erros comuns — o que se acredita e é falso
@@ -30,7 +30,14 @@ atualizado_em: 2026-08-29
 | ⭐ O ciclo existe para bater com a fatura do banco | A âncora é o **salário** — o mês de uma pessoa começa quando o dinheiro entra. A fatura só costuma cair perto | `30-decisoes-e-licoes.md` D-002 |
 | `/parcelas` deveria agrupar pelo nome do estabelecimento | Agrupar por nome foi a primeira versão e **falhava** — o nome muda entre faturas da mesma compra | `30-decisoes-e-licoes.md` D-008 |
 | Gastos fixos entram nos balanços | ⚠️ **Não entram.** `fixos` é uma lista paralela, sem ligação com `transactions` | `02-paginas-do-balanco-geral.md` |
-| Existem três agentes de IA | É **um** agente com três portas de entrada (imagem, planilha, PDF) | `03-agentes-de-ia.md` |
+| Existem três agentes de IA | São **dois** — extrair e classificar compromisso —, e o de extração tem três portas de entrada (imagem, planilha, PDF). ⚠️ Era um só até 30/08 | `03-agentes-de-ia.md` |
+| ⭐ A IA escolhe o `compromisso` no mesmo prompt em que extrai | Não. É o **agente 2**, numa segunda chamada, e o campo foi retirado do prompt de extração de propósito | `30-decisoes-e-licoes.md` D-034 |
+| ⭐⭐ Se cada regra reivindica sua transação, o total está certo | ⛔ A cascata precisa atravessar as **três camadas**. Ela parava dentro da detecção de fixos, e uma academia rotulada + aceita como fixo virava o dobro | `30-decisoes-e-licoes.md` D-033 |
+| Gasto fixo se cadastra à mão em `/compromissos` | ⚠️ **Não mais.** É detectado depois de 3 cobranças iguais. Fixos manuais antigos continuam funcionando | `30-decisoes-e-licoes.md` D-036 |
+| A evidência de um gasto fixo vem da coluna `fixos.evidencia` | Vem **derivada na hora**, de `lancamentosDoFixo`. A coluna é registro do que justificou o aceite, e envelhece | `30-decisoes-e-licoes.md` D-033 |
+| Para trocar a cor do produto, edite o `tailwind.config.js` | ⭐ Edite **`src/index.css`** — é o único lugar onde uma cor de tema é escrita. O config só aponta para as variáveis | `30-decisoes-e-licoes.md` D-037 |
+| Entrar leva ao `/dashboard` | Leva a `/compromissos` desde 30/08. ⚠️ São **dois** caminhos até lá: o redirect pós-login e o `redirectTo` do SSO | `30-decisoes-e-licoes.md` D-038 |
+| O produto se chama Balanço Geral | Na **vitrine** é "Assistente Itaú", protótipo do InovaCamp WI. Repositório, banco e domínio continuam `balanco-geral` | `30-decisoes-e-licoes.md` D-039 |
 | O "ano" do Dashboard é de 1º de janeiro a 31 de dezembro | É um **ano de ciclos**: com ciclo 5, vai de 06/01 a 05/01 do ano seguinte. O total bate com a soma dos 12 ciclos do `/meses` | `02-paginas-do-balanco-geral.md` |
 | Cada tela calcula o ciclo do seu jeito | Há **uma função só**, `src/lib/ciclo.ts`. Duplicar a regra foi o que causou a divergência corrigida em 2026-08-27 | `30-decisoes-e-licoes.md` D-007 |
 

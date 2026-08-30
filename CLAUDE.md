@@ -125,16 +125,17 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
 | `transactions` | a tabela central, uma linha por lançamento | `user_id` |
 | `profiles` | ⭐ `id` + `email`, criada pelo trigger `handle_new_user` a cada cadastro. Dispara o e-mail de boas-vindas; nenhuma tela lê | `id` |
 | `categories` | categorias do usuário (nome + cor + `e_renda`); 27 semeadas no 1º acesso | `user_id` |
-| `fixos` | despesas recorrentes (nome, valor, dia) — **hoje desligadas dos balanços** | `user_id` |
+| `fixos` | despesas recorrentes (nome, valor, dia) — **hoje desligadas dos balanços**. ⚠️ Guarda três coisas: ativos, recusas e encerrados, com `DEFAULT 'ativo'` | `user_id` |
 | `memory` | ⚠️ não é memória de IA: guarda `ciclo_dia` e as Notas do Dashboard, 1 linha por usuário | `user_id` |
 | `compromissos` | ⭐ tipos que a IA reconhece **e** o compromisso detectado — 1:1, uma tabela só | `user_id` |
+| `compromisso_exemplos` | ⭐ até 10 transações por tipo, apontadas pelo usuário; vão ao prompt do agente 2. Teto imposto por **trigger**, `on delete cascade` na transação (D-035) | `user_id` |
 | `vocabulario` | regras (`nome contém X` → categoria) e notas para o prompt (D-030) | `user_id` |
 | `cores` | ⭐ paleta **global**, sem dono. RLS ligada: legível por todos, **gravável por ninguém** | — |
 | `leads` | contatos da landing; única escrita sem autenticação | — |
 
 **Colunas de `transactions` usadas no código:** `user_id`, `data`, `nome`, `apelido`, `valor`,
 `banco`, `mes_fatura`, `categoria_id`, `hora`, `parcela_atual`, `parcela_total`, `pendente`,
-`created_at`.
+`comentario`, `compromisso`, `compromisso_manual`, `created_at`.
 
 ---
 
@@ -157,6 +158,11 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
    usam o mesmo número. Não invente um quarto.
 10. ⭐ **`/perfil` é o dono da configuração.** Tela de operação que precisa configurar **navega** para
     lá, não abre editor próprio. → D-029
+11. ⛔⛔ **Uma transação pertence a uma camada só.** A cascata é `manual → parcela → fixo → rótulo`,
+    e cada degrau só enxerga o que sobrou. Dono do cálculo: `src/lib/comprometido.ts`. Dupla
+    contagem infla o total, e o total é a tese do produto. → D-033
+12. ⭐ **A cor de tema mora em `src/index.css`**, como variável CSS. O `tailwind.config.js` só aponta
+    para ela. Nunca escreva um hex de marca num componente. → D-037
 
 ---
 
@@ -182,6 +188,13 @@ Postgres e a RLS. Olhar só para a RLS vê metade do problema. → L-003
 modos de partes comuns. Mexeu no prompt? **Faça o deploy da função** — o `npm run build` não leva
 nada disso.
 
+**5b. ⛔ São dois agentes, e `compromisso` só pertence ao segundo.** Se o campo voltar ao prompt de
+extração, os dois respondem, o último a escrever vence, e a classificação passa a mudar sozinha
+entre importações. → D-034
+
+**5c. ⚠️ Id de modelo errado só falha em runtime**, com 404 da API. `tsc`, `deno check` e o deploy
+passam. As constantes são `MODELO.EXTRACAO` e `MODELO.CLASSIFICACAO`, em `lib/modelos.ts`.
+
 **6. `Pendentes.tsx` tem ~1.000 linhas** e concentra upload, três pipelines de IA, seed de
 categorias, pós-processamento e revisão. É o arquivo mais arriscado do projeto.
 
@@ -196,14 +209,29 @@ L-002
 
 **10. Auth do Google depende de configuração que o git não guarda.** O *Site URL* e a lista de
 *Redirect URLs* vivem no painel do Supabase. `redirectTo` no código não decide nada sozinho. → L-002
+⚠️ A entrada mudou para `/compromissos` em 30/08: se a lista tiver `.../dashboard` literal, o SSO
+volta sem sessão. → P34
+
+**11. ⚠️ A cor de marca só existe em `src/index.css`.** Os canais vão **separados por espaço, sem
+`#`** — é o que o Tailwind precisa para aplicar opacidade. Trocar por hex quebra `bg-primary/10`
+**em silêncio**, sem erro de build. E `text-primary` pinta ícone e texto: dentro da plataforma o
+texto usa `text-azul`. → D-037
+
+**12. ⚠️ Não existe runner de teste.** Os casos que cobrem ciclo, camadas e cascata foram escritos
+como scripts avulsos e rodados fora do repositório. Mudou `comprometido.ts`, `fixos-propostos.ts` ou
+`parcelas.ts`? Não há rede de segurança automática. → P32
 
 ---
 
-## O pipeline de IA em quatro linhas
+## O pipeline de IA em cinco linhas
 
-O browser lê o arquivo → `supabase.functions.invoke('ai-agents', …)` → a função busca as categorias
-e o ciclo do usuário sob a RLS dele, monta o prompt e chama o Gemini → recorta o JSON, desloca a
-data das parcelas e casa a categoria → devolve as linhas, e **o browser insere** com `pendente: true`.
+O browser lê o arquivo → `supabase.functions.invoke('ai-agents', …)` → **agente 1** monta o prompt
+com as categorias e o ciclo do usuário, lidos sob a RLS dele, e chama o Gemini → recorta o JSON,
+desloca a data das parcelas, casa a categoria pela memória e descarta estornos → **agente 2**
+classifica o `compromisso` do que sobrou, numa segunda chamada só de texto → devolve as linhas, e
+**o browser insere** com `pendente: true`.
+
+⭐ Uma chamada do browser, duas ao Gemini: o encadeamento é interno à função.
 **Detalhe completo:** `context/03-agentes-de-ia.md`.
 
 ---

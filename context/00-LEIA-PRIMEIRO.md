@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-29
+atualizado_em: 2026-08-30
 ---
 
 # LEIA PRIMEIRO
@@ -21,6 +21,8 @@ atualizado_em: 2026-08-29
    `30-decisoes-e-licoes.md` D-027.
 2. ⭐ **Certeza tem camadas e misturá-las é mentir:** parcela *contratada*, assinatura *recorrente* e
    mercado *previsível* não são a mesma dívida. O painel nunca mostra um total único.
+   ⛔ **E uma transação pertence a uma camada só**, decidido por cascata — dupla contagem infla o
+   total, que é a tese inteira. Ver `30-decisoes-e-licoes.md` D-033.
 3. É um controle financeiro pessoal em que **a IA lê a fatura por você**: print, planilha ou PDF
    entram, transações estruturadas saem.
 4. ⭐ **A IA nunca grava um registro final.** Tudo que ela extrai entra como **rascunho**
@@ -33,8 +35,11 @@ atualizado_em: 2026-08-29
    se justifica por argumento estrutural, nunca pela frequência de algo no histórico de um usuário.
 8. O produto é **pessoal, com ambição de virar produto** — a landing page, o FAQ e a tabela `leads`
    já existem, mas não há cliente. Ver `11-ambicao-de-produto.md`.
+   ⚠️ A **vitrine** se chama *Assistente Itaú* desde 30/08, protótipo do InovaCamp WI; repositório,
+   banco e domínio continuam `balanco-geral`. Ver D-039.
 9. ⭐ **Nenhuma tela fala com o Gemini.** Toda chamada de agente passa pela Edge Function
-   `ai-agents`, onde a chave vive como secret do servidor. Ver `03-agentes-de-ia.md`.
+   `ai-agents`, onde a chave vive como secret do servidor. São **dois** agentes desde 30/08 —
+   extrair e classificar compromisso. Ver `03-agentes-de-ia.md`.
 10. O repositório é **público**, e só metade desta pasta está nele. Ver `30-decisoes-e-licoes.md`
    D-006 — e o aviso logo abaixo.
 

@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-29
+atualizado_em: 2026-08-30
 ---
 
 # As páginas do Balanço Geral
@@ -13,17 +13,32 @@ atualizado_em: 2026-08-29
 Rotas e proteção vivem em `src/App.tsx`; o menu lateral, em `src/components/Layout.tsx`.
 **Toda rota exceto `/` e `/login` exige sessão** e redireciona para `/login` sem ela.
 
+⭐ **A entrada é `/compromissos`**, e a ordem do menu é a da pergunta que o produto responde
+(D-038): `Compromissos · Dashboard Anual · Balanços Mensais · Novos Registros · Histórico`. A
+constante `ENTRADA` vive em `src/lib/rotas.ts` — ⚠️ **dois** lugares dependem dela, o redirect
+pós-login e o `redirectTo` do SSO.
+
 ---
 
 ## `/` · Home — landing pública
 
 `src/pages/Home.tsx` · escreve em `leads`
 
-Página institucional aberta ao público: hero, seção "Onde Estamos" com endereço real, FAQ em
-acordeão e um formulário de contato (nome, e-mail, telefone) que insere em `leads`. Um webhook do
-Supabase dispara a Edge Function `send-email` a cada novo lead.
+Página institucional aberta ao público: hero, FAQ em acordeão e um formulário de contato (nome,
+e-mail, telefone) que insere em `leads`. Um webhook do Supabase dispara a Edge Function `send-email`
+a cada novo lead.
 
 ⭐ É a única tela do sistema que grava sem usuário autenticado.
+
+⭐ **A vitrine se chama "Assistente Itaú"** e usa a paleta do banco — é protótipo do InovaCamp WI.
+⛔ O rodapé **precisa** continuar dizendo que não é produto oficial: a página usa o nome e a cor do
+Itaú, e sem isso ela se passa por oficial. → D-039
+
+⚠️ **A seção "Onde Estamos" não existe mais** — endereço, mapa e item de menu saíram em 30/08.
+Protótipo de hackathon não tem sede.
+
+O gráfico animado de fundo é `src/components/GraficoDecorativo.tsx`, com `currentColor`: a cor vem
+do token, não de literais no SVG. → D-037
 
 ---
 
@@ -36,7 +51,10 @@ não tem conta Google não entra. → `30-decisoes-e-licoes.md` D-023
 
 Não existe cadastro separado: o primeiro login cria a conta, e o trigger `handle_new_user` insere a
 linha em `profiles`, que dispara o e-mail de boas-vindas. Havendo sessão, a tela redireciona para
-`/dashboard`; a sessão é observada em `App.tsx` por `onAuthStateChange`.
+**`ENTRADA`** (`/compromissos`); a sessão é observada em `App.tsx` por `onAuthStateChange`.
+
+⚠️ **Tem um "Voltar" para a landing.** Sem ele o login é um beco: quem chega por engano só sai pelo
+botão do navegador, e num app instalado como PWA nem isso existe.
 
 ⚠️ **O `redirectTo` do código não decide sozinho para onde o login volta.** Se a URL não estiver na
 lista de permitidos do painel, o Supabase cai silenciosamente no *Site URL*. → `L-002`
@@ -113,11 +131,38 @@ dá para cancelar:
 por uma regra não fica disponível para a seguinte. Se houver dupla contagem, o número do painel é
 errado — e o painel é a tese.
 
-**Duas sub-abas:** *Gastos fixos* (propostas com evidência, ativos, e cadastro manual) e *Parcelas*.
+⭐⭐ **A cascata atravessa as três camadas, não só as regras de detecção** (D-033):
+
+```
+0. compromisso_manual  →  você declarou
+1. parcela             →  Contratado
+2. fixo ativo          →  Recorrente
+3. rótulo de tipo      →  Previsível fica com o resto
+```
+
+**Três abas, com o nome das três camadas** — e ⭐ **o card do topo É o botão da aba**: três cards e,
+logo abaixo, três abas repetindo os mesmos nomes seria o mesmo controle duas vezes. O total do ciclo
+tem caixa própria, acima delas.
+
+| Aba | O que tem |
+|---|---|
+| **Contratado** | comprometido restante, projeção de 6 ciclos, cards de compra com progresso e histórico, e a seção *Quitadas* — ⚠️ que não entra em total nenhum |
+| **Recorrente** | ativos, propostas, recusadas. ⚠️ **Sem cadastro manual** desde 30/08 (D-036) |
+| **Previsível** | tipos detectados, com acrescentar/remover transação e o botão que leva ao `/perfil` |
 
 **Propostas** têm três naturezas: *criar*, *corrigir* (casa com um fixo mas o valor ou o dia
 divergem) e *encerrar* (sem lançamento há dois ciclos além da periodicidade). Cada uma mostra os
 lançamentos que a geraram — proposta que não se explica não é aceita nem revista.
+
+⭐ **O aviso de encerramento mora no card do fixo que parou**, não numa lista à parte, e diz o fato
+(`sem cobrança há 2 ciclos`) em vez do veredito. Quem conclui é o usuário, no botão ao lado.
+
+⭐ **Os lançamentos de um fixo ativo são derivados na hora** (`lancamentosDoFixo`), não lidos da
+coluna `fixos.evidencia`: uma cobrança nova aparece sozinha, sem escrita no banco. A mesma função
+diz quais transações a camada Previsível **não** pode contar.
+
+**Recusar é para sempre**, com assinaturas separadas para criação e correção — e há uma seção
+recolhida no fim da aba Recorrente para desfazer. → L-006
 
 ⚠️ **`fixos` é consultativa.** Aceitar não lança transação: um fixo que se auto-lança duplica em
 silêncio quando o lançamento real chega pelo extrato.
@@ -157,5 +202,10 @@ sem token; **notas** vão ao prompt. → D-030
 **Compromissos** · os tipos que a IA reconhece, semeados no primeiro acesso e editáveis. Cada um tem
 uma periodicidade em **texto livre** — pista para a IA, nenhum código a interpreta — e um valor, que
 ⚠️ **entra na camada Previsível do painel**. Teto de 25.
+
+⭐ Ao editar um tipo, dá para apontar **até 10 transações de exemplo** (`compromisso_exemplos`), numa
+lista rolável do histórico — as escolhidas ficam no topo e clicar de novo desmarca. Elas vão ao
+prompt do agente que classifica compromisso. ⛔ O teto é imposto por **trigger no banco**, não só no
+front. → D-035
 
 **Ciclos** · o `ciclo_dia`, o campo de maior alcance do sistema.
