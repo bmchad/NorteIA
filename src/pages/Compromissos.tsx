@@ -631,7 +631,7 @@ export default function Compromissos() {
                     Nenhuma compra parcelada em andamento.
                   </div>
                 ) : (
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
                     {emAndamento.map(g => (
                       <CardParcelas
                         key={g[0].id}
@@ -651,7 +651,7 @@ export default function Compromissos() {
                   <h3 className="text-xl font-bold text-text mb-4 flex items-center gap-2">
                     <Check size={20} className="text-[#10b981]" /> Quitadas
                   </h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6 items-start">
                     {concluidas.map(g => (
                       <CardParcelas
                         key={g[0].id}
