@@ -13,6 +13,15 @@ export const PISO_COMPROMISSO = 3;
 /** Teto de tipos que entram no prompt. Acima disso o modelo começa a forçar encaixe. */
 export const TETO_TIPOS_ATIVOS = 25;
 
+/**
+ * Exemplos de transação por tipo.
+ *
+ * ⛔ O teto existe por causa da escala do prompt: com 25 tipos ativos, 10 exemplos cada já
+ * são 250 linhas em toda importação. O banco também impõe (trigger `teto_exemplos`), porque
+ * o front não é o único caminho até a tabela.
+ */
+export const TETO_EXEMPLOS = 10;
+
 export interface TipoSemente {
   slug: string;
   titulo: string;

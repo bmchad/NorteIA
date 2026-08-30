@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter, ArrowLeftRight, Layers, BookOpen } from 'lucide-react';
-import { TETO_TIPOS_ATIVOS, TIPOS_SEMENTE } from '../lib/compromissos';
+import { TETO_EXEMPLOS, TETO_TIPOS_ATIVOS, TIPOS_SEMENTE } from '../lib/compromissos';
 import ConfirmModal from '../components/ConfirmModal';
 
 export default function Perfil() {
@@ -17,6 +17,9 @@ export default function Perfil() {
   const [alvoRenda, setAlvoRenda] = useState<boolean | null>(null);
   const [editandoTipo, setEditandoTipo] = useState<string | null>(null);
   const [formTipo, setFormTipo] = useState<any>({});
+  const [exemplos, setExemplos] = useState<any[]>([]);
+  const [buscaExemplo, setBuscaExemplo] = useState('');
+  const [achados, setAchados] = useState<any[]>([]);
   const [coresList, setCoresList] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -221,7 +224,7 @@ export default function Perfil() {
     if (!user) return;
 
     const { data } = await supabase.from('compromissos').select('*').order('titulo');
-    if (data && data.length > 0) { setTiposCompromisso(data); return; }
+    if (data && data.length > 0) { setTiposCompromisso(data); await carregarExemplos(); return; }
 
     const semente = TIPOS_SEMENTE.map(t => ({ user_id: user.id, slug: t.slug, titulo: t.titulo }));
     const { error } = await supabase.from('compromissos').insert(semente);
@@ -229,6 +232,7 @@ export default function Perfil() {
 
     const { data: novos } = await supabase.from('compromissos').select('*').order('titulo');
     setTiposCompromisso(novos ?? []);
+    await carregarExemplos();
   };
 
   const salvarTipo = async (id: string) => {
@@ -240,6 +244,61 @@ export default function Perfil() {
     setTiposCompromisso(prev => prev.map(t => t.id === id ? { ...t, ...patch } : t));
     setEditandoTipo(null);
     await supabase.from('compromissos').update(patch).eq('id', id);
+  };
+
+  /**
+   * Os exemplos de todos os tipos, com a transação embutida.
+   *
+   * ⭐ Embute em vez de guardar cópia: nome e valor vêm sempre da transação de verdade, e
+   * apagar a transação leva o exemplo junto pelo `on delete cascade`.
+   */
+  const carregarExemplos = async () => {
+    const { data } = await supabase
+      .from('compromisso_exemplos')
+      .select('id, slug, transaction_id, transactions(data, nome, apelido, valor)');
+    setExemplos(data ?? []);
+  };
+
+  /**
+   * Busca no histórico para apontar um exemplo.
+   *
+   * ⚠️ Consulta no servidor, não filtro sobre tudo carregado: são três anos de transações, e
+   * trazer o histórico inteiro para o /perfil só para filtrar seria desperdício.
+   */
+  const buscarTransacoes = async (termo: string) => {
+    setBuscaExemplo(termo);
+    if (termo.trim().length < 2) { setAchados([]); return; }
+    const { data } = await supabase
+      .from('transactions')
+      .select('id, data, nome, apelido, valor')
+      .lt('valor', 0)
+      .or(`nome.ilike.%${termo.trim()}%,apelido.ilike.%${termo.trim()}%`)
+      .order('data', { ascending: false })
+      .limit(8);
+    setAchados(data ?? []);
+  };
+
+  const adicionarExemplo = async (slug: string, transactionId: string) => {
+    const user = (await supabase.auth.getUser()).data.user;
+    if (!user) return;
+    const { error } = await supabase
+      .from('compromisso_exemplos')
+      .insert([{ user_id: user.id, slug, transaction_id: transactionId }]);
+    // ⚠️ O teto e a unicidade são do banco. A mensagem traduz o erro; a regra não vive aqui.
+    if (error) {
+      alert(error.message.includes('Limite')
+        ? `O limite é ${TETO_EXEMPLOS} exemplos por compromisso.`
+        : 'Esta transação já é exemplo deste compromisso.');
+      return;
+    }
+    setBuscaExemplo('');
+    setAchados([]);
+    await carregarExemplos();
+  };
+
+  const removerExemplo = async (id: string) => {
+    await supabase.from('compromisso_exemplos').delete().eq('id', id);
+    await carregarExemplos();
   };
 
   const excluirTipo = async (id: string) => {
@@ -812,9 +871,66 @@ export default function Perfil() {
                       />
                     </label>
                   </div>
+                  {/* ⭐ Exemplo é a forma mais barata de ensinar: em vez de descrever o tipo
+                      com palavras, você aponta transações que são dele. O agente que
+                      classifica `compromisso` recebe estas linhas no prompt. */}
+                  <div className="pt-2 border-t border-border">
+                    <span className="block text-[10px] uppercase text-text-light font-bold mb-1">
+                      Transações de exemplo · ensinam a IA
+                      {' · '}
+                      {exemplos.filter(e => e.slug === tipo.slug).length} de {TETO_EXEMPLOS}
+                    </span>
+
+                    <div className="space-y-1 mb-2">
+                      {exemplos.filter(e => e.slug === tipo.slug).map(e => (
+                        <div key={e.id} className="flex items-center justify-between gap-2 text-xs">
+                          <span className="text-text-light truncate">
+                            {e.transactions?.data} · {e.transactions?.apelido || e.transactions?.nome}
+                          </span>
+                          <button
+                            onClick={() => removerExemplo(e.id)}
+                            className="text-text-light hover:text-danger p-1 shrink-0"
+                            title="Tirar dos exemplos"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+
+                    {exemplos.filter(e => e.slug === tipo.slug).length < TETO_EXEMPLOS && (
+                      <>
+                        <input
+                          value={buscaExemplo}
+                          onChange={e => buscarTransacoes(e.target.value)}
+                          placeholder="Buscar transação no histórico..."
+                          className="glass-input p-2 text-sm bg-white w-full"
+                        />
+                        {achados.length > 0 && (
+                          <div className="mt-1 max-h-40 overflow-y-auto space-y-0.5">
+                            {achados.map((t: any) => (
+                              <button
+                                key={t.id}
+                                onClick={() => adicionarExemplo(tipo.slug, t.id)}
+                                className="w-full flex items-center justify-between gap-2 text-xs py-1 px-2 rounded-lg hover:bg-primary/10 transition-colors"
+                              >
+                                <span className="text-text-light truncate">
+                                  {t.data} · {t.apelido || t.nome}
+                                </span>
+                                <span className="text-text shrink-0">
+                                  R$ {Math.abs(Number(t.valor)).toFixed(2).replace('.', ',')}
+                                </span>
+                              </button>
+                            ))}
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+
                   <div className="flex justify-end gap-2 pt-1">
                     <button
-                      onClick={() => setEditandoTipo(null)}
+                      onClick={() => { setEditandoTipo(null); setBuscaExemplo(''); setAchados([]); }}
                       className="px-3 py-1.5 text-sm text-text-light hover:text-text rounded-lg transition-colors"
                     >
                       Cancelar

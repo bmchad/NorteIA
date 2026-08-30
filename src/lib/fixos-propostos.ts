@@ -38,6 +38,13 @@ export interface PropostaDeFixo {
   assinatura: string;
   /** Só em `corrigir` e `encerrar`: a linha de `fixos` que a proposta atinge. */
   fixoId?: string;
+  /**
+   * Só em `encerrar`: há quantos ciclos a cobrança não aparece.
+   *
+   * ⭐ O card mostra o número, não um veredito. "Sem cobrança há 2 ciclos" é um fato que
+   * você confere; "cancelado" é uma conclusão que o produto não tem como ter.
+   */
+  silencioCiclos?: number;
 }
 
 const abs = (t: any) => Math.abs(Number(t.valor) || 0);
@@ -105,6 +112,67 @@ export function ajusteDeDia(ocorrencias: any[]): 'adiar' | 'antecipar' {
     else if (d > tipico) depois++;
   }
   return depois > antes ? 'adiar' : 'antecipar';
+}
+
+/**
+ * Os lançamentos que um gasto fixo já explica.
+ *
+ * ⭐⭐ Responde a uma pergunta só, usada em dois lugares: o card do fixo mostra estes
+ * lançamentos, e a camada Previsível precisa **não** contá-los. Ver a evidência e evitar a
+ * dupla contagem são a mesma pergunta, então são a mesma função — com um dono só, as duas
+ * respostas não têm como divergir.
+ *
+ * ⭐ O casamento espelha a regra que detectou cada fixo, porque é a mesma pergunta invertida:
+ *
+ * - `auto-valor-dia` casa por **valor exato e dia próximo** — esta regra existe justamente
+ *   para cobranças cujo nome muda entre faturas, então casar por nome não funcionaria.
+ * - o resto casa por **nome**, e sem exigir valor. O nome é o sinal mais forte (é por isso
+ *   que a regra 1.b tem prioridade), e exigir o valor faria uma mensalidade que subiu
+ *   escapar do fixo e vazar para a camada de baixo — que é exatamente a dupla contagem que
+ *   esta função existe para impedir.
+ *
+ * ⚠️ Fixo criado à mão quase nunca casa: "Aluguel" digitado não é o nome que vem no extrato.
+ * Devolver vazio é a resposta honesta — vincular à mão é outro recurso.
+ */
+export function lancamentosDoFixo(fixo: any, transacoes: any[]): any[] {
+  const candidatas = transacoes.filter(elegivel);
+
+  if (fixo.origem === 'auto-valor-dia') {
+    const valor = Math.abs(Number(fixo.valor) || 0);
+    const dia = Number(fixo.dia) || 0;
+    return candidatas.filter(
+      t => Math.abs(abs(t) - valor) < 0.01 && Math.abs(diaDe(t) - dia) <= TOLERANCIA_DIA,
+    );
+  }
+
+  const nome = String(fixo.nome ?? '').trim().toUpperCase();
+  if (!nome) return [];
+  return candidatas.filter(t =>
+    String(t.nome ?? '').trim().toUpperCase() === nome ||
+    String(t.apelido ?? '').trim().toUpperCase() === nome,
+  );
+}
+
+/**
+ * Os ids que os gastos fixos ativos reivindicam — o passo 1 da cascata entre camadas.
+ *
+ * ⛔ **A cascata não pode parar dentro da detecção de fixos.** Ela impede que duas regras
+ * briguem pela mesma transação, mas não impedia que a mesma transação fosse contada por
+ * Recorrente **e** por Previsível. Medido: uma academia de R$ 99,90 rotulada `academia` e
+ * aceita como fixo virava R$ 199,80 no total — e o total é a tese inteira do produto.
+ *
+ * ⚠️ **`compromisso_manual` vence.** Se você arrastou a transação para um compromisso à mão,
+ * nenhuma regra automática a toma de volta. Mesma precedência que já vale na importação.
+ */
+export function reivindicadasPorFixos(fixosAtivos: any[], transacoes: any[]): Set<string> {
+  const ids = new Set<string>();
+  for (const fixo of fixosAtivos) {
+    for (const t of lancamentosDoFixo(fixo, transacoes)) {
+      if (t.compromisso_manual === true) continue;
+      ids.add(t.id);
+    }
+  }
+  return ids;
 }
 
 /**
@@ -293,6 +361,9 @@ function detectarEncerramentos(transacoes: any[], fixos: any[], cicloDia: number
       const [ano, mes] = ultima.split('-').map(Number);
       const silencio = cicloAtual - (ano * 12 + (mes - 1));
 
+      // ⚠️ O limiar é `periodicidade + 1`, e não um ciclo: uma cobrança que escorrega alguns
+      // dias sobre a virada do ciclo seria anunciada como cancelada. Alarme falso custa mais
+      // que aviso tardio — quem cancela assinatura por engano perde o serviço.
       if (silencio <= (f.periodicidade_meses ?? 1) + 1) return [];
 
       return [{
@@ -305,6 +376,7 @@ function detectarEncerramentos(transacoes: any[], fixos: any[], cicloDia: number
         evidencia: relacionadas.slice(-3),
         assinatura: `ENCERRAR::${assinaturaDe(f.nome, f.periodicidade_meses ?? 1)}`,
         fixoId: f.id,
+        silencioCiclos: silencio,
       }];
     });
 }

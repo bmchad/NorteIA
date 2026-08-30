@@ -1,12 +1,14 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, PlusCircle, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, type LucideIcon } from 'lucide-react';
+import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, PlusCircle, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, AlertTriangle, type LucideIcon } from 'lucide-react';
 import {
   agruparParcelas, comprometidoRestante, contaDaCompra, parcelasRestantes, projecaoPorCiclo,
 } from '../lib/parcelas';
 import ConfirmModal from '../components/ConfirmModal';
-import { detectarPropostas, PREFIXO_CORRECAO, type PropostaDeFixo } from '../lib/fixos-propostos';
+import {
+  detectarPropostas, lancamentosDoFixo, PREFIXO_CORRECAO, type PropostaDeFixo,
+} from '../lib/fixos-propostos';
 import { valorDoCompromisso } from '../lib/compromissos';
 import { comprometidoDoCiclo, proximoAlivio } from '../lib/comprometido';
 
@@ -102,6 +104,23 @@ export default function Compromissos() {
 
   const fixosAtivos = fixos.filter(f => f.status === 'ativo');
   const recusados = fixos.filter(f => f.status === 'recusado');
+
+  /**
+   * ⭐ O aviso de silêncio mora no card do fixo que parou, não numa lista à parte.
+   *
+   * Como mais uma linha em "Propostas", ele ficava longe do gasto de que fala — e a pergunta
+   * que ele levanta ("ainda pago isto?") só se responde olhando o próprio gasto.
+   */
+  const encerramentos = useMemo(() => {
+    const porFixo = new Map<string, PropostaDeFixo>();
+    for (const p of propostas) if (p.natureza === 'encerrar' && p.fixoId) porFixo.set(p.fixoId, p);
+    return porFixo;
+  }, [propostas]);
+
+  const propostasAbertas = useMemo(
+    () => propostas.filter(p => p.natureza !== 'encerrar'),
+    [propostas],
+  );
 
   const aceitarProposta = async (p: PropostaDeFixo) => {
     const user = (await supabase.auth.getUser()).data.user;
@@ -252,22 +271,13 @@ export default function Compromissos() {
         />
       )}
 
-      <header className="flex justify-between items-end flex-wrap gap-4">
-        <div>
-          <h2 className="text-3xl font-bold text-text flex items-center gap-3">
-            <Layers size={32} className="text-primary" /> Compromissos
-          </h2>
-          <p className="text-text-light mt-1">
-            Quanto do seu dinheiro já tem dono antes de você decidir qualquer coisa.
-          </p>
-        </div>
-        {/* ⭐ Navegação, não modal: a configuração mora no /perfil (D-029). */}
-        <button
-          onClick={() => navigate('/perfil')}
-          className="glass-input flex items-center gap-2 px-4 py-2 text-sm font-medium hover:text-primary transition-colors"
-        >
-          <Settings2 size={16} /> Editar lista de compromissos
-        </button>
+      <header>
+        <h2 className="text-3xl font-bold text-text flex items-center gap-3">
+          <Layers size={32} className="text-primary" /> Compromissos
+        </h2>
+        <p className="text-text-light mt-1">
+          Quanto do seu dinheiro já tem dono antes de você decidir qualquer coisa.
+        </p>
       </header>
 
       {/* ⭐ A resposta da tela, sozinha na própria caixa. Dividir a linha com o rótulo à
@@ -312,7 +322,7 @@ export default function Compromissos() {
             id="recorrente"
             titulo="Recorrente"
             valor={brl(recorrente)}
-            nota="Assinatura e mensalidade. Dá para cancelar"
+            nota="Dia e valor previsíveis. Dá para cancelar"
             cor="text-primary"
             icone={Anchor}
             ativo={aba === 'recorrente'}
@@ -341,33 +351,16 @@ export default function Compromissos() {
               </div>
             ) : (
               fixosAtivos.map(f => (
-                <div key={f.id} className="glass-panel p-4 flex items-center justify-between gap-4 group">
-                  <div className="min-w-0">
-                    <span className="font-medium text-text">{f.nome}</span>
-                    <div className="text-xs text-text-light">
-                      {f.dia ? `dia ${f.dia}` : 'sem dia'}
-                      {(f.periodicidade_meses ?? 1) > 1 && ` · a cada ${f.periodicidade_meses} meses`}
-                      {f.origem === 'manual' && ' · cadastrado por você'}
-                    </div>
-                  </div>
-                  <div className="flex items-center gap-3 shrink-0">
-                    <div className="text-right">
-                      <div className="font-bold text-text">{brl(Number(f.valor))}</div>
-                      {(f.periodicidade_meses ?? 1) > 1 && (
-                        <div className="text-[10px] text-text-light" title="Amortizado por mês">
-                          {brl(Number(f.valor) / f.periodicidade_meses)}/mês
-                        </div>
-                      )}
-                    </div>
-                    <button
-                      onClick={() => excluirFixo(f.id)}
-                      className="p-2 text-text-light hover:text-danger hover:bg-danger/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
-                      title="Excluir"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </div>
+                <FixoAtivo
+                  key={f.id}
+                  f={f}
+                  brl={brl}
+                  lancamentos={lancamentosDoFixo(f, transacoes)}
+                  encerramento={encerramentos.get(f.id) ?? null}
+                  onExcluir={() => excluirFixo(f.id)}
+                  onEncerrar={() => aceitarProposta(encerramentos.get(f.id)!)}
+                  onIgnorar={() => recusarProposta(encerramentos.get(f.id)!)}
+                />
               ))
             )}
 
@@ -397,10 +390,10 @@ export default function Compromissos() {
             </form>
           </section>
 
-          {propostas.length > 0 && (
+          {propostasAbertas.length > 0 && (
             <section className="space-y-3">
               <h3 className="font-bold text-text">Propostas</h3>
-              {propostas.map((p, i) => (
+              {propostasAbertas.map((p, i) => (
                 <Proposta
                   key={`${p.assinatura}-${i}`}
                   p={p}
@@ -457,7 +450,18 @@ export default function Compromissos() {
 
       {aba === 'previsivel' && (
         <section className="space-y-3">
-          <h3 className="font-bold text-text">Previsíveis</h3>
+          {/* ⚠️ A lista de tipos só governa esta aba. No cabeçalho, o botão valia para as três
+              e sugeria configurar coisas que ele não configura.
+              ⭐ Navegação, não modal: a configuração mora no /perfil (D-029). */}
+          <div className="flex justify-between items-center gap-4 flex-wrap">
+            <h3 className="font-bold text-text">Previsíveis</h3>
+            <button
+              onClick={() => navigate('/perfil')}
+              className="glass-input flex items-center gap-2 px-4 py-2 text-sm font-medium hover:text-primary transition-colors"
+            >
+              <Settings2 size={16} /> Editar lista de compromissos
+            </button>
+          </div>
           {detectados.length === 0 ? (
             <div className="glass-panel p-8 text-center text-text-light">
               Nenhum compromisso previsível detectado. Eles aparecem quando 3 transações do mesmo
@@ -701,10 +705,111 @@ const ROTULO_NATUREZA: Record<string, string> = {
   encerrar: 'Não vejo isto há um tempo',
 };
 
+/**
+ * A lista de lançamentos que sustenta um gasto fixo — na proposta e no ativo.
+ *
+ * ⭐ Compartilhada de propósito. Antes a evidência existia só na proposta pendente: aceita,
+ * o "por que isto virou um fixo" sumia da tela. E a lista aqui é **derivada na hora**, não a
+ * cópia guardada em `fixos.evidencia` — cobranças novas aparecem sozinhas, sem escrita
+ * nenhuma no banco. É a D-013: não guarde o que dá para derivar.
+ */
+function Lancamentos({ itens, brl, rotulo }: {
+  itens: any[]; brl: (v: number) => string; rotulo?: string;
+}) {
+  const [aberto, setAberto] = useState(false);
+  if (itens.length === 0) {
+    return (
+      <div className="text-[11px] text-text-light/70 mt-1">
+        Sem lançamentos vinculados
+      </div>
+    );
+  }
+  return (
+    <>
+      <button onClick={() => setAberto(v => !v)} className="text-[11px] text-primary mt-1">
+        {aberto ? 'ocultar' : 'ver'} {rotulo ?? 'os'} {itens.length} lançamentos
+      </button>
+      {aberto && (
+        <div className="mt-2 space-y-0.5 max-h-48 overflow-y-auto">
+          {itens.map((t: any) => (
+            <div key={t.id} className="text-[11px] text-text-light">
+              {t.data} · {t.nome} · {brl(Math.abs(Number(t.valor)))}
+            </div>
+          ))}
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Um gasto fixo ativo, com os lançamentos que o sustentam e o aviso de silêncio. */
+function FixoAtivo({ f, brl, lancamentos, encerramento, onExcluir, onEncerrar, onIgnorar }: {
+  f: any; brl: (v: number) => string; lancamentos: any[];
+  encerramento: PropostaDeFixo | null;
+  onExcluir: () => void; onEncerrar: () => void; onIgnorar: () => void;
+}) {
+  return (
+    <div className="glass-panel p-4 group">
+      <div className="flex items-start justify-between gap-4">
+        <div className="min-w-0">
+          <span className="font-medium text-text">{f.nome}</span>
+          <div className="text-xs text-text-light">
+            {f.dia ? `dia ${f.dia}` : 'sem dia'}
+            {(f.periodicidade_meses ?? 1) > 1 && ` · a cada ${f.periodicidade_meses} meses`}
+            {f.origem === 'manual' && ' · cadastrado por você'}
+          </div>
+          <Lancamentos itens={lancamentos} brl={brl} />
+        </div>
+        <div className="flex items-center gap-3 shrink-0">
+          <div className="text-right">
+            <div className="font-bold text-text">{brl(Number(f.valor))}</div>
+            {(f.periodicidade_meses ?? 1) > 1 && (
+              <div className="text-[10px] text-text-light" title="Amortizado por mês">
+                {brl(Number(f.valor) / f.periodicidade_meses)}/mês
+              </div>
+            )}
+          </div>
+          <button
+            onClick={onExcluir}
+            className="p-2 text-text-light hover:text-danger hover:bg-danger/10 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity"
+            title="Excluir"
+          >
+            <Trash2 size={16} />
+          </button>
+        </div>
+      </div>
+
+      {/* ⚠️ O texto diz há quanto tempo, não "cancelado": o produto não vê cancelamento,
+          vê ausência. Quem conclui é você, no botão ao lado. */}
+      {encerramento && (
+        <div className="mt-3 pt-3 border-t border-border flex items-center justify-between gap-3 flex-wrap">
+          <span className="flex items-center gap-2 text-xs text-danger">
+            <AlertTriangle size={14} className="shrink-0" />
+            Sem cobrança há {encerramento.silencioCiclos} ciclos — ainda paga isto?
+          </span>
+          <div className="flex gap-2 shrink-0">
+            <button
+              onClick={onEncerrar}
+              className="text-xs px-3 py-1 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
+            >
+              Encerrar
+            </button>
+            <button
+              onClick={onIgnorar}
+              className="text-xs px-3 py-1 rounded-lg text-text-light hover:bg-black/5 transition-colors"
+            >
+              Ignorar
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function Proposta({ p, brl, onAceitar, onRecusar }: {
   p: PropostaDeFixo; brl: (v: number) => string; onAceitar: () => void; onRecusar: () => void;
 }) {
-  const [verEvidencia, setVerEvidencia] = useState(false);
   return (
     <div className="glass-panel p-4 border-l-4 border-primary">
       <div className="flex items-start justify-between gap-4">
@@ -718,21 +823,7 @@ function Proposta({ p, brl, onAceitar, onRecusar }: {
             {p.periodicidade_meses > 1 && ` · a cada ${p.periodicidade_meses} meses`}
           </div>
           {/* ⭐ Evidência é o que torna a proposta discutível: sem ver o que a gerou, aceitar é chute. */}
-          <button
-            onClick={() => setVerEvidencia(v => !v)}
-            className="text-[11px] text-primary mt-1"
-          >
-            {verEvidencia ? 'ocultar' : 'ver'} os {p.evidencia.length} lançamentos
-          </button>
-          {verEvidencia && (
-            <div className="mt-2 space-y-0.5">
-              {p.evidencia.map((t: any) => (
-                <div key={t.id} className="text-[11px] text-text-light">
-                  {t.data} · {t.nome} · {brl(Math.abs(Number(t.valor)))}
-                </div>
-              ))}
-            </div>
-          )}
+          <Lancamentos itens={p.evidencia} brl={brl} />
         </div>
         <div className="flex gap-1 shrink-0">
           <button onClick={onAceitar} className="p-2 text-primary hover:bg-primary/10 rounded-lg" title="Aceitar">

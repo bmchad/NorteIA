@@ -12,7 +12,7 @@
  */
 import { getCycleKey } from './ciclo';
 import { agruparParcelas, comprometidoMensal, projecaoPorCiclo, type GrupoDeParcelas } from './parcelas';
-import { comprometidoRecorrente } from './fixos-propostos';
+import { comprometidoRecorrente, reivindicadasPorFixos } from './fixos-propostos';
 import { agruparPorCompromisso, totalPrevisivel, type CompromissoDetectado } from './compromissos';
 
 export interface Comprometido {
@@ -36,14 +36,34 @@ export function comprometidoDoCiclo(
   const gruposEmAndamento = agruparParcelas(transacoes)
     .filter(g => g.length < (g[0].parcela_total || 1));
 
+  const fixosAtivos = fixos.filter(f => f.status === 'ativo');
+
+  /**
+   * ⭐⭐ **A cascata, atravessando as três camadas.** Cada transação pertence a uma camada
+   * só; se duas contarem a mesma, o total infla. A ordem é a regra de desempate:
+   *
+   * ```
+   * 0. compromisso_manual  → você declarou. Nada automático toma de volta
+   * 1. parcela             → Contratado. Dívida contratada não é gasto previsível
+   * 2. fixo ativo          → Recorrente. Mais específico e confirmado por você
+   * 3. rótulo de tipo      → Previsível fica com o que sobrou
+   * ```
+   *
+   * ⚠️ **Parcela sai antes até do passo 0.** `agruparParcelas` conta a compra inteira sem
+   * olhar rótulo nenhum, então deixá-la também em Previsível é dupla contagem que a
+   * declaração manual não conserta — ela só escolheria contar duas vezes de propósito.
+   */
+  const reivindicadas = reivindicadasPorFixos(fixosAtivos, transacoes);
+  const paraPrevisivel = transacoes.filter(t => !t.parcela_total && !reivindicadas.has(t.id));
+
   const detectados = agruparPorCompromisso(
-    transacoes,
+    paraPrevisivel,
     tipos,
     t => getCycleKey(t.data, t.mes_fatura, cicloDia),
   );
 
   const contratado = comprometidoMensal(gruposEmAndamento);
-  const recorrente = comprometidoRecorrente(fixos.filter(f => f.status === 'ativo'));
+  const recorrente = comprometidoRecorrente(fixosAtivos);
   const previsivel = totalPrevisivel(detectados);
 
   return {
