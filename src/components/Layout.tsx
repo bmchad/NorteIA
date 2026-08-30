@@ -15,11 +15,16 @@ export default function Layout({ children }: LayoutProps) {
     navigate('/');
   };
 
+  /**
+   * ⭐ A ordem é a da pergunta que a plataforma responde: quanto já tem dono, o que sobra,
+   * como você gasta o que sobra. Compromissos primeiro porque é o número que muda a decisão
+   * de hoje; histórico por último porque é consulta, não decisão.
+   */
   const navItems = [
+    { name: 'Compromissos', path: '/compromissos', icon: Layers },
     { name: 'Dashboard Anual', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Balanços Mensais', path: '/meses', icon: Calendar },
     { name: 'Novos Registros', path: '/novos-registros', icon: Clock },
-    { name: 'Compromissos', path: '/compromissos', icon: Layers },
     { name: 'Histórico', path: '/historico', icon: History },
   ];
 

@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { supabase } from '../lib/supabase';
 import { LayoutDashboard, AlertCircle } from 'lucide-react';
+import { ENTRADA } from '../lib/rotas';
 
 export default function Auth() {
   const [loading, setLoading] = useState(false);
@@ -14,7 +15,7 @@ export default function Auth() {
       const { error } = await supabase.auth.signInWithOAuth({
         provider: 'google',
         options: {
-          redirectTo: `${window.location.origin}/dashboard`
+          redirectTo: `${window.location.origin}${ENTRADA}`
         }
       });
       if (error) throw error;

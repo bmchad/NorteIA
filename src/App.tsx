@@ -11,6 +11,7 @@ import Compromissos from './pages/Compromissos';
 import Historico from './pages/Historico';
 import Layout from './components/Layout';
 import type { Session } from '@supabase/supabase-js';
+import { ENTRADA } from './lib/rotas';
 
 function App() {
   const [session, setSession] = useState<Session | null>(null);
@@ -46,7 +47,9 @@ function App() {
     <Router>
       <Routes>
         <Route path="/" element={<Home />} />
-        <Route path="/login" element={session ? <Navigate to="/dashboard" replace /> : <Auth />} />
+        {/* ⭐ Entrar cai em /compromissos: é a tela que responde "quanto do meu dinheiro
+            já tem dono", e é essa a resposta que muda uma decisão hoje. */}
+        <Route path="/login" element={session ? <Navigate to={ENTRADA} replace /> : <Auth />} />
         
         {/* Protected Routes inside Layout */}
         <Route path="/dashboard" element={session ? <Layout><Dashboard /></Layout> : <Navigate to="/login" replace />} />
@@ -59,6 +62,8 @@ function App() {
         <Route path="/fixos" element={<Navigate to="/compromissos" replace />} />
         <Route path="/perfil" element={session ? <Layout><Perfil /></Layout> : <Navigate to="/login" replace />} />
         
+        {/* ⚠️ /dashboard continua existindo e continua linkável — o que mudou foi para
+            onde se cai ao entrar, não o mapa de rotas. */}
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
