@@ -28,8 +28,13 @@ export default function Layout({ children }: LayoutProps) {
     { name: 'Histórico', path: '/historico', icon: History },
   ];
 
+  /**
+   * ⭐ `tema-plataforma` troca as variáveis de cor de texto para azul. Vale para tudo que
+   * está dentro do Layout, e só para isso — landing e login herdam o `:root` e ficam com o
+   * texto neutro. Ver src/index.css.
+   */
   return (
-    <div className="min-h-screen flex bg-background">
+    <div className="tema-plataforma min-h-screen flex bg-background">
       {/* Sidebar */}
       <aside className="w-64 bg-surface border-r border-border flex flex-col shadow-sm hidden md:flex">
         <div className="h-16 flex items-center px-6 border-b border-border">
@@ -48,7 +53,7 @@ export default function Layout({ children }: LayoutProps) {
               to={item.path}
               className={({ isActive }) =>
                 `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive
-                  ? 'bg-primary text-white shadow-md shadow-primary/20'
+                  ? 'bg-primary-hover text-white shadow-md shadow-primary/20'
                   : 'text-text-light hover:bg-background hover:text-primary'
                 }`
               }
@@ -64,7 +69,7 @@ export default function Layout({ children }: LayoutProps) {
             to="/perfil"
             className={({ isActive }) =>
               `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive
-                ? 'bg-primary text-white shadow-md shadow-primary/20'
+                ? 'bg-primary-hover text-white shadow-md shadow-primary/20'
                 : 'text-text-light hover:bg-background hover:text-primary'
               }`
             }

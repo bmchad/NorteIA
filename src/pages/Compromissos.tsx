@@ -274,7 +274,7 @@ export default function Compromissos() {
       )}
 
       <header>
-        <h2 className="text-3xl font-bold text-text flex items-center gap-3">
+        <h2 className="text-3xl font-bold text-primary flex items-center gap-3">
           <Layers size={32} className="text-primary" /> Compromissos
         </h2>
         <p className="text-text-light mt-1">
@@ -325,7 +325,7 @@ export default function Compromissos() {
             titulo="Recorrente"
             valor={brl(recorrente)}
             nota="Dia e valor previsíveis. Dá para cancelar"
-            cor="text-primary"
+            cor="text-azul"
             icone={Anchor}
             ativo={aba === 'recorrente'}
             onClick={() => setAba('recorrente')}
@@ -798,7 +798,7 @@ function Proposta({ p, brl, onAceitar, onRecusar }: {
     <div className="glass-panel p-4 border-l-4 border-primary">
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="text-[10px] uppercase font-bold text-primary tracking-wider">
+          <div className="text-[10px] uppercase font-bold text-azul tracking-wider">
             {ROTULO_NATUREZA[p.natureza]}
           </div>
           <div className="font-medium text-text truncate">{p.nome}</div>
@@ -870,7 +870,7 @@ function CardParcelas({ grupo, brl, aberto, onAlternar, onExcluir }: {
           </div>
         )}
         {base.banco && (
-          <div className={`text-sm mt-1 font-medium ${c.concluida ? 'text-[#10b981]' : 'text-primary'}`}>
+          <div className={`text-sm mt-1 font-medium ${c.concluida ? 'text-[#10b981]' : 'text-azul'}`}>
             {base.banco}
           </div>
         )}
@@ -900,7 +900,7 @@ function CardParcelas({ grupo, brl, aberto, onAlternar, onExcluir }: {
         <div className="mt-3 flex flex-col gap-1">
           <div className="text-xs text-text-light flex justify-between">
             <span>Valor pago:</span>
-            <span className={`font-medium ${c.concluida ? 'text-[#10b981]' : 'text-primary'}`}>
+            <span className={`font-medium ${c.concluida ? 'text-[#10b981]' : 'text-azul'}`}>
               {brl(c.valorPago)}
             </span>
           </div>
@@ -940,7 +940,7 @@ function CardParcelas({ grupo, brl, aberto, onAlternar, onExcluir }: {
                   <span className="font-medium text-text">{t.data}</span>
                   <span className="text-[10px] text-text-light ml-2">({t.nome})</span>
                 </div>
-                <span className={`font-bold ${c.concluida ? 'text-[#10b981]' : 'text-primary'}`}>
+                <span className={`font-bold ${c.concluida ? 'text-[#10b981]' : 'text-azul'}`}>
                   {brl(Math.abs(Number(t.valor)))}
                 </span>
               </div>

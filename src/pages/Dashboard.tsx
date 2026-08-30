@@ -208,7 +208,10 @@ export default function Dashboard() {
       setMesesAtivos(uniqueMonths.size > 0 ? uniqueMonths.size : 1);
 
       setChartData([
-        { name: 'Entradas', value: inTotal, color: '#0ea5e9' }, // primary
+        // ⚠️ Cor de SÉRIE, não cor de marca. Coincide com o antigo `primary` por história,
+        // e é por isso que este comentário existe: a próxima troca de tema não deve arrastá-la.
+        // Aqui a cor significa "entrada", e o par com o vermelho de saída é o que se lê.
+        { name: 'Entradas', value: inTotal, color: '#0ea5e9' },
         { name: 'Saídas', value: outTotal, color: '#991b1b' }  // danger
       ]);
 
@@ -241,7 +244,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <header className="flex justify-between items-end flex-wrap gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-text">Dashboard Anual</h2>
+          <h2 className="text-3xl font-bold text-primary">Dashboard Anual</h2>
           <p className="text-text-light mt-1">Visão geral das suas finanças — soma dos 12 ciclos do ano (fechamento no dia {cicloDia}).</p>
         </div>
 
@@ -294,7 +297,7 @@ export default function Dashboard() {
                   <DollarSign size={20} />
                 </div>
               </div>
-              <span className="text-3xl font-bold text-primary mt-2">R$ {resultadoLiquido.toFixed(2).replace('.', ',')}</span>
+              <span className="text-3xl font-bold text-azul mt-2">R$ {resultadoLiquido.toFixed(2).replace('.', ',')}</span>
               {restanteParcelas > 0 && (
                 <span className="text-xs text-text-light mt-1" title="Dívida: tudo que ainda vai ser cobrado em parcelas">
                   ⏳ R$ {restanteParcelas.toFixed(2).replace('.', ',')} a pagar em{' '}
@@ -336,7 +339,7 @@ export default function Dashboard() {
                   <DollarSign size={20} />
                 </div>
               </div>
-              <span className="text-2xl font-bold text-primary mt-2">R$ {(resultadoLiquido / mesesAtivos).toFixed(2).replace('.', ',')}</span>
+              <span className="text-2xl font-bold text-azul mt-2">R$ {(resultadoLiquido / mesesAtivos).toFixed(2).replace('.', ',')}</span>
               <span className="text-[10px] text-text-light uppercase">Por mês ativo</span>
             </div>
 
@@ -421,7 +424,7 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
-                  <span className={`font-bold text-lg ${entradas > 0 ? ((1 - (saidas / entradas)) * 100 >= 0 ? 'text-primary' : 'text-danger') : 'text-text-light'}`}>
+                  <span className={`font-bold text-lg ${entradas > 0 ? ((1 - (saidas / entradas)) * 100 >= 0 ? 'text-azul' : 'text-danger') : 'text-text-light'}`}>
                     {entradas > 0 ? ((1 - (saidas / entradas)) * 100).toFixed(2) : '0.00'}%
                   </span>
                 </div>
@@ -494,7 +497,7 @@ export default function Dashboard() {
                         <div className="bg-primary/5 rounded-lg p-4 flex flex-col gap-2 border border-primary/20">
                           <div className="flex justify-between items-end">
                             <span className="text-sm text-text-light font-medium">Valor a investir hoje:</span>
-                            <span className="text-2xl font-bold text-primary">R$ {valorPresente.toFixed(2).replace('.', ',')}</span>
+                            <span className="text-2xl font-bold text-azul">R$ {valorPresente.toFixed(2).replace('.', ',')}</span>
                           </div>
                           <div className="flex justify-between items-center mt-2 pt-2 border-t border-primary/10">
                             <span className="text-xs text-text-light">Soma das parcelas: R$ {(p * n).toFixed(2).replace('.', ',')}</span>
@@ -528,7 +531,7 @@ export default function Dashboard() {
                         )}
                       </div>
                     </div>
-                    <div className={`font-extrabold text-xl ${latestTransaction.valor >= 0 ? 'text-primary' : 'text-danger'}`}>
+                    <div className={`font-extrabold text-xl ${latestTransaction.valor >= 0 ? 'text-azul' : 'text-danger'}`}>
                       R$ {Number(latestTransaction.valor).toFixed(2).replace('.', ',')}
                     </div>
                   </div>
@@ -540,7 +543,7 @@ export default function Dashboard() {
                 <div className="flex justify-between items-center mb-4">
                   <h3 className="font-bold text-lg text-text">Notas</h3>
                   {notaSaving && (
-                    <span className="text-xs text-primary flex items-center gap-1 font-medium">
+                    <span className="text-xs text-azul flex items-center gap-1 font-medium">
                       <div className="w-3 h-3 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
                       Salvando...
                     </span>

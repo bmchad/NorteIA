@@ -6,15 +6,25 @@ export default {
   ],
   theme: {
     extend: {
+      /**
+       * ⭐ Os tokens de tema apontam para variáveis CSS, definidas em src/index.css. É o que
+       * deixa a cor num lugar só, e o que permite a plataforma ter texto azul enquanto a
+       * landing tem texto neutro — mesma classe, valor diferente por escopo.
+       *
+       * ⚠️ `<alpha-value>` é obrigatório: sem ele, `bg-primary/10` deixa de funcionar.
+       */
       colors: {
         background: '#f8fafc', // light gray
         surface: '#ffffff',
-        primary: '#0ea5e9', // sky blue
-        'primary-hover': '#0284c7',
+        primary: 'rgb(var(--marca) / <alpha-value>)',
+        'primary-hover': 'rgb(var(--marca-forte) / <alpha-value>)',
+        // O azul que era a marca. Sobrevive como cor de TEXTO dentro da plataforma.
+        azul: 'rgb(var(--azul) / <alpha-value>)',
+        'azul-claro': 'rgb(var(--azul-claro) / <alpha-value>)',
         danger: '#991b1b', // blood red
         'danger-hover': '#7f1d1d',
-        text: '#1e293b',
-        'text-light': '#64748b',
+        text: 'rgb(var(--texto) / <alpha-value>)',
+        'text-light': 'rgb(var(--texto-suave) / <alpha-value>)',
         border: '#e2e8f0',
       },
       fontFamily: {

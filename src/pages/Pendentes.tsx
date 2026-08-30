@@ -483,7 +483,7 @@ export default function Pendentes() {
         </div>
       )}
       <header>
-        <h2 className="text-3xl font-bold text-text flex items-center gap-3">
+        <h2 className="text-3xl font-bold text-primary flex items-center gap-3">
           <Clock size={32} className="text-primary" /> Novos Registros
         </h2>
         <p className="text-text-light mt-1">
@@ -609,7 +609,7 @@ export default function Pendentes() {
 
             {files.length > 0 && (
               <div className="mt-4 flex flex-col items-center w-full">
-                <div className={`font-medium mb-3 flex flex-col items-center gap-1 text-sm text-center w-full ${files.length > 10 ? 'text-danger font-bold' : 'text-primary'}`}>
+                <div className={`font-medium mb-3 flex flex-col items-center gap-1 text-sm text-center w-full ${files.length > 10 ? 'text-danger font-bold' : 'text-azul'}`}>
                   <span className="flex items-center gap-2">
                     <FileText size={16} />
                     <span>{files.length}/10 {files.length === 1 ? 'imagem selecionada' : 'imagens selecionadas'}</span>
@@ -620,7 +620,7 @@ export default function Pendentes() {
                         key={index}
                         className={`flex items-center gap-1.5 border rounded-full pl-3 pr-1.5 py-1 text-xs font-semibold ${files.length > 10
                           ? 'bg-danger/10 border-danger/20 text-danger'
-                          : 'bg-primary/10 border-primary/20 text-primary'
+                          : 'bg-primary/10 border-primary/20 text-azul'
                           }`}
                       >
                         <span className="max-w-[150px] truncate" title={file.name}>
@@ -718,11 +718,11 @@ Ex: as saídas estão de A2 até H7 e as entrada de J2 até K7, ignore A8 até L
               </div>
             ) : (
               <div className="mt-2 flex flex-col items-center w-full">
-                <div className="font-medium mb-3 flex flex-col items-center gap-1 text-sm text-center w-full text-primary">
+                <div className="font-medium mb-3 flex flex-col items-center gap-1 text-sm text-center w-full text-azul">
                   <span className="flex items-center gap-2">
                     <FileText size={16} /> Planilha Selecionada
                   </span>
-                  <div className="flex items-center gap-1.5 border rounded-full pl-3 pr-1.5 py-1 text-xs font-semibold bg-primary/10 border-primary/20 text-primary mt-2 mb-1">
+                  <div className="flex items-center gap-1.5 border rounded-full pl-3 pr-1.5 py-1 text-xs font-semibold bg-primary/10 border-primary/20 text-azul mt-2 mb-1">
                     <span className="max-w-[200px] truncate" title={spreadsheetFile.name}>
                       {spreadsheetFile.name}
                     </span>
@@ -803,11 +803,11 @@ Ex: as saídas estão de A2 até H7 e as entrada de J2 até K7, ignore A8 até L
               </div>
             ) : (
               <div className="mt-2 flex flex-col items-center w-full">
-                <div className="font-medium mb-3 flex flex-col items-center gap-1 text-sm text-center w-full text-primary">
+                <div className="font-medium mb-3 flex flex-col items-center gap-1 text-sm text-center w-full text-azul">
                   <span className="flex items-center gap-2">
                     <FileText size={16} /> Documento Selecionado
                   </span>
-                  <div className="flex items-center gap-1.5 border rounded-full pl-3 pr-1.5 py-1 text-xs font-semibold bg-primary/10 border-primary/20 text-primary mt-2 mb-1">
+                  <div className="flex items-center gap-1.5 border rounded-full pl-3 pr-1.5 py-1 text-xs font-semibold bg-primary/10 border-primary/20 text-azul mt-2 mb-1">
                     <span className="max-w-[200px] truncate" title={documentFile.name}>
                       {documentFile.name}
                     </span>

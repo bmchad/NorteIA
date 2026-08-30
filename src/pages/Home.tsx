@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { LayoutDashboard, LogIn, MapPin, ChevronDown, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
+import GraficoDecorativo from '../components/GraficoDecorativo';
 
 export default function Home() {
   const navigate = useNavigate();
@@ -121,59 +122,7 @@ export default function Home() {
 
       {/* Seção Início */}
       <section id="inicio" className="relative min-h-screen flex items-center justify-center pt-20 overflow-hidden">
-        {/* Background Animado (Gráfico Ascendente) */}
-        <div className="absolute inset-0 z-0 opacity-30 pointer-events-none flex items-end justify-center">
-          <svg className="w-full h-full" viewBox="0 0 1200 600" preserveAspectRatio="none">
-            <style>
-              {`
-                .chart-line {
-                  stroke-dasharray: 2000;
-                  stroke-dashoffset: 2000;
-                  animation: drawLine 4s ease-out infinite alternate;
-                }
-                .chart-area {
-                  animation: fadeInOut 4s ease-out infinite alternate;
-                }
-                @keyframes drawLine {
-                  0% { stroke-dashoffset: 2000; }
-                  100% { stroke-dashoffset: 0; }
-                }
-                @keyframes fadeInOut {
-                  0% { opacity: 0; transform: translateY(20px); }
-                  100% { opacity: 0.5; transform: translateY(0); }
-                }
-                .bar {
-                  transform-origin: bottom;
-                  animation: growBar 2s ease-out infinite alternate;
-                }
-                .bar:nth-child(2) { animation-delay: 0.2s; }
-                .bar:nth-child(3) { animation-delay: 0.4s; }
-                .bar:nth-child(4) { animation-delay: 0.6s; }
-                .bar:nth-child(5) { animation-delay: 0.8s; }
-                .bar:nth-child(6) { animation-delay: 1.0s; }
-                @keyframes growBar {
-                  0% { transform: scaleY(0); }
-                  100% { transform: scaleY(1); }
-                }
-              `}
-            </style>
-            
-            {/* Grid lines */}
-            <path d="M0 100 H1200 M0 200 H1200 M0 300 H1200 M0 400 H1200 M0 500 H1200" stroke="currentColor" strokeWidth="1" strokeDasharray="5,5" className="opacity-20" />
-            
-            {/* Bars */}
-            <rect x="100" y="400" width="80" height="100" fill="#0ea5e9" className="bar opacity-40" />
-            <rect x="250" y="300" width="80" height="200" fill="#0ea5e9" className="bar opacity-40" />
-            <rect x="400" y="350" width="80" height="150" fill="#0ea5e9" className="bar opacity-40" />
-            <rect x="550" y="200" width="80" height="300" fill="#0ea5e9" className="bar opacity-40" />
-            <rect x="700" y="250" width="80" height="250" fill="#0ea5e9" className="bar opacity-40" />
-            <rect x="850" y="100" width="80" height="400" fill="#0ea5e9" className="bar opacity-40" />
-            
-            {/* Ascending Line & Arrow */}
-            <path d="M 50 500 L 250 400 L 450 450 L 650 250 L 850 300 L 1100 100" fill="none" stroke="#0ea5e9" strokeWidth="8" className="chart-line" strokeLinecap="round" strokeLinejoin="round" />
-            <polygon points="1120,90 1070,80 1090,120" fill="#0ea5e9" className="chart-area" />
-          </svg>
-        </div>
+        <GraficoDecorativo />
 
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto flex flex-col items-center">
           <div className="bg-primary/10 p-5 rounded-3xl mb-8 animate-bounce-slow">
@@ -273,20 +222,7 @@ export default function Home() {
 
       {/* Seção Contato / Lead */}
       <section id="contato" className="py-24 bg-background relative overflow-hidden">
-        {/* Background Animado (Gráfico Ascendente) */}
-        <div className="absolute inset-0 z-0 opacity-30 pointer-events-none flex items-end justify-center">
-          <svg className="w-full h-full" viewBox="0 0 1200 600" preserveAspectRatio="none">
-            <path d="M0 100 H1200 M0 200 H1200 M0 300 H1200 M0 400 H1200 M0 500 H1200" stroke="currentColor" strokeWidth="1" strokeDasharray="5,5" className="opacity-20" />
-            <rect x="100" y="400" width="80" height="100" fill="#0ea5e9" className="bar opacity-40" />
-            <rect x="250" y="300" width="80" height="200" fill="#0ea5e9" className="bar opacity-40" />
-            <rect x="400" y="350" width="80" height="150" fill="#0ea5e9" className="bar opacity-40" />
-            <rect x="550" y="200" width="80" height="300" fill="#0ea5e9" className="bar opacity-40" />
-            <rect x="700" y="250" width="80" height="250" fill="#0ea5e9" className="bar opacity-40" />
-            <rect x="850" y="100" width="80" height="400" fill="#0ea5e9" className="bar opacity-40" />
-            <path d="M 50 500 L 250 400 L 450 450 L 650 250 L 850 300 L 1100 100" fill="none" stroke="#0ea5e9" strokeWidth="8" className="chart-line" strokeLinecap="round" strokeLinejoin="round" />
-            <polygon points="1120,90 1070,80 1090,120" fill="#0ea5e9" className="chart-area" />
-          </svg>
-        </div>
+        <GraficoDecorativo />
 
         <div className="max-w-2xl mx-auto px-6 relative z-10">
           <div className="glass-panel p-8 md:p-12 shadow-2xl border-2 border-primary/40 rounded-3xl text-center bg-white/80 backdrop-blur-xl">

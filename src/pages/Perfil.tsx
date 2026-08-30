@@ -445,7 +445,7 @@ export default function Perfil() {
         />
       )}
       <header>
-        <h2 className="text-3xl font-bold text-text">Seu Perfil</h2>
+        <h2 className="text-3xl font-bold text-primary">Seu Perfil</h2>
         <p className="text-text-light mt-1">
             Aqui você define <strong>o que existe</strong>: as categorias que classificam suas
             transações, os compromissos que a IA reconhece e o dia em que seu mês começa.
@@ -1071,7 +1071,7 @@ export default function Perfil() {
             max="27"
             value={cicloDia}
             onChange={(e) => handleSaveCiclo(Number(e.target.value))}
-            className="glass-input w-20 px-3 py-2 text-center font-bold text-primary [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="glass-input w-20 px-3 py-2 text-center font-bold text-azul [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           {isSavingCiclo && <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>}
         </div>

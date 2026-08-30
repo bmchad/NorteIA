@@ -4,6 +4,36 @@
 @tailwind components;
 @tailwind utilities;
 
+/**
+ * ⭐⭐ O único lugar do projeto onde uma cor de tema é escrita.
+ *
+ * Os tokens do Tailwind (`primary`, `text`, `azul`...) apontam para estas variáveis, então
+ * trocar a marca é editar duas linhas aqui — e não caçar 254 usos espalhados por 12 telas.
+ *
+ * ⚠️ Canais separados por espaço e sem `#`: é o formato que o Tailwind precisa para aplicar
+ * opacidade. Trocar por hex quebra `bg-primary/10` em silêncio, sem erro de build.
+ */
+:root {
+  --marca: 255 98 0;          /* #FF6200 — laranja Itaú */
+  --marca-forte: 214 82 0;    /* #D65200 — hover, e texto pequeno onde o claro não contrasta */
+  --azul: 2 132 199;          /* #0284c7 — o azul de marca, mais forte */
+  --azul-claro: 14 165 233;   /* #0ea5e9 — o azul que era a cor principal */
+  --texto: 30 41 59;          /* corpo, fora da plataforma */
+  --texto-suave: 100 116 139;
+}
+
+/**
+ * ⭐ Dentro da plataforma o corpo do texto é azul; fora, neutro escuro.
+ *
+ * A classe vive no wrapper do `Layout`, que envolve todas as telas autenticadas e nenhuma
+ * das públicas. É o que faz "azul só na plataforma" ser uma regra em vez de uma lista de
+ * exceções: tela nova nasce certa por estar dentro do Layout.
+ */
+.tema-plataforma {
+  --texto: 12 74 110;         /* sky-900 */
+  --texto-suave: 3 105 161;   /* sky-700 */
+}
+
 @layer base {
   body {
     @apply bg-background text-text font-sans antialiased;
@@ -14,7 +44,7 @@
   .glass-panel {
     @apply bg-white/70 backdrop-blur-md border border-white/40 shadow-glass rounded-2xl;
   }
-  
+
   .glass-input {
     @apply bg-white/50 border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all;
   }

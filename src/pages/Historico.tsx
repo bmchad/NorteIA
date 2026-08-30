@@ -202,7 +202,7 @@ export default function Historico() {
         />
       )}
       <header className="mb-8">
-        <h2 className="text-3xl font-bold text-text flex items-center gap-3">
+        <h2 className="text-3xl font-bold text-primary flex items-center gap-3">
           <History className="text-primary" size={32} />
           Histórico
         </h2>
@@ -398,7 +398,7 @@ export default function Historico() {
                       </td>
                       <td className="py-3 text-sm">
                         <div>
-                          {t.data.split('-')[2]} de <span className="text-primary font-semibold">{MESES[parseInt(t.data.split('-')[1]) - 1]}</span>
+                          {t.data.split('-')[2]} de <span className="text-azul font-semibold">{MESES[parseInt(t.data.split('-')[1]) - 1]}</span>
                         </div>
                       </td>
                       <td className="py-3">
@@ -420,7 +420,7 @@ export default function Historico() {
                           {t.categories?.nome || 'Sem categoria'}
                         </span>
                       </td>
-                      <td className={`py-3 text-center ${t.valor >= 0 ? 'text-primary' : 'text-danger'}`}>
+                      <td className={`py-3 text-center ${t.valor >= 0 ? 'text-azul' : 'text-danger'}`}>
                         <div className="text-lg font-extrabold">R$ {Number(t.valor).toFixed(2)}</div>
                         {t.parcela_total && (
                           <div className="text-[10px] text-text-light mt-0.5 font-medium uppercase">

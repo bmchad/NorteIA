@@ -200,7 +200,7 @@ export default function Meses() {
         />
       )}
       <header>
-        <h2 className="text-3xl font-bold text-text flex items-center gap-3">
+        <h2 className="text-3xl font-bold text-primary flex items-center gap-3">
           <CalendarIcon size={32} className="text-primary" /> Balanços Mensais
         </h2>
         <p className="text-text-light mt-1">Transações agrupadas do dia {cicloDia} ao dia {cicloDia} do mês seguinte.</p>
@@ -260,7 +260,7 @@ export default function Meses() {
                   <div className="flex items-center gap-3">
                     {isExpanded ? <ChevronDown size={20} className="text-primary" /> : <ChevronRight size={20} className="text-text-light" />}
                     <h3 className="text-lg font-bold text-text">{cycleName}</h3>
-                    <span className="text-xs bg-primary/10 text-primary px-2 py-1 rounded-full font-medium">
+                    <span className="text-xs bg-primary/10 text-azul px-2 py-1 rounded-full font-medium">
                       {cycleTransactions.length} itens
                     </span>
                   </div>
@@ -280,7 +280,7 @@ export default function Meses() {
                       )}
                     </div>
                     <div className="w-[130px] flex justify-end">
-                      <span className={`text-lg px-2 py-1 rounded-lg border w-full text-center whitespace-nowrap ${saldoMes >= 0 ? 'bg-primary/10 text-primary border-primary/20' : 'bg-danger/10 text-danger border-danger/20'}`}>
+                      <span className={`text-lg px-2 py-1 rounded-lg border w-full text-center whitespace-nowrap ${saldoMes >= 0 ? 'bg-primary/10 text-azul border-primary/20' : 'bg-danger/10 text-danger border-danger/20'}`}>
                         R$ {saldoMes.toFixed(2).replace('.', ',')}
                       </span>
                     </div>
@@ -658,7 +658,7 @@ export default function Meses() {
                                 <tr key={t.id} className="border-b border-border/50 hover:bg-white/40 transition-colors">
                                   <td className="py-3 text-sm">
                                     <div>
-                                      {t.data.split('-')[2]} de <span className="text-primary font-semibold">{MESES[parseInt(t.data.split('-')[1]) - 1]}</span>
+                                      {t.data.split('-')[2]} de <span className="text-azul font-semibold">{MESES[parseInt(t.data.split('-')[1]) - 1]}</span>
                                     </div>
                                   </td>
                                   <td className="py-3">
@@ -680,7 +680,7 @@ export default function Meses() {
                                       {t.categories?.nome || 'Sem categoria'}
                                     </span>
                                   </td>
-                                  <td className={`py-3 text-center ${t.valor >= 0 ? 'text-primary' : 'text-danger'}`}>
+                                  <td className={`py-3 text-center ${t.valor >= 0 ? 'text-azul' : 'text-danger'}`}>
                                     <div className="text-lg font-extrabold">R$ {Number(t.valor).toFixed(2)}</div>
                                     {t.parcela_total && (
                                       <div className="text-[10px] text-text-light mt-0.5 font-medium uppercase">
