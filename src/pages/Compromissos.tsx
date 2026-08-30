@@ -802,6 +802,13 @@ function Proposta({ p, brl, onAceitar, onRecusar }: {
             {ROTULO_NATUREZA[p.natureza]}
           </div>
           <div className="font-medium text-text truncate">{p.nome}</div>
+          {/* ⭐ Os dois valores lado a lado. Sem o antigo não dá para julgar a correção — e é
+              esta linha que torna visível um casamento errado com o fixo. */}
+          {p.natureza === 'corrigir' && p.nomeDoFixo && (
+            <div className="text-[11px] text-text-light">
+              corrige «{p.nomeDoFixo}» · {brl(p.valorAtual ?? 0)} → {brl(p.valor)}
+            </div>
+          )}
           <div className="text-xs text-text-light">
             {brl(p.valor)} · dia {p.dia}
             {p.periodicidade_meses > 1 && ` · a cada ${p.periodicidade_meses} meses`}

@@ -39,6 +39,17 @@ export interface PropostaDeFixo {
   /** Só em `corrigir` e `encerrar`: a linha de `fixos` que a proposta atinge. */
   fixoId?: string;
   /**
+   * Só em `corrigir`: o nome e o valor que o fixo tem **hoje**.
+   *
+   * ⭐ A proposta guarda o próprio nome, e estes dois dizem o que ela corrige. Antes o nome
+   * do fixo sobrescrevia o da proposta, e o card exibia "Seguro CTP Pix" com evidência de
+   * "SEGURO CARTAO CTP" — o casamento errado ficava invisível justamente na tela que serve
+   * para julgá-lo.
+   */
+  nomeDoFixo?: string;
+  /** Só em `corrigir`: sem o valor antigo ao lado do novo, não dá para julgar a correção. */
+  valorAtual?: number;
+  /**
    * Só em `encerrar`: há quantos ciclos a cobrança não aparece.
    *
    * ⭐ O card mostra o número, não um veredito. "Sem cobrança há 2 ciclos" é um fato que
@@ -114,6 +125,69 @@ export function ajusteDeDia(ocorrencias: any[]): 'adiar' | 'antecipar' {
   return depois > antes ? 'adiar' : 'antecipar';
 }
 
+/** O que se compara contra um fixo: uma transação solta ou uma proposta inteira. */
+interface Candidato {
+  nome: string;
+  /** Segundo nome aceito. Numa transação é o apelido; numa proposta não existe. */
+  apelido?: string | null;
+  valor: number;
+  dia: number;
+}
+
+/**
+ * ⭐⭐ **"Isto é o mesmo compromisso que aquele fixo?"** — a pergunta, com um dono só.
+ *
+ * Ela aparece em dois lugares: quais lançamentos um fixo explica (`lancamentosDoFixo`) e se
+ * uma proposta se refere a um fixo que já existe (`casarComFixo`). Eram duas respostas
+ * diferentes, e a divergência produzia um erro concreto: duas cobranças distintas no mesmo
+ * dia — `SEGURO CTP PIX` de R$ 5,00 e `SEGURO CARTAO CTP` de R$ 3,90 — viravam uma
+ * "correção de valor" uma da outra.
+ *
+ * ⭐ A regra espelha a que detectou cada fixo, porque é a mesma pergunta invertida:
+ *
+ * | `origem` | casa por |
+ * |---|---|
+ * | `auto-valor-dia` | **valor e dia** — esta regra existe para cobranças cujo nome muda entre faturas, então nome não serve |
+ * | `manual` | ⚠️ **dia** — o nome digitado ("Netflix") nunca bate com o do extrato ("NETFLIX.COM") |
+ * | resto | **nome** |
+ *
+ * ⛔ **Dia sozinho deixou de ser a regra geral.** Era, por `OR`, e com tolerância de dois
+ * dias isso fazia quaisquer dois fixos mensais vizinhos casarem — arbitrariamente, já que
+ * quem vencia era o primeiro do array.
+ *
+ * ⚠️ **`manualCasaPorDia` não é conveniência, é a única diferença real entre os dois usos.**
+ * Uma proposta já é um padrão recorrente com valor e cadência, e existem poucas: casar uma
+ * delas com um fixo manual pelo dia é um sinal fraco mas contido. Uma transação solta não é
+ * nada disso — casar por dia faria o fixo manual reivindicar **toda compra numa janela de
+ * cinco dias, todo mês**, e tirá-las da camada Previsível. Por isso a evidência de um fixo
+ * manual é vazia, e isso é a resposta honesta.
+ *
+ * ⚠️ **O valor nunca entra no ramo do nome**, nos dois usos e pelo mesmo motivo: uma
+ * mensalidade que subiu continua sendo do mesmo fixo. Exigir valor a tiraria do fixo e a
+ * jogaria para a camada de baixo (dupla contagem), e mataria a proposta de correção — que
+ * existe justamente para anunciar que o valor divergiu.
+ */
+function mesmoCompromisso(
+  fixo: any,
+  c: Candidato,
+  { manualCasaPorDia }: { manualCasaPorDia: boolean },
+): boolean {
+  const diaBate = fixo.dia != null && Math.abs(Number(fixo.dia) - c.dia) <= TOLERANCIA_DIA;
+
+  if (fixo.origem === 'manual') return manualCasaPorDia && diaBate;
+
+  if (fixo.origem === 'auto-valor-dia') {
+    return diaBate && Math.abs(Math.abs(Number(fixo.valor) || 0) - c.valor) < 0.01;
+  }
+
+  const nome = String(fixo.nome ?? '').trim().toUpperCase();
+  if (!nome) return false;
+  return (
+    String(c.nome ?? '').trim().toUpperCase() === nome ||
+    String(c.apelido ?? '').trim().toUpperCase() === nome
+  );
+}
+
 /**
  * Os lançamentos que um gasto fixo já explica.
  *
@@ -122,34 +196,15 @@ export function ajusteDeDia(ocorrencias: any[]): 'adiar' | 'antecipar' {
  * dupla contagem são a mesma pergunta, então são a mesma função — com um dono só, as duas
  * respostas não têm como divergir.
  *
- * ⭐ O casamento espelha a regra que detectou cada fixo, porque é a mesma pergunta invertida:
- *
- * - `auto-valor-dia` casa por **valor exato e dia próximo** — esta regra existe justamente
- *   para cobranças cujo nome muda entre faturas, então casar por nome não funcionaria.
- * - o resto casa por **nome**, e sem exigir valor. O nome é o sinal mais forte (é por isso
- *   que a regra 1.b tem prioridade), e exigir o valor faria uma mensalidade que subiu
- *   escapar do fixo e vazar para a camada de baixo — que é exatamente a dupla contagem que
- *   esta função existe para impedir.
- *
- * ⚠️ Fixo criado à mão quase nunca casa: "Aluguel" digitado não é o nome que vem no extrato.
- * Devolver vazio é a resposta honesta — vincular à mão é outro recurso.
+ * ⚠️ **Fixo criado à mão devolve vazio**, e é a resposta honesta: "Aluguel" digitado não é o
+ * nome do extrato, e cair no dia não é evidência de nada — todo mundo compra alguma coisa
+ * no dia 3. Vincular à mão é outro recurso.
  */
 export function lancamentosDoFixo(fixo: any, transacoes: any[]): any[] {
-  const candidatas = transacoes.filter(elegivel);
-
-  if (fixo.origem === 'auto-valor-dia') {
-    const valor = Math.abs(Number(fixo.valor) || 0);
-    const dia = Number(fixo.dia) || 0;
-    return candidatas.filter(
-      t => Math.abs(abs(t) - valor) < 0.01 && Math.abs(diaDe(t) - dia) <= TOLERANCIA_DIA,
-    );
-  }
-
-  const nome = String(fixo.nome ?? '').trim().toUpperCase();
-  if (!nome) return [];
-  return candidatas.filter(t =>
-    String(t.nome ?? '').trim().toUpperCase() === nome ||
-    String(t.apelido ?? '').trim().toUpperCase() === nome,
+  return transacoes.filter(
+    t => elegivel(t) && mesmoCompromisso(fixo, {
+      nome: t.nome, apelido: t.apelido, valor: abs(t), dia: diaDe(t),
+    }, { manualCasaPorDia: false }),
   );
 }
 
@@ -310,7 +365,13 @@ export function detectarPropostas(
     // Casa e concorda: nada a propor.
     if (Math.abs(Number(casado.valor) - p.valor) < 0.01 && Number(casado.dia) === p.dia) continue;
 
-    saida.push({ ...p, natureza: 'corrigir', fixoId: casado.id, nome: casado.nome });
+    saida.push({
+      ...p,
+      natureza: 'corrigir',
+      fixoId: casado.id,
+      nomeDoFixo: casado.nome,
+      valorAtual: Number(casado.valor),
+    });
   }
 
   return [...saida, ...detectarEncerramentos(transacoes, fixos, cicloDia)];
@@ -329,9 +390,7 @@ function casarComFixo(p: PropostaDeFixo, fixos: any[]): any | null {
     fixos.find(f => {
       if (f.status === 'recusado' || f.status === 'encerrado') return false;
       if ((f.periodicidade_meses ?? 1) !== p.periodicidade_meses) return false;
-      const mesmoDia = f.dia != null && Math.abs(Number(f.dia) - p.dia) <= TOLERANCIA_DIA;
-      const mesmoNome = String(f.nome).trim().toUpperCase() === p.nome.trim().toUpperCase();
-      return mesmoDia || mesmoNome;
+      return mesmoCompromisso(f, { nome: p.nome, valor: p.valor, dia: p.dia }, { manualCasaPorDia: true });
     }) ?? null
   );
 }
