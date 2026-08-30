@@ -107,6 +107,14 @@ export function ajusteDeDia(ocorrencias: any[]): 'adiar' | 'antecipar' {
   return depois > antes ? 'adiar' : 'antecipar';
 }
 
+/**
+ * Prefixo que separa a recusa de uma **correção** da recusa de uma **criação**.
+ *
+ * ⚠️ Fossem a mesma assinatura, recusar "o valor certo é mesmo R$ 39,90" mataria também a
+ * proposta de criar o fixo — ou o contrário.
+ */
+export const PREFIXO_CORRECAO = 'CORRIGIR::';
+
 /** Assinatura para não repropor o recusado. ⚠️ Sem o valor: valor muda, a recusa cairia. */
 export function assinaturaDe(nome: string, periodicidade: number): string {
   return `${nome.trim().toUpperCase()}::${periodicidade}`;
@@ -219,10 +227,14 @@ export function detectarPropostas(
   const saida: PropostaDeFixo[] = [];
 
   for (const p of brutas) {
-    // Já recusada, com a mesma assinatura: não volta.
-    if (fixos.some(f => f.status === 'recusado' && f.assinatura === p.assinatura)) continue;
-
     const casado = casarComFixo(p, fixos);
+
+    // ⭐ A checagem de recusa depende da natureza, e a natureza só se conhece depois de
+    // casar. Criação e correção têm assinaturas separadas de propósito: recusar "não é um
+    // gasto fixo" não pode matar também "o valor certo é 39,90", nem o contrário.
+    const assinatura = casado ? PREFIXO_CORRECAO + p.assinatura : p.assinatura;
+    if (fixos.some(f => f.status === 'recusado' && f.assinatura === assinatura)) continue;
+
     if (!casado) {
       saida.push(p);
       continue;

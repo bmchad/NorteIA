@@ -1,9 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, PlusCircle, Trash2, TrendingDown } from 'lucide-react';
+import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, PlusCircle, Trash2, TrendingDown, Undo2 } from 'lucide-react';
 import { contaDaCompra } from '../lib/parcelas';
-import { detectarPropostas, type PropostaDeFixo } from '../lib/fixos-propostos';
+import { detectarPropostas, PREFIXO_CORRECAO, type PropostaDeFixo } from '../lib/fixos-propostos';
 import { valorDoCompromisso } from '../lib/compromissos';
 import { comprometidoDoCiclo, proximoAlivio } from '../lib/comprometido';
 
@@ -29,6 +29,7 @@ export default function Compromissos() {
   const [expandido, setExpandido] = useState<string | null>(null);
   const [novo, setNovo] = useState({ nome: '', valor: '', dia: '' });
   const [buscaTransacao, setBuscaTransacao] = useState('');
+  const [verRecusados, setVerRecusados] = useState(false);
 
   useEffect(() => { carregar(); }, []);
 
@@ -77,6 +78,7 @@ export default function Compromissos() {
   );
 
   const fixosAtivos = fixos.filter(f => f.status === 'ativo');
+  const recusados = fixos.filter(f => f.status === 'recusado');
 
   const aceitarProposta = async (p: PropostaDeFixo) => {
     const user = (await supabase.auth.getUser()).data.user;
@@ -104,7 +106,7 @@ export default function Compromissos() {
   const recusarProposta = async (p: PropostaDeFixo) => {
     const user = (await supabase.auth.getUser()).data.user;
     if (!user) return;
-    const prefixo = p.natureza === 'corrigir' ? 'CORRIGIR::' : '';
+    const prefixo = p.natureza === 'corrigir' ? PREFIXO_CORRECAO : '';
     await supabase.from('fixos').insert([{
       user_id: user.id, nome: p.nome, valor: p.valor, dia: p.dia,
       periodicidade_meses: p.periodicidade_meses, origem: p.origem,
@@ -164,6 +166,21 @@ export default function Compromissos() {
       origem: 'manual', status: 'ativo', periodicidade_meses: 1,
     }]);
     setNovo({ nome: '', valor: '', dia: '' });
+    await carregar();
+  };
+
+  /**
+   * Desfaz uma recusa.
+   *
+   * ⭐ Recusar é permanente **por decisão**, não por falta de saída. A assinatura some e a
+   * proposta volta na próxima carga — porque a detecção é derivada, e o que a segurava era
+   * exatamente esta linha.
+   *
+   * ⚠️ Criação e correção têm assinaturas separadas de propósito: desfazer uma não
+   * ressuscita a outra.
+   */
+  const desfazerRecusa = async (id: string) => {
+    await supabase.from('fixos').delete().eq('id', id);
     await carregar();
   };
 
@@ -348,6 +365,47 @@ export default function Compromissos() {
               </button>
             </form>
           </section>
+
+          {recusados.length > 0 && (
+            <section>
+              {/* ⚠️ Discreto de propósito: recusa é decisão que o usuário quer esquecer.
+                  Mas precisa ser encontrável, senão "para sempre" vira "sem saída". */}
+              <button
+                onClick={() => setVerRecusados(v => !v)}
+                className="flex items-center gap-2 text-sm text-text-light hover:text-text transition-colors"
+              >
+                {verRecusados ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                {recusados.length} proposta{recusados.length > 1 ? 's' : ''} recusada
+                {recusados.length > 1 ? 's' : ''}
+              </button>
+
+              {verRecusados && (
+                <div className="mt-3 space-y-2">
+                  {recusados.map(f => {
+                    const eraCorrecao = String(f.assinatura ?? '').startsWith(PREFIXO_CORRECAO);
+                    return (
+                      <div key={f.id} className="glass-panel p-3 flex items-center justify-between gap-3 opacity-70 hover:opacity-100 transition-opacity">
+                        <div className="min-w-0">
+                          <span className="text-sm text-text truncate">{f.nome}</span>
+                          <div className="text-[11px] text-text-light">
+                            {eraCorrecao ? 'Correção recusada' : 'Não é um gasto fixo'}
+                            {' · '}{brl(Number(f.valor))}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => desfazerRecusa(f.id)}
+                          className="flex items-center gap-1 text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors shrink-0"
+                          title="A proposta volta a aparecer"
+                        >
+                          <Undo2 size={14} /> Desfazer
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              )}
+            </section>
+          )}
 
           <section className="space-y-3">
             <h3 className="font-bold text-text">Previsíveis</h3>
