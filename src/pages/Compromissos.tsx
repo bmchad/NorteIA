@@ -145,7 +145,14 @@ export default function Compromissos() {
     for (const c of reserva.pendentes) mapa.set(c.fixo.id, { data: c.data, jaCaiu: false });
     return mapa;
   }, [reserva]);
-  const recusados = fixos.filter(f => f.status === 'recusado');
+  /**
+   * O que foi dispensado — recusado **ou** encerrado.
+   *
+   * ⚠️ Encerrado entra aqui porque agora ele suprime a redetecção. Sem aparecer nesta seção,
+   * encerrar um gasto fixo seria irreversível **e** invisível: ele sumiria dos ativos e nada
+   * na tela diria que ele existiu.
+   */
+  const dispensados = fixos.filter(f => f.status === 'recusado' || f.status === 'encerrado');
 
   /**
    * ⭐ O aviso de silêncio mora no card do fixo que parou, não numa lista à parte.
@@ -356,7 +363,10 @@ export default function Compromissos() {
       .filter(p => p.natureza === 'criar' && p.evidencia.length >= PISO_AUTO);
     if (automaticas.length === 0) return;
 
-    const { error } = await supabase.from('fixos').upsert(
+    // ⚠️ `.select()` devolve **só as linhas realmente inseridas** — com `ignoreDuplicates`, o
+    // que o índice único barrou não vem. É o que faz o aviso dizer o que entrou, e não o que
+    // se tentou: antes ele anunciava a intenção e reaparecia a cada F5, mesmo sem criar nada.
+    const { data: criados, error } = await supabase.from('fixos').upsert(
       automaticas.map(p => ({
         user_id: user.id, nome: p.nome, valor: p.valor, dia: p.dia,
         periodicidade_meses: p.periodicidade_meses, origem: p.origem,
@@ -364,11 +374,12 @@ export default function Compromissos() {
         evidencia: p.evidencia.map((t: any) => ({ id: t.id, data: t.data, nome: t.nome, valor: t.valor })),
       })),
       { onConflict: 'user_id,assinatura', ignoreDuplicates: true },
-    );
+    ).select('nome');
     if (error) { console.error('Aceite automático falhou:', error); return; }
+    if (!criados || criados.length === 0) return;
 
     // ⚠️ Nada aparece em silêncio: o aviso diz o que entrou sem você pedir.
-    setReconhecidos(automaticas.map(p => p.nome));
+    setReconhecidos(criados.map(f => f.nome));
     await carregar();
   };
 
@@ -585,7 +596,6 @@ export default function Compromissos() {
                   encerramento={encerramentos.get(f.id) ?? null}
                   onExcluir={() => excluirFixo(f.id)}
                   onEncerrar={() => aceitarProposta(encerramentos.get(f.id)!)}
-                  onIgnorar={() => recusarProposta(encerramentos.get(f.id)!)}
                 />
               ))
             )}
@@ -660,29 +670,31 @@ export default function Compromissos() {
             </section>
           )}
 
-          {recusados.length > 0 && (
+          {dispensados.length > 0 && (
             <section>
-              {/* ⚠️ Discreto de propósito: recusa é decisão que o usuário quer esquecer.
+              {/* ⚠️ Discreto de propósito: dispensar é decisão que o usuário quer esquecer.
                   Mas precisa ser encontrável, senão "para sempre" vira "sem saída". */}
               <button
                 onClick={() => setVerRecusados(v => !v)}
                 className="flex items-center gap-2 text-sm text-text-light hover:text-text transition-colors"
               >
                 {verRecusados ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                {recusados.length} proposta{recusados.length > 1 ? 's' : ''} recusada
-                {recusados.length > 1 ? 's' : ''}
+                {dispensados.length} dispensado{dispensados.length > 1 ? 's' : ''}
               </button>
 
               {verRecusados && (
                 <div className="mt-3 space-y-2">
-                  {recusados.map(f => {
+                  {dispensados.map(f => {
                     const eraCorrecao = String(f.assinatura ?? '').startsWith(PREFIXO_CORRECAO);
+                    const motivo = f.status === 'encerrado'
+                      ? 'Encerrado por você'
+                      : eraCorrecao ? 'Correção recusada' : 'Não é um gasto fixo';
                     return (
                       <div key={f.id} className="glass-panel p-3 flex items-center justify-between gap-3 opacity-70 hover:opacity-100 transition-opacity">
                         <div className="min-w-0">
                           <span className="text-sm text-text truncate">{f.nome}</span>
                           <div className="text-[11px] text-text-light">
-                            {eraCorrecao ? 'Correção recusada' : 'Não é um gasto fixo'}
+                            {motivo}
                             {' · '}{brl(Number(f.valor))}
                           </div>
                         </div>
@@ -1045,11 +1057,11 @@ function LinhaDeCobranca({ c, brl }: { c: Cobranca; brl: (v: number) => string }
   );
 }
 
-function FixoAtivo({ f, brl, lancamentos, estado, encerramento, onExcluir, onEncerrar, onIgnorar }: {
+function FixoAtivo({ f, brl, lancamentos, estado, encerramento, onExcluir, onEncerrar }: {
   f: any; brl: (v: number) => string; lancamentos: any[];
   estado: { data: string; jaCaiu: boolean } | null;
   encerramento: PropostaDeFixo | null;
-  onExcluir: () => void; onEncerrar: () => void; onIgnorar: () => void;
+  onExcluir: () => void; onEncerrar: () => void;
 }) {
   return (
     <div className="glass-panel p-4 group">
@@ -1096,20 +1108,16 @@ function FixoAtivo({ f, brl, lancamentos, estado, encerramento, onExcluir, onEnc
             <AlertTriangle size={14} className="shrink-0" />
             Sem cobrança há {encerramento.silencioCiclos} ciclos — ainda paga isto?
           </span>
-          <div className="flex gap-2 shrink-0">
-            <button
-              onClick={onEncerrar}
-              className="text-xs px-3 py-1 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 transition-colors"
-            >
-              Encerrar
-            </button>
-            <button
-              onClick={onIgnorar}
-              className="text-xs px-3 py-1 rounded-lg text-text-light hover:bg-black/5 transition-colors"
-            >
-              Ignorar
-            </button>
-          </div>
+          {/* ⛔ Havia um "Ignorar" ao lado, e ele não fazia nada: gravava uma recusa com
+              assinatura `ENCERRAR::…`, que a detecção nunca lê — os encerramentos entram
+              depois da checagem de recusa. Além disso não existe caso legítimo para ele: se a
+              cobrança voltar, o próprio lançamento novo apaga o aviso. */}
+          <button
+            onClick={onEncerrar}
+            className="text-xs px-3 py-1 rounded-lg bg-danger/10 text-danger hover:bg-danger/20 transition-colors shrink-0"
+          >
+            Encerrar
+          </button>
         </div>
       )}
     </div>

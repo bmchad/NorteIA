@@ -380,7 +380,17 @@ export function detectarPropostas(
     // casar. Criação e correção têm assinaturas separadas de propósito: recusar "não é um
     // gasto fixo" não pode matar também "o valor certo é 39,90", nem o contrário.
     const assinatura = casado ? PREFIXO_CORRECAO + p.assinatura : p.assinatura;
-    if (fixos.some(f => f.status === 'recusado' && f.assinatura === assinatura)) continue;
+
+    // ⛔ `encerrado` conta junto com `recusado`. Sem isso, encerrar um gasto fixo não
+    // encerrava nada: o histórico continuava lá, a detecção repropunha na carga seguinte, e
+    // com PISO_AUTO a proposta virava fixo ativo de novo. A decisão do usuário durava até o
+    // próximo F5.
+    //
+    // ⚠️ E dispensar é para valer: se a cobrança voltar de verdade, quem reativa é o usuário,
+    // na seção de dispensados. Ressuscitar sozinho desfaria uma decisão sem ele saber.
+    const dispensada = (f: any) =>
+      (f.status === 'recusado' || f.status === 'encerrado') && f.assinatura === assinatura;
+    if (fixos.some(dispensada)) continue;
 
     if (!casado) {
       saida.push(p);
