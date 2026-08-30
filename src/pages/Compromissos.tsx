@@ -332,21 +332,6 @@ export default function Compromissos() {
 
       {aba === 'recorrente' && (
         <div className="space-y-6">
-          {propostas.length > 0 && (
-            <section className="space-y-3">
-              <h3 className="font-bold text-text">Propostas</h3>
-              {propostas.map((p, i) => (
-                <Proposta
-                  key={`${p.assinatura}-${i}`}
-                  p={p}
-                  brl={brl}
-                  onAceitar={() => aceitarProposta(p)}
-                  onRecusar={() => recusarProposta(p)}
-                />
-              ))}
-            </section>
-          )}
-
           <section className="space-y-3">
             <h3 className="font-bold text-text">Ativos</h3>
             {fixosAtivos.length === 0 ? (
@@ -410,6 +395,21 @@ export default function Compromissos() {
               </button>
             </form>
           </section>
+
+          {propostas.length > 0 && (
+            <section className="space-y-3">
+              <h3 className="font-bold text-text">Propostas</h3>
+              {propostas.map((p, i) => (
+                <Proposta
+                  key={`${p.assinatura}-${i}`}
+                  p={p}
+                  brl={brl}
+                  onAceitar={() => aceitarProposta(p)}
+                  onRecusar={() => recusarProposta(p)}
+                />
+              ))}
+            </section>
+          )}
 
           {recusados.length > 0 && (
             <section>
