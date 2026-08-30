@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, LogIn, MapPin, ChevronDown, CheckCircle } from 'lucide-react';
+import { LayoutDashboard, LogIn, ChevronDown, CheckCircle } from 'lucide-react';
 import { supabase } from '../lib/supabase';
 import GraficoDecorativo from '../components/GraficoDecorativo';
 
@@ -13,27 +13,39 @@ export default function Home() {
   const [leadStatus, setLeadStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle');
   const [leadStep, setLeadStep] = useState(1);
 
-  // FAQs data
+  /**
+   * ⭐ As perguntas seguem a tese do produto, não a lista de funcionalidades: comprometido →
+   * o que sobra → como você gasta o que sobra. Um FAQ que enumera recursos responde "o que
+   * ele faz"; este responde "o que muda para mim".
+   */
   const faqs = [
     {
-      q: 'O que é o Balanço Geral?',
-      a: 'Uma plataforma inteligente com IA integrada para automatizar sua gestão financeira pessoal e empresarial.'
+      q: 'O que é o Assistente Itaú?',
+      a: 'Uma plataforma que responde uma pergunta antes de qualquer outra: quanto do seu dinheiro já tem dono. Parcela que ainda corre, assinatura que renova, mercado que você vai fazer de todo jeito — o que sobra depois disso é o que você realmente decide.'
     },
     {
-      q: 'Como a IA funciona no aplicativo?',
-      a: 'A IA lê automaticamente seus comprovantes, planilhas e extratos em imagem ou PDF, extraindo valores e datas sem que você precise digitar nada.'
+      q: 'Por que separar os compromissos em três camadas?',
+      a: 'Porque somar tudo num número só esconde o que dá para mudar. Parcela é dívida contratada e tem data de fim; assinatura dá para cancelar hoje; mercado e combustível você vai gastar de qualquer forma. Misturar os três dá um total certo e inútil.'
+    },
+    {
+      q: 'Preciso cadastrar meus gastos fixos na mão?',
+      a: 'Não. Depois de três cobranças iguais, a plataforma reconhece a recorrência sozinha e propõe — mostrando os lançamentos que geraram a proposta, para você aceitar ou recusar sabendo o porquê.'
+    },
+    {
+      q: 'Como a IA entra nisso?',
+      a: 'Ela lê extratos e faturas em imagem, PDF ou planilha e extrai as transações sem digitação. Mas a maior parte das decisões é determinística: o que você já confirmou uma vez não volta para a IA, e por isso o resultado não muda sozinho entre importações.'
+    },
+    {
+      q: 'O mês da plataforma é o mês do calendário?',
+      a: 'Só se você quiser. O ciclo é ancorado no dia em que seu dinheiro entra — se você recebe no dia 5, seu mês vai do dia 6 ao dia 5 seguinte. É o que faz o balanço bater com a vida real de quem tem fatura fechando no meio do mês.'
     },
     {
       q: 'Meus dados estão seguros?',
-      a: 'Sim, utilizamos autenticação robusta via Google e infraestrutura em nuvem segura para garantir a proteção de todas as suas informações.'
+      a: 'A autenticação é via Google e cada usuário só enxerga as próprias linhas, isolamento garantido no banco e não apenas na tela. As chaves de IA vivem no servidor: o navegador nunca fala direto com o modelo.'
     },
     {
-      q: 'É possível gerenciar gastos fixos e compras parceladas?',
-      a: 'Com certeza. Temos módulos dedicados para projetar seus gastos fixos e agrupar inteligentemente suas parcelas, unificando a visão anual.'
-    },
-    {
-      q: 'Vocês possuem integração com o Open Finance?',
-      a: 'Em breve!'
+      q: 'Já dá para conectar com Open Finance?',
+      a: 'Ainda não. Hoje a entrada é por extrato, fatura ou planilha que você envia.'
     }
   ];
 
@@ -42,7 +54,7 @@ export default function Home() {
     const handleScroll = () => {
       setScrolled(window.scrollY > 50);
 
-      const sections = ['inicio', 'localizacao', 'faq', 'contato'];
+      const sections = ['inicio', 'faq', 'contato'];
       let current = 'inicio';
       for (const section of sections) {
         const el = document.getElementById(section);
@@ -101,12 +113,11 @@ export default function Home() {
             <div className="bg-primary/10 p-2 rounded-xl">
               <LayoutDashboard size={24} className="text-primary" />
             </div>
-            <span className="text-2xl font-bold text-text">Balanço Geral</span>
+            <span className="text-2xl font-bold text-text">Assistente Itaú</span>
           </div>
 
           <nav className="hidden md:flex items-center gap-8 font-medium text-text-light">
             <button onClick={() => scrollTo('inicio')} className={`transition-colors ${activeSection === 'inicio' ? 'text-primary font-bold' : 'hover:text-primary'}`}>Início</button>
-            <button onClick={() => scrollTo('localizacao')} className={`transition-colors ${activeSection === 'localizacao' ? 'text-primary font-bold' : 'hover:text-primary'}`}>Localização</button>
             <button onClick={() => scrollTo('faq')} className={`transition-colors ${activeSection === 'faq' ? 'text-primary font-bold' : 'hover:text-primary'}`}>FAQ</button>
             <button onClick={() => scrollTo('contato')} className={`transition-colors ${activeSection === 'contato' ? 'text-primary font-bold' : 'hover:text-primary'}`}>Contato</button>
           </nav>
@@ -129,10 +140,13 @@ export default function Home() {
             <LayoutDashboard size={64} className="text-primary" />
           </div>
           <h1 className="text-5xl md:text-7xl font-extrabold text-text mb-6 tracking-tight">
-            Balanço Geral
+            Assistente Itaú
           </h1>
+          {/* ⭐ A promessa é a tese, não a funcionalidade: primeiro o que já tem dono,
+              depois o que sobra. */}
           <p className="text-2xl md:text-3xl text-text-light font-medium mb-12">
-            Controle suas finanças. Controle sua vida. <br className="hidden md:block"/> Tudo em um só lugar.
+            Descubra quanto do seu dinheiro já tem dono. <br className="hidden md:block"/>
+            O que sobra é o que você decide.
           </p>
           <button 
             onClick={() => navigate('/login')}
@@ -140,48 +154,6 @@ export default function Home() {
           >
             Começar Agora
           </button>
-        </div>
-      </section>
-
-      {/* Seção Localização */}
-      <section id="localizacao" className="py-24 bg-white relative">
-        <div className="max-w-7xl mx-auto px-6">
-          <div className="text-center mb-16">
-            <h2 className="text-4xl font-bold text-text mb-4">Onde Estamos</h2>
-            <div className="w-24 h-1.5 bg-primary mx-auto rounded-full"></div>
-          </div>
-          
-          <div className="flex flex-col lg:flex-row gap-12 items-center">
-            <div className="w-full lg:w-1/3 space-y-6">
-              <div className="glass-panel p-8">
-                <div className="flex items-start gap-4 mb-4">
-                  <div className="bg-primary/10 p-3 rounded-full shrink-0">
-                    <MapPin className="text-primary" size={24} />
-                  </div>
-                  <div>
-                    <h3 className="text-xl font-bold text-text mb-2">Endereço</h3>
-                    <p className="text-text-light leading-relaxed">
-                      Av. Pref. Telésforo Cândido de Rezende, 590 - Centro<br />
-                      Conselheiro Lafaiete - MG<br />
-                      CEP: 36400-076
-                    </p>
-                  </div>
-                </div>
-              </div>
-            </div>
-            
-            <div className="w-full lg:w-2/3 h-[400px] rounded-2xl overflow-hidden shadow-glass-lg border border-border">
-              <iframe 
-                src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3725.687610664972!2d-43.76615552399222!3d-20.658824160759364!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xa38c71ccfdbf91%3A0xe67db50eddb86e24!2sAv.%20Pref.%20Tel%C3%A9sforo%20C%C3%A2ndido%20de%20Resende%2C%20590%20-%20Centro%2C%20Conselheiro%20Lafaiete%20-%20MG%2C%2036400-076!5e0!3m2!1spt-BR!2sbr!4v1700000000000!5m2!1spt-BR!2sbr" 
-                width="100%" 
-                height="100%" 
-                style={{ border: 0 }} 
-                allowFullScreen={true} 
-                loading="lazy" 
-                referrerPolicy="no-referrer-when-downgrade"
-              ></iframe>
-            </div>
-          </div>
         </div>
       </section>
 
@@ -226,9 +198,9 @@ export default function Home() {
 
         <div className="max-w-2xl mx-auto px-6 relative z-10">
           <div className="glass-panel p-8 md:p-12 shadow-2xl border-2 border-primary/40 rounded-3xl text-center bg-white/80 backdrop-blur-xl">
-            <h3 className="text-3xl font-bold text-text mb-4">Pronto para transformar sua vida financeira?</h3>
+            <h3 className="text-3xl font-bold text-text mb-4">Pronto para saber o que sobra?</h3>
             <p className="text-text-light mb-8">
-              Deixe seu contato para conhecer todos os detalhes do Balanço Geral.
+              Deixe seu contato para conhecer todos os detalhes do Assistente Itaú.
             </p>
             
             {leadStatus === 'success' ? (
@@ -310,9 +282,18 @@ export default function Home() {
         </div>
       </section>
       
-      {/* Footer minimalista */}
-      <footer className="bg-text text-white py-8 text-center">
-        <p className="text-white/60">© {new Date().getFullYear()} Balanço Geral. Todos os direitos reservados.</p>
+      {/* ⚠️ O aviso não é rodapé decorativo: a página usa o nome e a cor do Itaú, e sem
+          dizer que é protótipo de hackathon ela se passa por produto oficial. */}
+      <footer className="bg-text text-white py-8 px-6 text-center">
+        <p className="text-white/70 max-w-2xl mx-auto">
+          Protótipo desenvolvido para o <strong className="text-white">InovaCamp WI</strong> do Itaú.
+        </p>
+        <p className="text-white/50 text-sm mt-2 max-w-2xl mx-auto">
+          Não é um produto oficial do Itaú Unibanco, não tem vínculo com o banco e não está
+          associado a nenhum serviço dele. Nome e identidade visual são usados apenas no
+          contexto do desafio.
+        </p>
+        <p className="text-white/40 text-xs mt-4">© {new Date().getFullYear()}</p>
       </footer>
     </div>
   );

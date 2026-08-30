@@ -1,10 +1,12 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { LayoutDashboard, AlertCircle } from 'lucide-react';
+import { LayoutDashboard, AlertCircle, ArrowLeft } from 'lucide-react';
 import { ENTRADA } from '../lib/rotas';
 import GraficoDecorativo from '../components/GraficoDecorativo';
 
 export default function Auth() {
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -31,13 +33,22 @@ export default function Auth() {
       <GraficoDecorativo />
       
       <div className="glass-panel w-full max-w-md p-8 relative z-10">
+        {/* ⚠️ Sem isto o login é um beco: quem chega aqui por engano só sai pelo botão do
+            navegador, e num app instalado como PWA nem isso existe. */}
+        <button
+          onClick={() => navigate('/')}
+          className="flex items-center gap-1.5 text-sm text-text-light hover:text-primary transition-colors mb-6"
+        >
+          <ArrowLeft size={16} /> Voltar
+        </button>
+
         <div className="flex flex-col items-center mb-8">
           <div className="bg-primary/10 p-3 rounded-2xl mb-4">
             <LayoutDashboard size={40} className="text-primary" />
           </div>
-          <h1 className="text-3xl font-bold text-text mb-2">Balanço Geral</h1>
+          <h1 className="text-3xl font-bold text-text mb-2">Assistente Itaú</h1>
           <p className="text-text-light text-center">
-            Inteligência artificial para sua gestão financeira
+            Quanto do seu dinheiro já tem dono
           </p>
         </div>
 

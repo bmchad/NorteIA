@@ -42,7 +42,7 @@ export default function Layout({ children }: LayoutProps) {
             <span className="bg-primary/10 p-1.5 rounded-lg">
               <LayoutDashboard size={20} className="text-primary" />
             </span>
-            Balanço Geral
+            Assistente Itaú
           </h1>
         </div>
 
@@ -91,7 +91,7 @@ export default function Layout({ children }: LayoutProps) {
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Mobile Header */}
         <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-4 md:hidden shadow-sm">
-          <h1 className="text-lg font-bold text-primary">Balanço Geral</h1>
+          <h1 className="text-lg font-bold text-primary">Assistente Itaú</h1>
           {/* Add mobile menu toggle here if needed */}
         </header>
 
