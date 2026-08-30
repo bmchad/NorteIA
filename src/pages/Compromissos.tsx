@@ -1,8 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, PlusCircle, Trash2, TrendingDown, Undo2 } from 'lucide-react';
-import { contaDaCompra } from '../lib/parcelas';
+import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, PlusCircle, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, type LucideIcon } from 'lucide-react';
+import {
+  agruparParcelas, comprometidoRestante, contaDaCompra, parcelasRestantes, projecaoPorCiclo,
+} from '../lib/parcelas';
+import ConfirmModal from '../components/ConfirmModal';
 import { detectarPropostas, PREFIXO_CORRECAO, type PropostaDeFixo } from '../lib/fixos-propostos';
 import { valorDoCompromisso } from '../lib/compromissos';
 import { comprometidoDoCiclo, proximoAlivio } from '../lib/comprometido';
@@ -20,7 +23,9 @@ import { comprometidoDoCiclo, proximoAlivio } from '../lib/comprometido';
 export default function Compromissos() {
   const navigate = useNavigate();
   const [carregando, setCarregando] = useState(true);
-  const [aba, setAba] = useState<'recorrentes' | 'parcelas'>('recorrentes');
+  // ⭐ As abas têm o nome das três camadas. Cards dizendo "Contratado" sobre abas dizendo
+  // "Parcelas" são dois vocabulários para a mesma coisa, e o conceito está no card.
+  const [aba, setAba] = useState<Camada>('contratado');
 
   const [transacoes, setTransacoes] = useState<any[]>([]);
   const [fixos, setFixos] = useState<any[]>([]);
@@ -30,6 +35,8 @@ export default function Compromissos() {
   const [novo, setNovo] = useState({ nome: '', valor: '', dia: '' });
   const [buscaTransacao, setBuscaTransacao] = useState('');
   const [verRecusados, setVerRecusados] = useState(false);
+  const [grupoAberto, setGrupoAberto] = useState<string | null>(null);
+  const [confirmacao, setConfirmacao] = useState<{ titulo: string; mensagem: string; onConfirmar: () => void } | null>(null);
 
   useEffect(() => { carregar(); }, []);
 
@@ -71,6 +78,22 @@ export default function Compromissos() {
       () => comprometidoDoCiclo(transacoes, fixos, tipos, cicloDia),
       [transacoes, fixos, tipos, cicloDia],
     );
+
+  /**
+   * As compras já quitadas.
+   *
+   * ⚠️ **Não entram em nenhum total** — parcela paga é histórico, não compromisso. Por isso
+   * `comprometidoDoCiclo` não as devolve, e por isso elas são derivadas só aqui: as em
+   * andamento continuam vindo de lá (`emAndamento`), com um dono só.
+   */
+  const concluidas = useMemo(
+    () => agruparParcelas(transacoes).filter(g => contaDaCompra(g).concluida),
+    [transacoes],
+  );
+
+  const restante = useMemo(() => comprometidoRestante(emAndamento), [emAndamento]);
+  const faltamParcelas = useMemo(() => parcelasRestantes(emAndamento), [emAndamento]);
+  const projecao = useMemo(() => projecaoPorCiclo(emAndamento, cicloDia, 6), [emAndamento, cicloDia]);
 
   const alivio = useMemo(
     () => proximoAlivio(emAndamento, recorrente + previsivel, cicloDia),
@@ -184,6 +207,20 @@ export default function Compromissos() {
     await carregar();
   };
 
+  /** ⚠️ Some com a compra inteira, parcela por parcela. Por isso passa pela confirmação. */
+  const excluirGrupo = (grupo: any[]) => {
+    const nome = grupo[0].apelido || grupo[0].nome;
+    setConfirmacao({
+      titulo: 'Excluir parcelas',
+      mensagem: `Excluir TODAS as ${grupo.length} parcelas de "${nome}"?`,
+      onConfirmar: async () => {
+        await supabase.from('transactions').delete().in('id', grupo.map((t: any) => t.id));
+        setConfirmacao(null);
+        await carregar();
+      },
+    });
+  };
+
   const excluirFixo = async (id: string) => {
     await supabase.from('fixos').delete().eq('id', id);
     await carregar();
@@ -206,6 +243,15 @@ export default function Compromissos() {
 
   return (
     <div className="space-y-6">
+      {confirmacao && (
+        <ConfirmModal
+          title={confirmacao.titulo}
+          message={confirmacao.mensagem}
+          onConfirm={confirmacao.onConfirmar}
+          onCancel={() => setConfirmacao(null)}
+        />
+      )}
+
       <header className="flex justify-between items-end flex-wrap gap-4">
         <div>
           <h2 className="text-3xl font-bold text-text flex items-center gap-3">
@@ -233,24 +279,39 @@ export default function Compromissos() {
           <span className="text-4xl font-bold text-text">{brl(total)}</span>
         </div>
 
+        {/* ⭐ O card É o botão da aba. Três cards e, logo abaixo, três abas repetindo os
+            mesmos nomes seria o mesmo controle duas vezes — e o número fica longe do
+            rótulo que ele explica. */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-3 mt-6">
-          <Camada
+          <CardCamada
+            id="contratado"
             titulo="Contratado"
             valor={brl(contratado)}
             nota="Parcelas. Você deve, e tem data de fim"
             cor="text-danger"
+            icone={CreditCard}
+            ativo={aba === 'contratado'}
+            onClick={() => setAba('contratado')}
           />
-          <Camada
+          <CardCamada
+            id="recorrente"
             titulo="Recorrente"
             valor={brl(recorrente)}
             nota="Assinatura e mensalidade. Dá para cancelar"
             cor="text-primary"
+            icone={Anchor}
+            ativo={aba === 'recorrente'}
+            onClick={() => setAba('recorrente')}
           />
-          <Camada
+          <CardCamada
+            id="previsivel"
             titulo="Previsível"
             valor={brl(previsivel)}
             nota="Mercado, combustível. Você vai gastar"
             cor="text-[#10b981]"
+            icone={ShoppingCart}
+            ativo={aba === 'previsivel'}
+            onClick={() => setAba('previsivel')}
           />
         </div>
 
@@ -269,23 +330,7 @@ export default function Compromissos() {
         )}
       </div>
 
-      <div className="flex gap-2">
-        {([['recorrentes', 'Gastos fixos', Anchor], ['parcelas', 'Parcelas', CreditCard]] as const).map(
-          ([id, rotulo, Icone]) => (
-            <button
-              key={id}
-              onClick={() => setAba(id)}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl font-medium transition-all ${
-                aba === id ? 'bg-primary text-white shadow-md' : 'text-text-light hover:bg-white/60'
-              }`}
-            >
-              <Icone size={16} /> {rotulo}
-            </button>
-          ),
-        )}
-      </div>
-
-      {aba === 'recorrentes' ? (
+      {aba === 'recorrente' && (
         <div className="space-y-6">
           {propostas.length > 0 && (
             <section className="space-y-3">
@@ -406,165 +451,246 @@ export default function Compromissos() {
               )}
             </section>
           )}
-
-          <section className="space-y-3">
-            <h3 className="font-bold text-text">Previsíveis</h3>
-            {detectados.length === 0 ? (
-              <div className="glass-panel p-8 text-center text-text-light">
-                Nenhum compromisso previsível detectado. Eles aparecem quando 3 transações do mesmo
-                tipo são importadas.
-              </div>
-            ) : (
-              detectados.map(c => (
-                <div key={c.slug} className="glass-panel p-4">
-                  <button
-                    onClick={() => setExpandido(expandido === c.slug ? null : c.slug)}
-                    className="w-full flex items-center justify-between gap-4"
-                  >
-                    <div className="text-left">
-                      <span className="font-medium text-text">{c.titulo}</span>
-                      <div className="text-xs text-text-light">
-                        {c.transacoes.length} lançamentos em {c.ciclos} ciclo(s)
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-3">
-                      <div className="text-right">
-                        <div className="font-bold text-text">{brl(valorDoCompromisso(c))}/mês</div>
-                        {c.valorFixado == null && (
-                          <div className="text-[10px] text-text-light">média observada</div>
-                        )}
-                      </div>
-                      {expandido === c.slug ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
-                    </div>
-                  </button>
-
-                  {/* ⭐ Avisa, não age: valor que persegue a própria média nunca discorda de você. */}
-                  {c.divergente && (
-                    <div className="mt-3 flex items-start gap-2 text-xs text-text-light bg-primary/5 rounded-lg p-3">
-                      <Info size={14} className="text-primary shrink-0 mt-0.5" />
-                      <span>
-                        Os lançamentos recentes dão {brl(c.amortizadoObservado)}/mês, e você fixou{' '}
-                        {brl(c.valorFixado!)}.{' '}
-                        <button
-                          onClick={() => fixarValor(c.slug, c.amortizadoObservado)}
-                          className="text-primary font-medium underline"
-                        >
-                          Atualizar
-                        </button>
-                      </span>
-                    </div>
-                  )}
-
-                  {expandido === c.slug && (
-                    <div className="mt-4 space-y-1 border-t border-border pt-3">
-                      {c.valorFixado == null && (
-                        <button
-                          onClick={() => fixarValor(c.slug, c.amortizadoObservado)}
-                          className="text-xs text-primary font-medium mb-2"
-                        >
-                          Fixar {brl(c.amortizadoObservado)}/mês
-                        </button>
-                      )}
-                      {c.transacoes.map((t: any) => (
-                        <div key={t.id} className="flex items-center justify-between text-xs py-1">
-                          <span className="text-text-light truncate">
-                            {t.data} · {t.apelido || t.nome}
-                          </span>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className="text-text">{brl(Math.abs(Number(t.valor)))}</span>
-                            <button
-                              onClick={() => removerDoCompromisso(t.id)}
-                              className="text-text-light hover:text-danger p-1"
-                              title="Tirar deste compromisso"
-                            >
-                              <X size={12} />
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-
-                      {/* ⭐ Acrescentar existe porque a IA erra mais para menos que para
-                          mais: ela não rotula o que não reconhece. */}
-                      <div className="pt-2 mt-2 border-t border-border">
-                        <input
-                          value={buscaTransacao}
-                          onChange={e => setBuscaTransacao(e.target.value)}
-                          placeholder="Buscar transação para acrescentar..."
-                          className="glass-input w-full p-2 text-xs bg-white"
-                        />
-                        {buscaTransacao.trim().length >= 2 && (
-                          <div className="mt-1 max-h-40 overflow-y-auto space-y-0.5">
-                            {transacoes
-                              .filter(t =>
-                                Number(t.valor) < 0 &&
-                                t.compromisso !== c.slug &&
-                                `${t.nome} ${t.apelido ?? ''}`.toLowerCase()
-                                  .includes(buscaTransacao.toLowerCase().trim()))
-                              .slice(0, 8)
-                              .map((t: any) => (
-                                <button
-                                  key={t.id}
-                                  onClick={() => acrescentarAoCompromisso(t.id, c.slug)}
-                                  className="w-full flex items-center justify-between text-xs py-1 px-2 rounded-lg hover:bg-primary/10 transition-colors"
-                                >
-                                  <span className="text-text-light truncate">
-                                    {t.data} · {t.apelido || t.nome}
-                                  </span>
-                                  <span className="text-text shrink-0 ml-2">
-                                    {brl(Math.abs(Number(t.valor)))}
-                                  </span>
-                                </button>
-                              ))}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))
-            )}
-          </section>
         </div>
-      ) : (
+      )}
+
+      {aba === 'previsivel' && (
         <section className="space-y-3">
-          {emAndamento.length === 0 ? (
+          <h3 className="font-bold text-text">Previsíveis</h3>
+          {detectados.length === 0 ? (
             <div className="glass-panel p-8 text-center text-text-light">
-              Nenhuma compra parcelada em andamento.
+              Nenhum compromisso previsível detectado. Eles aparecem quando 3 transações do mesmo
+              tipo são importadas.
             </div>
           ) : (
-            emAndamento.map(g => {
-              const c = contaDaCompra(g);
-              return (
-                <div key={g[0].id} className="glass-panel p-4 flex items-center justify-between gap-4">
-                  <div>
-                    <span className="font-medium text-text">{g[0].apelido || g[0].nome}</span>
+            detectados.map(c => (
+              <div key={c.slug} className="glass-panel p-4">
+                <button
+                  onClick={() => setExpandido(expandido === c.slug ? null : c.slug)}
+                  className="w-full flex items-center justify-between gap-4"
+                >
+                  <div className="text-left">
+                    <span className="font-medium text-text">{c.titulo}</span>
                     <div className="text-xs text-text-light">
-                      {c.pagas} de {c.totalParcelas} · faltam {c.faltam}
+                      {c.transacoes.length} lançamentos em {c.ciclos} ciclo(s)
                     </div>
                   </div>
-                  <div className="text-right">
-                    <div className="font-bold text-text">{brl(c.valorParcela)}/mês</div>
-                    <div className="text-[10px] text-text-light">
-                      {brl(c.valorPendente)} pendente
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <div className="font-bold text-text">{brl(valorDoCompromisso(c))}/mês</div>
+                      {c.valorFixado == null && (
+                        <div className="text-[10px] text-text-light">média observada</div>
+                      )}
+                    </div>
+                    {expandido === c.slug ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                  </div>
+                </button>
+
+                {/* ⭐ Avisa, não age: valor que persegue a própria média nunca discorda de você. */}
+                {c.divergente && (
+                  <div className="mt-3 flex items-start gap-2 text-xs text-text-light bg-primary/5 rounded-lg p-3">
+                    <Info size={14} className="text-primary shrink-0 mt-0.5" />
+                    <span>
+                      Os lançamentos recentes dão {brl(c.amortizadoObservado)}/mês, e você fixou{' '}
+                      {brl(c.valorFixado!)}.{' '}
+                      <button
+                        onClick={() => fixarValor(c.slug, c.amortizadoObservado)}
+                        className="text-primary font-medium underline"
+                      >
+                        Atualizar
+                      </button>
+                    </span>
+                  </div>
+                )}
+
+                {expandido === c.slug && (
+                  <div className="mt-4 space-y-1 border-t border-border pt-3">
+                    {c.valorFixado == null && (
+                      <button
+                        onClick={() => fixarValor(c.slug, c.amortizadoObservado)}
+                        className="text-xs text-primary font-medium mb-2"
+                      >
+                        Fixar {brl(c.amortizadoObservado)}/mês
+                      </button>
+                    )}
+                    {c.transacoes.map((t: any) => (
+                      <div key={t.id} className="flex items-center justify-between text-xs py-1">
+                        <span className="text-text-light truncate">
+                          {t.data} · {t.apelido || t.nome}
+                        </span>
+                        <div className="flex items-center gap-2 shrink-0">
+                          <span className="text-text">{brl(Math.abs(Number(t.valor)))}</span>
+                          <button
+                            onClick={() => removerDoCompromisso(t.id)}
+                            className="text-text-light hover:text-danger p-1"
+                            title="Tirar deste compromisso"
+                          >
+                            <X size={12} />
+                          </button>
+                        </div>
+                      </div>
+                    ))}
+
+                    {/* ⭐ Acrescentar existe porque a IA erra mais para menos que para
+                        mais: ela não rotula o que não reconhece. */}
+                    <div className="pt-2 mt-2 border-t border-border">
+                      <input
+                        value={buscaTransacao}
+                        onChange={e => setBuscaTransacao(e.target.value)}
+                        placeholder="Buscar transação para acrescentar..."
+                        className="glass-input w-full p-2 text-xs bg-white"
+                      />
+                      {buscaTransacao.trim().length >= 2 && (
+                        <div className="mt-1 max-h-40 overflow-y-auto space-y-0.5">
+                          {transacoes
+                            .filter(t =>
+                              Number(t.valor) < 0 &&
+                              t.compromisso !== c.slug &&
+                              `${t.nome} ${t.apelido ?? ''}`.toLowerCase()
+                                .includes(buscaTransacao.toLowerCase().trim()))
+                            .slice(0, 8)
+                            .map((t: any) => (
+                              <button
+                                key={t.id}
+                                onClick={() => acrescentarAoCompromisso(t.id, c.slug)}
+                                className="w-full flex items-center justify-between text-xs py-1 px-2 rounded-lg hover:bg-primary/10 transition-colors"
+                              >
+                                <span className="text-text-light truncate">
+                                  {t.data} · {t.apelido || t.nome}
+                                </span>
+                                <span className="text-text shrink-0 ml-2">
+                                  {brl(Math.abs(Number(t.valor)))}
+                                </span>
+                              </button>
+                            ))}
+                        </div>
+                      )}
                     </div>
                   </div>
-                </div>
-              );
-            })
+                )}
+              </div>
+            ))
           )}
         </section>
       )}
+
+      {aba === 'contratado' && (
+        <div className="space-y-6">
+          {/* ⚠️ Dois números grandes na mesma tela parecem contradição, e não são: o card do
+              topo diz quanto sai POR MÊS, este diz o TOTAL que ainda falta pagar. */}
+          {emAndamento.length > 0 && (
+            <div className="glass-panel p-6">
+              <div className="flex flex-wrap items-end justify-between gap-6">
+                <div>
+                  <p className="text-xs uppercase tracking-wider text-text-light font-bold">
+                    Comprometido restante
+                  </p>
+                  <p className="text-4xl font-bold text-danger mt-1">{brl(restante)}</p>
+                  <p className="text-sm text-text-light mt-1">
+                    {faltamParcelas} parcela{faltamParcelas === 1 ? '' : 's'} a vencer em{' '}
+                    {emAndamento.length} compra{emAndamento.length === 1 ? '' : 's'}
+                  </p>
+                </div>
+
+                {projecao.length > 0 && (
+                  <div className="flex-1 min-w-[280px]">
+                    <p className="text-xs uppercase tracking-wider text-text-light font-bold mb-2">
+                      Saída por ciclo
+                    </p>
+                    <div className="flex items-end gap-3 flex-wrap">
+                      {projecao.map(c => (
+                        <div key={c.cicloKey} className="text-center">
+                          <div className="text-[11px] text-text-light">{c.rotulo}</div>
+                          <div className="text-sm font-bold text-text">{brl(c.valor)}</div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
+
+          {emAndamento.length === 0 && concluidas.length === 0 ? (
+            <div className="glass-panel p-12 text-center text-text-light">
+              Você não possui nenhuma compra parcelada registrada.
+            </div>
+          ) : (
+            <>
+              <section>
+                <h3 className="text-xl font-bold text-text mb-4 flex items-center gap-2">
+                  <CreditCard size={20} className="text-primary" /> Em andamento
+                </h3>
+                {emAndamento.length === 0 ? (
+                  <div className="glass-panel p-8 text-center text-text-light bg-white/20">
+                    Nenhuma compra parcelada em andamento.
+                  </div>
+                ) : (
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {emAndamento.map(g => (
+                      <CardParcelas
+                        key={g[0].id}
+                        grupo={g}
+                        brl={brl}
+                        aberto={grupoAberto === g[0].id}
+                        onAlternar={() => setGrupoAberto(grupoAberto === g[0].id ? null : g[0].id)}
+                        onExcluir={() => excluirGrupo(g)}
+                      />
+                    ))}
+                  </div>
+                )}
+              </section>
+
+              {concluidas.length > 0 && (
+                <section>
+                  <h3 className="text-xl font-bold text-text mb-4 flex items-center gap-2">
+                    <Check size={20} className="text-[#10b981]" /> Quitadas
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-6">
+                    {concluidas.map(g => (
+                      <CardParcelas
+                        key={g[0].id}
+                        grupo={g}
+                        brl={brl}
+                        aberto={grupoAberto === g[0].id}
+                        onAlternar={() => setGrupoAberto(grupoAberto === g[0].id ? null : g[0].id)}
+                        onExcluir={() => excluirGrupo(g)}
+                      />
+                    ))}
+                  </div>
+                </section>
+              )}
+            </>
+          )}
+        </div>
+      )}
+
     </div>
   );
 }
 
-function Camada({ titulo, valor, nota, cor }: { titulo: string; valor: string; nota: string; cor: string }) {
+/** As três camadas de certeza. ⭐ Também são as abas: o nome do conceito é um só. */
+type Camada = 'contratado' | 'recorrente' | 'previsivel';
+
+function CardCamada({ titulo, valor, nota, cor, icone: Icone, ativo, onClick }: {
+  id: Camada; titulo: string; valor: string; nota: string; cor: string;
+  icone: LucideIcon; ativo: boolean; onClick: () => void;
+}) {
   return (
-    <div className="bg-white/50 rounded-xl p-4">
-      <div className="text-[10px] uppercase font-bold text-text-light tracking-wider">{titulo}</div>
+    <button
+      onClick={onClick}
+      className={`text-left rounded-xl p-4 transition-all ${
+        ativo
+          ? 'bg-white ring-2 ring-primary shadow-md'
+          : 'bg-white/50 hover:bg-white/80'
+      }`}
+    >
+      <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-text-light tracking-wider">
+        <Icone size={12} /> {titulo}
+      </div>
       <div className={`text-2xl font-bold mt-1 ${cor}`}>{valor}</div>
       <div className="text-[10px] text-text-light mt-1">{nota}</div>
-    </div>
+    </button>
   );
 }
 
@@ -615,6 +741,136 @@ function Proposta({ p, brl, onAceitar, onRecusar }: {
             <X size={18} />
           </button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Uma compra parcelada.
+ *
+ * ⭐ Mostra a **compra**, não a parcela: valor pago, pendente e total. É o que responde
+ * "quanto ainda devo disto", que a linha de uma parcela sozinha não responde.
+ *
+ * ⚠️ Toda conta vem de `contaDaCompra`. Card que calcula sozinho é a D-007.
+ */
+function CardParcelas({ grupo, brl, aberto, onAlternar, onExcluir }: {
+  grupo: any[]; brl: (v: number) => string;
+  aberto: boolean; onAlternar: () => void; onExcluir: () => void;
+}) {
+  const base = grupo[0];
+  const c = contaDaCompra(grupo);
+  const pct = Math.min((c.pagas / c.totalParcelas) * 100, 100);
+
+  return (
+    <div
+      className={`glass-panel p-6 flex flex-col gap-4 relative overflow-hidden group/card border-t-4 transition-all duration-300 ${
+        c.concluida
+          ? 'border-t-[#10b981] hover:border-t-[#059669] bg-[#10b981]/[0.01]'
+          : 'border-t-transparent hover:border-t-primary'
+      }`}
+    >
+      <div className="absolute top-0 right-0 p-4 opacity-0 group-hover/card:opacity-100 transition-opacity">
+        <button
+          onClick={onExcluir}
+          className="text-text-light hover:text-danger p-2 bg-white rounded-full shadow-md transition-all"
+          title="Excluir a compra inteira"
+        >
+          <Trash2 size={16} />
+        </button>
+      </div>
+
+      <div>
+        <div className="flex items-center gap-2 mb-1">
+          <ListChecks size={14} className={c.concluida ? 'text-[#10b981]' : 'text-primary'} />
+          <span className="text-[10px] text-text-light font-bold uppercase tracking-wider">
+            Última entrada: {base.data}
+          </span>
+        </div>
+        <h3 className="font-bold text-lg text-text leading-tight">{base.apelido || base.nome}</h3>
+        {base.apelido && base.apelido !== base.nome && (
+          <div className="text-[10px] text-text-light/70 break-words leading-tight mt-0.5" title={base.nome}>
+            Original: {base.nome}
+          </div>
+        )}
+        {base.banco && (
+          <div className={`text-sm mt-1 font-medium ${c.concluida ? 'text-[#10b981]' : 'text-primary'}`}>
+            {base.banco}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-auto pt-4 border-t border-border">
+        <div className="flex justify-between items-end mb-2">
+          <div>
+            <span className="text-xs text-text-light uppercase block">Valor da parcela</span>
+            <span className="font-bold text-danger text-lg">{brl(c.valorParcela)}</span>
+          </div>
+          <div className="text-right">
+            <span className="text-xs text-text-light uppercase block">Progresso</span>
+            <span className={`font-bold text-lg ${c.concluida ? 'text-[#10b981]' : 'text-text'}`}>
+              {c.pagas} de {c.totalParcelas}
+            </span>
+          </div>
+        </div>
+
+        <div className="w-full bg-border rounded-full h-2.5 overflow-hidden">
+          <div
+            className={`h-2.5 rounded-full transition-all duration-500 ease-out ${c.concluida ? 'bg-[#10b981]' : 'bg-primary/70'}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+
+        <div className="mt-3 flex flex-col gap-1">
+          <div className="text-xs text-text-light flex justify-between">
+            <span>Valor pago:</span>
+            <span className={`font-medium ${c.concluida ? 'text-[#10b981]' : 'text-primary'}`}>
+              {brl(c.valorPago)}
+            </span>
+          </div>
+          <div className="text-xs text-text-light flex justify-between">
+            <span>Valor pendente:</span>
+            <span className={`font-medium ${c.valorPendente > 0 ? 'text-danger' : 'text-text-light'}`}>
+              {brl(c.valorPendente)}
+            </span>
+          </div>
+          <div className="flex justify-between text-sm">
+            <span>Valor total:</span>
+            <span className="font-medium text-text">{brl(c.valorTotal)}</span>
+          </div>
+        </div>
+
+        <button
+          onClick={onAlternar}
+          className={`mt-4 w-full flex items-center justify-center gap-1 text-xs font-bold transition-colors py-2 border-t border-border/50 ${
+            c.concluida ? 'text-[#10b981] hover:text-[#059669]' : 'text-primary hover:text-primary-hover'
+          }`}
+        >
+          {aberto
+            ? <><ChevronUp size={14} /> Ocultar histórico</>
+            : <><ChevronDown size={14} /> Ver parcelas pagas</>}
+        </button>
+
+        {aberto && (
+          <div className={`mt-2 flex flex-col gap-2 p-3 rounded-lg border ${
+            c.concluida ? 'bg-[#10b981]/5 border-[#10b981]/10' : 'bg-primary/5 border-primary/10'
+          }`}>
+            <h4 className="text-[10px] font-bold text-text-light uppercase tracking-wider mb-1">
+              Histórico de pagamentos
+            </h4>
+            {grupo.map((t: any) => (
+              <div key={t.id} className="flex justify-between items-center text-xs border-b border-border/30 pb-1 last:border-0 last:pb-0">
+                <div>
+                  <span className="font-medium text-text">{t.data}</span>
+                  <span className="text-[10px] text-text-light ml-2">({t.nome})</span>
+                </div>
+                <span className={`font-bold ${c.concluida ? 'text-[#10b981]' : 'text-primary'}`}>
+                  {brl(Math.abs(Number(t.valor)))}
+                </span>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
