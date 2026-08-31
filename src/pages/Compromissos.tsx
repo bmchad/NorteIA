@@ -200,6 +200,43 @@ export default function Compromissos() {
     return mapa;
   }, [reserva]);
   /**
+   * A ordem da lista de ativos: **primeiro o que ainda vai cair, do mais próximo ao mais
+   * distante**.
+   *
+   * ⭐⭐ A ordem que vinha do banco não era ordem nenhuma — a consulta de `fixos` não tem
+   * `order`, então a lista chegava como o Postgres quisesse. E ela é justamente onde a
+   * pergunta "o que ainda sai este mês?" se responde: enterrar uma cobrança de amanhã no meio
+   * de quatro que já caíram é esconder a única linha acionável da tela.
+   *
+   * Três grupos, nesta ordem:
+   * 1. **ainda vai cair** — por data crescente, que é o "mais próximo primeiro" do pedido;
+   * 2. **já caiu neste ciclo** — também por data, para a lista se ler como uma linha do tempo
+   *    do ciclo em vez de um amontoado;
+   * 3. **sem data** — fixo sem histórico, cobrança não mensal fora da vez, e o silenciado que
+   *    saiu da reserva. ⚠️ Vão para o fim de propósito: são os que não respondem à pergunta.
+   *
+   * ⛔ Sem separador visual, e de propósito: o próprio card já diz "cai dia N" em laranja
+   * forte contra "já caiu neste ciclo" em cinza claro. Um cabeçalho de grupo repetiria na
+   * lista o que cada linha já carrega.
+   */
+  const ativosOrdenados = useMemo(() => {
+    const grupo = (f: any) => {
+      const e = estadoDoFixo.get(f.id);
+      if (!e) return 2;
+      return e.jaCaiu ? 1 : 0;
+    };
+    // ⚠️ Cópia antes de ordenar: `sort` altera o array no lugar, e este vem de um `filter`
+    // sobre o estado. Ordenar o original seria mutar dado de render.
+    return [...fixosAtivos].sort((a, b) => {
+      const ga = grupo(a);
+      const gb = grupo(b);
+      if (ga !== gb) return ga - gb;
+      // `YYYY-MM-DD` compara como texto, e sem data o fixo já está no último grupo.
+      return (estadoDoFixo.get(a.id)?.data ?? '').localeCompare(estadoDoFixo.get(b.id)?.data ?? '');
+    });
+  }, [fixosAtivos, estadoDoFixo]);
+
+  /**
    * O que foi dispensado — recusado **ou** encerrado.
    *
    * ⚠️ Encerrado entra aqui porque agora ele suprime a redetecção. Sem aparecer nesta seção,
@@ -628,7 +665,7 @@ export default function Compromissos() {
                 <strong className="text-primary">automaticamente</strong>.
               </div>
             ) : (
-              fixosAtivos.map(f => (
+              ativosOrdenados.map(f => (
                 <FixoAtivo
                   key={f.id}
                   f={f}
