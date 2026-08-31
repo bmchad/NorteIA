@@ -22,6 +22,14 @@ export default function Pendentes() {
   const [expandedRascunhos, setExpandedRascunhos] = useState<Set<string>>(new Set());
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
   const [avisoEstorno, setAvisoEstorno] = useState<string | null>(null);
+  /**
+   * A conta já tem alguma transação? `null` enquanto não se sabe.
+   *
+   * ⭐ Decide o **peso** do convite da planilha de exemplo: faixa em destaque na conta
+   * vazia, link discreto quando há histórico. Quem precisa da demonstração é quem não tem
+   * o que importar — para quem importa extrato toda semana, a caixa laranja é ruído.
+   */
+  const [temTransacoes, setTemTransacoes] = useState<boolean | null>(null);
 
   const toggleRascunho = (id: string) => {
     setExpandedRascunhos(prev => {
@@ -41,8 +49,39 @@ export default function Pendentes() {
     fetchPendentes();
     fetchCategories();
     fetchTiposDeCompromisso();
+    fetchTemTransacoes();
     fetchCiclo();
   }, []);
+
+  /**
+   * A conta tem alguma transação, de qualquer espécie?
+   *
+   * ⭐⭐ **Conta TODAS, sem filtrar `pendente`, e é isso que evita um defeito sutil.** Se
+   * contasse só as confirmadas, a sequência *importar → aprovar tudo* esvaziaria
+   * `extractedData`, a contagem seguiria antiga, e o convite voltaria a dizer "conta vazia"
+   * para uma conta com cem transações. Contando tudo, só o **insert** muda o número — e os
+   * dois lugares que inserem já recarregam os pendentes, então a contagem vai junto.
+   *
+   * ⚠️ Falha vira `true`, nunca `null`: sem isto, um erro de rede faria o convite sumir por
+   * completo, em vez de aparecer na versão discreta.
+   */
+  const fetchTemTransacoes = async () => {
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+
+      const { count, error } = await supabase
+        .from('transactions')
+        .select('id', { count: 'exact', head: true })
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      setTemTransacoes((count ?? 0) > 0);
+    } catch (err) {
+      console.error("Erro ao contar as transações:", err);
+      setTemTransacoes(true);
+    }
+  };
 
   /**
    * Os tipos de compromisso que a revisão oferece.
@@ -203,6 +242,8 @@ export default function Pendentes() {
     if (erroInsert) throw erroInsert;
 
     await fetchPendentes();
+    // A conta deixou de estar vazia: o convite da planilha de exemplo encolhe para um link.
+    await fetchTemTransacoes();
 
     // ⚠️ Nada some em silencio: se o lote tinha compra e estorno se anulando, o usuario
     // fica sabendo quantos pares sairam. Ver supabase/functions/ai-agents/lib/estornos.ts.
@@ -320,6 +361,7 @@ export default function Pendentes() {
       setFormManual({ nome: '', valor: '', data: '', categoria_id: '' });
       setActiveMode('selection');
       await fetchPendentes();
+      await fetchTemTransacoes();
     } catch (error: any) {
       console.error(error);
       alert(error.message || String(error));
@@ -554,15 +596,46 @@ export default function Pendentes() {
             {/* ⭐ Mora na tela de escolha, e não dentro de "Arquivo": quem não tem o que
                 importar está aqui, e é aqui que ele precisa de um arquivo para experimentar.
                 ⭐ O `.csv` é montado na hora, com datas relativas a hoje — um arquivo fixo no
-                repositório envelheceria e mostraria histórico morto. Ver src/lib/demo.ts. */}
-            <button
-              type="button"
-              onClick={() => baixarDemonstracao()}
-              className="mt-5 flex items-center gap-2 text-xs font-medium text-text-light hover:text-primary transition-colors bg-transparent border-none cursor-pointer"
-              title="Um .csv com seis meses de transações fictícias, para experimentar a plataforma"
-            >
-              <Download size={14} /> Não tem um arquivo à mão? Baixe uma planilha de exemplo
-            </button>
+                repositório envelheceria e mostraria histórico morto. Ver src/lib/demo.ts.
+
+                ⭐⭐ O convite tem DOIS pesos, e a conta decide qual. Vazia, ele é o caminho
+                mais importante da tela — sem arquivo nenhum, as duas portas acima não levam
+                a lugar nenhum. Com histórico, ele volta a ser um link, senão vira ruído
+                permanente para quem importa extrato toda semana.
+
+                ⚠️ Com `temTransacoes === null` não se renderiza nem uma versão nem outra: um
+                link que vira caixa quando a contagem chega saltaria sob o cursor. Como este
+                é o último elemento do bloco, o vazio de ~100 ms não empurra nada acima. */}
+            {temTransacoes === false && (
+              <div className="mt-6 w-full max-w-2xl bg-primary/10 border border-primary/25 rounded-2xl p-5 flex items-start gap-3 text-left">
+                <FileText size={20} className="text-primary shrink-0 mt-0.5" />
+                <div className="flex-1">
+                  <p className="font-bold text-text text-sm">Quer ver funcionando antes de usar seu extrato?</p>
+                  <p className="text-xs text-text-light mt-1 leading-relaxed">
+                    Baixe seis meses de transações de exemplo e importe aqui — dá para ver parcelas,
+                    assinaturas e o que sobra no mês sem usar nenhum dado seu.
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => baixarDemonstracao()}
+                    className="mt-3 inline-flex items-center gap-2 bg-primary hover:bg-primary-hover text-white font-medium py-2 px-4 rounded-xl shadow-lg shadow-primary/30 transition-all text-xs cursor-pointer"
+                  >
+                    <Download size={14} /> Baixar planilha de exemplo
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {temTransacoes === true && (
+              <button
+                type="button"
+                onClick={() => baixarDemonstracao()}
+                className="mt-5 flex items-center gap-2 text-xs font-medium text-text-light hover:text-primary transition-colors bg-transparent border-none cursor-pointer"
+                title="Um .csv com seis meses de transações fictícias, para experimentar a plataforma"
+              >
+                <Download size={14} /> Baixar planilha de exemplo
+              </button>
+            )}
           </div>
         )}
 

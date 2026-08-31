@@ -113,6 +113,10 @@ sobrescreve. → D-049
 ⭐ **A tela de escolha oferece uma planilha de exemplo**, montada no clique com datas relativas a
 hoje — seis meses roteirizados para que cada camada do `/compromissos` tenha o que mostrar. → D-050
 
+⭐ **O convite tem dois pesos, e a conta decide qual:** faixa laranja em destaque enquanto não há
+transação nenhuma — sem arquivo, as duas portas não levam a lugar nenhum — e link discreto depois
+da primeira importação.
+
 ⭐ **Esta tela não fala com o Gemini.** Ela lê o arquivo, chama a Edge Function `ai-agents` e recebe
 as transações prontas; só o insert é dela. O detalhe está em `03-agentes-de-ia.md`.
 
