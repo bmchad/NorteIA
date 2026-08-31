@@ -149,12 +149,41 @@ export default function Compromissos() {
   const fixosAtivos = fixos.filter(f => f.status === 'ativo');
 
   /**
+   * ⭐ O aviso de silêncio mora no card do fixo que parou, não numa lista à parte.
+   *
+   * Como mais uma linha em "Propostas", ele ficava longe do gasto de que fala — e a pergunta
+   * que ele levanta ("ainda pago isto?") só se responde olhando o próprio gasto.
+   */
+  const encerramentos = useMemo(() => {
+    const porFixo = new Map<string, PropostaDeFixo>();
+    for (const p of propostas) if (p.natureza === 'encerrar' && p.fixoId) porFixo.set(p.fixoId, p);
+    return porFixo;
+  }, [propostas]);
+
+  /**
    * ⭐ O quanto e o quando. O painel diz o que você deve por mês; isto diz o que ainda vai
    * sair até o fim do ciclo — que é a parte que decide se você pode gastar hoje.
+   *
+   * ⛔⛔ **Fixo com proposta de encerramento fica de fora**, e não é detalhe: sem este filtro
+   * as duas funções liam o MESMO histórico e chegavam a conclusões opostas no mesmo card —
+   * "cai dia 18" ao lado de "sem cobrança há 3 ciclos". Pior: os R$ 89,90 dele entravam no
+   * total a reservar, ou seja, a tela pedia que você guardasse dinheiro para uma cobrança que
+   * ela própria acabara de dizer que sumiu.
+   *
+   * ⭐ A regra mora aqui, no chamador, porque ela **compõe** dois resultados de domínio que
+   * não se conhecem. ⛔ Recalcular o silêncio dentro de `reserva.ts` criaria um segundo dono
+   * do critério — que é exatamente o defeito da D-007.
+   *
+   * ⚠️ Só se manifestava com fixo **mensal**: um não mensal silencioso já era barrado pela
+   * igualdade estrita de `cobrancasDoCiclo`, e caía num texto neutro.
    */
   const reserva = useMemo(
-    () => cobrancasDoCiclo(fixosAtivos, transacoes, cicloDia),
-    [fixos, transacoes, cicloDia],
+    () => cobrancasDoCiclo(
+      fixosAtivos.filter(f => !encerramentos.has(f.id)),
+      transacoes,
+      cicloDia,
+    ),
+    [fixos, transacoes, cicloDia, encerramentos],
   );
 
   /** O estado de cada fixo neste ciclo, para o card dizer "cai dia N" ou "já caiu". */
@@ -172,18 +201,6 @@ export default function Compromissos() {
    * na tela diria que ele existiu.
    */
   const dispensados = fixos.filter(f => f.status === 'recusado' || f.status === 'encerrado');
-
-  /**
-   * ⭐ O aviso de silêncio mora no card do fixo que parou, não numa lista à parte.
-   *
-   * Como mais uma linha em "Propostas", ele ficava longe do gasto de que fala — e a pergunta
-   * que ele levanta ("ainda pago isto?") só se responde olhando o próprio gasto.
-   */
-  const encerramentos = useMemo(() => {
-    const porFixo = new Map<string, PropostaDeFixo>();
-    for (const p of propostas) if (p.natureza === 'encerrar' && p.fixoId) porFixo.set(p.fixoId, p);
-    return porFixo;
-  }, [propostas]);
 
   const propostasAbertas = useMemo(
     () => propostas.filter(p => p.natureza !== 'encerrar'),

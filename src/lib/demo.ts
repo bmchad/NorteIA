@@ -14,8 +14,26 @@
  * torna um teste do pipeline inteiro, e não um preenchimento de tabela.
  */
 
-/** Os seis meses gerados terminam no mês **anterior** ao de hoje. */
+/** Os seis ciclos FECHADOS terminam no mês anterior ao de hoje. */
 const MESES = 6;
+
+/**
+ * Até que dia do mês corrente a demonstração vai.
+ *
+ * ⭐⭐ **O ciclo corrente entra pela metade de propósito**, e é isso que faz duas features do
+ * produto saírem do mudo: o ritmo da camada Previsível ganha o que comparar (contra um ciclo
+ * vazio ele só sabia dizer "abaixo do normal" pela referência inteira), e o card "deixe
+ * reservado" passa a mostrar os dois estados lado a lado — o que já caiu e o que ainda vem.
+ *
+ * ⚠️ **A D-050 continua valendo para os ciclos FECHADOS.** O que a motivou foi a contagem de
+ * cada bloco depender do dia do download, quebrando os limiares. Nenhum limiar mora no ciclo
+ * corrente, e os blocos sensíveis ficam deliberadamente fora dele.
+ *
+ * ⚠️ Corte em dia de calendário, não em dia de ciclo: o gerador não sabe o `ciclo_dia` do
+ * usuário. Com o padrão 1 — o único valor que uma conta nova tem — os dias 4 a 16 caem todos
+ * no ciclo corrente. 🔶 Com `ciclo_dia` maior que 16 o efeito se perde.
+ */
+const DIA_DE_CORTE = 16;
 
 export const NOME_DO_ARQUIVO = 'demo-whatchamacalliting.csv';
 
@@ -48,10 +66,26 @@ function dia(hoje: Date, k: number, diaDoMes: number): string {
 }
 
 /**
+ * O dia `diaDoMes` do mês corrente, ou `null` se ele ainda não chegou.
+ *
+ * ⛔⛔ **Nunca no futuro.** Gerar uma linha adiante de hoje seria pior que não gerar: um
+ * lançamento datado à frente faz o gasto fixo contar como **"já caiu"** sem ter caído — a
+ * regra é "existe transação deste fixo no ciclo?", e não "a data já passou?" — e ainda infla
+ * os balanços com dinheiro que não saiu da conta.
+ */
+function diaCorrente(hoje: Date, diaDoMes: number): string | null {
+  if (diaDoMes > Math.min(DIA_DE_CORTE, hoje.getDate())) return null;
+  const mes = String(hoje.getMonth() + 1).padStart(2, '0');
+  return `${hoje.getFullYear()}-${mes}-${String(diaDoMes).padStart(2, '0')}`;
+}
+
+/**
  * Aleatoriedade com semente.
  *
- * ⭐ O mesmo dia produz o mesmo arquivo. Sem isso, dois downloads no mesmo dia dariam
- * números diferentes e nenhum defeito de importação seria reproduzível.
+ * ⭐ **A semente é o ano e o mês, e de propósito não o dia.** Assim os seis ciclos fechados
+ * saem idênticos em qualquer download do mesmo mês — só o recorte do ciclo corrente muda com
+ * a data. Com o dia na semente, um defeito relatado ontem não se reproduzia hoje, porque o
+ * arquivo inteiro vinha com outros valores.
  */
 function sorteio(semente: number) {
   let estado = semente % 2147483647;
@@ -77,7 +111,8 @@ export const ROTEIRO: string[] = [
   'Curso de inglês em 2 meses — proposta, não aceite automático',
   'Internet que subiu de preço — proposta de correção de valor',
   'TV a cabo que sumiu — aviso de "sem cobrança há N ciclos"',
-  'Seguro trimestral — amortização por mês e alerta no ciclo em que cai',
+  'Seguro bimestral — amortização por mês, e o alerta no ciclo em que ele cai',
+  'Plano odonto no dia 25 — o pendente mensal do card "deixe reservado"',
   'Supermercado em três bandeiras — Previsível por tipo, não por nome',
   'Combustível em dois postos — segundo tipo previsível',
   'Delivery — volume realista, alimenta a memória de categoria',
@@ -87,6 +122,7 @@ export const ROTEIRO: string[] = [
   'Magazine Luiza em 12x e Latam em 6x — o nome muda a cada fatura, o agrupamento não',
   'Ruído de extrato — o que categorizar',
   'Devolução três semanas depois — entrada que não é renda',
+  'O ciclo corrente até o dia 16 — o que já caiu, e o que o ritmo tem para comparar',
 ];
 
 /**
@@ -97,7 +133,7 @@ export const ROTEIRO: string[] = [
  */
 function montarLinhas(hoje: Date): Linha[] {
   const linhas: Linha[] = [];
-  const r = sorteio(hoje.getFullYear() * 10000 + (hoje.getMonth() + 1) * 100 + hoje.getDate());
+  const r = sorteio(hoje.getFullYear() * 100 + hoje.getMonth() + 1);
   const adiciona = (data: string, descricao: string, valor: number) =>
     linhas.push({ data, descricao, valor: centavos(valor) });
 
@@ -133,6 +169,9 @@ function montarLinhas(hoje: Date): Linha[] {
     });
   };
 
+  const mercados = ['ATACADAO', 'ASSAI ATACADISTA', 'CARREFOUR'];
+  const ruido = ['UBER *TRIP', 'PADARIA DO BAIRRO', 'DROGASIL', 'CINEMARK', 'PIX ENVIADO'];
+
   for (let k = 0; k < MESES; k++) {
     // 1 · Renda. Sem ela, "o que sobra" não tem divisor e o card Renda fica vazio.
     adiciona(dia(hoje, k, 5), 'SALARIO EMPRESA XYZ', 5200);
@@ -147,7 +186,6 @@ function montarLinhas(hoje: Date): Linha[] {
     adiciona(dia(hoje, k, 12), 'INTERNET FIBRA 300MB', k < 3 ? -99 : -109);
 
     // 7 · Supermercado: três bandeiras, uma natureza. O nome varia e o tipo não.
-    const mercados = ['ATACADAO', 'ASSAI ATACADISTA', 'CARREFOUR'];
     const quantos = 2 + Math.floor(r(0, 2));
     for (let i = 0; i < quantos; i++) {
       adiciona(dia(hoje, k, 6 + i * 9), escolha(mercados, r(0, 3)), -r(180, 420));
@@ -163,8 +201,9 @@ function montarLinhas(hoje: Date): Linha[] {
     }
 
     // 12 · Ruído realista — o que existe em qualquer extrato e não é compromisso nenhum.
-    const ruido = ['UBER *TRIP', 'PADARIA DO BAIRRO', 'DROGASIL', 'CINEMARK', 'PIX ENVIADO'];
-    for (let i = 0; i < 3; i++) {
+    // ⚠️ Dois por ciclo, e não três: o arquivo cresceu com o ciclo corrente, e o gargalo da
+    // importação é o limite de SAÍDA do modelo — um objeto JSON por transação.
+    for (let i = 0; i < 2; i++) {
       adiciona(dia(hoje, k, 4 + i * 8), escolha(ruido, r(0, 5)), -r(18, 120));
     }
   }
@@ -179,10 +218,20 @@ function montarLinhas(hoje: Date): Linha[] {
   //     aviso só existe para fixo **ativo** — e ativo sozinho exige 3.
   for (let k = 0; k < 4; k++) adiciona(dia(hoje, k, 18), 'TV A CABO CLARO', -89.9);
 
-  // 6 · A cada três meses. Duas ocorrências bastam para a cadência ser medida, e o painel
-  //     mostra a amortização (143,70 / 3) em vez do valor cheio no mês em que cai.
-  adiciona(dia(hoje, 2, 22), 'SEGURO RESIDENCIAL', -143.7);
-  adiciona(dia(hoje, MESES - 1, 22), 'SEGURO RESIDENCIAL', -143.7);
+  // 6 · ⭐⭐ A cobrança NÃO MENSAL, e ela está posicionada com precisão: a cada dois ciclos,
+  //     em k=0, 2 e 4, de modo que a **próxima caia no ciclo corrente**. É o caso que o card
+  //     "deixe reservado" foi criado para resolver (D-047) — o alerta de uma cobrança que só
+  //     aparece no ciclo em que ela realmente cai.
+  //     ⚠️ Três ocorrências, e não duas: com duas ela ficaria em proposta, e o pendente só
+  //     existiria depois de um clique. Com três ela é aceita sozinha.
+  //     ⚠️ E o silêncio de 2 ciclos fica abaixo do limiar `periodicidade + 1 = 3`, então não
+  //     dispara alarme falso de encerramento. O painel amortiza 143,70 / 2 por mês.
+  for (const k of [0, 2, 4]) adiciona(dia(hoje, k, 22), 'SEGURO RESIDENCIAL', -143.7);
+
+  // 14 · ⭐ O pendente mensal. Dia 25 — depois do corte do ciclo corrente —, então ele nunca
+  //      tem lançamento neste ciclo e o card diz "cai dia 25". Seis ocorrências nos ciclos
+  //      fechados o fazem ser aceito sozinho, sem clique nenhum.
+  for (let k = 0; k < MESES; k++) adiciona(dia(hoje, k, 25), 'PLANO ODONTO', -89);
 
   // 10 · Estorno. ⚠️ **Mesmo dia, mesmo nome, mesmo valor absoluto** — a regra de
   //      `separarEstornos` é estrita nos três campos, e um nome diferente ("ESTORNO IFOOD")
@@ -221,6 +270,37 @@ function montarLinhas(hoje: Date): Linha[] {
   //      categoria "Reembolsos" existe.
   adiciona(dia(hoje, MESES - 2, 8), 'LOJA X MOVEIS E DECORACAO', -240);
   adiciona(dia(hoje, MESES - 2, 29), 'DEVOLUCAO COMPRA LOJA X', 240);
+
+  // 15 · ⭐⭐ O CICLO CORRENTE, pela metade.
+  //
+  //      Tudo aqui cai no dia 16 ou antes, então todo gasto fixo deste bloco aparece como
+  //      **"já caiu neste ciclo"** — e os que ficaram de fora (dias 18, 20, 22 e 25) aparecem
+  //      como **"cai dia N"**. É a única forma de a tela mostrar os dois estados de uma vez.
+  //
+  //      ⛔ O que NÃO entra aqui, e cada um por um motivo diferente:
+  //      · `CURSO INGLES ONLINE` (20) tem de ficar em exatamente 2 ocorrências — uma terceira
+  //        o faria ser aceito sozinho, e o bloco existe para mostrar a diferença dos limiares;
+  //      · `TV A CABO CLARO` (18) é o bloco do silêncio, e uma cobrança nova apaga o aviso;
+  //      · `SEGURO` (22) e `PLANO ODONTO` (25) são os pendentes — é a ausência deles que
+  //        produz o "cai dia N";
+  //      · as parcelas, cujas contagens já estão certas e que não ganham tese com mais uma.
+  const agora = (diaDoMes: number, descricao: string, valor: number) => {
+    const data = diaCorrente(hoje, diaDoMes);
+    if (data) adiciona(data, descricao, valor);
+  };
+
+  agora(5, 'SALARIO EMPRESA XYZ', 5200);
+  agora(8, 'SPOTIFY', -21.9);
+  agora(10, 'ACADEMIA SMARTFIT', -99.9);
+  agora(12, 'INTERNET FIBRA 300MB', -109);
+  agora(15, 'NETFLIX.COM', -44.9);
+  agora(6, escolha(mercados, r(0, 3)), -r(180, 420));
+  agora(15, escolha(mercados, r(0, 3)), -r(180, 420));
+  agora(9, 'POSTO IPIRANGA', -r(150, 280));
+  agora(7, 'IFOOD *RESTAURANTE', -r(25, 90));
+  agora(15, 'IFOOD *RESTAURANTE', -r(25, 90));
+  agora(4, escolha(ruido, r(0, 5)), -r(18, 120));
+  agora(12, escolha(ruido, r(0, 5)), -r(18, 120));
 
   return linhas.sort((a, b) => a.data.localeCompare(b.data) || a.descricao.localeCompare(b.descricao));
 }

@@ -56,6 +56,8 @@ atualizado_em: 2026-08-30
 | ⭐ As categorias e os tipos de compromisso são semeados pela tela que os usa | ⛔ **Nascem com a conta**, no banco. Semear numa tela deixava o dado faltando para quem não a abrisse — e a entrada do app não é nenhuma das duas | `30-decisoes-e-licoes.md` D-053 |
 | A lista das categorias padrão está no `Pendentes.tsx` | ⚠️ Está na migration `20260830240000`, dentro de `semear_conta`. O TypeScript não tem mais cópia | `30-decisoes-e-licoes.md` D-053 |
 | São 27 categorias padrão, e nenhuma nasce como renda | ⚠️ São **28** desde 30/08, e `Salário` e `Outras Receitas` nascem marcadas. A nova é `Reembolsos`, que não é renda | `30-decisoes-e-licoes.md` D-051 |
+| Um gasto fixo sem cobrança há ciclos ainda pede reserva | ⛔ **Não mais.** Ele saía em "deixe reservado" como "cai dia N" no mesmo card em que o app dizia que sumiu — e o valor entrava no total a guardar | `30-decisoes-e-licoes.md` D-058 |
+| A demonstração termina no mês anterior | ⚠️ Desde 31/08 ela vai **até o dia 16 do mês corrente**, para o ritmo ter o que comparar e o card mostrar "já caiu" ao lado de "cai dia N" | `30-decisoes-e-licoes.md` D-058 |
 | A evidência de um gasto fixo vem da coluna `fixos.evidencia` | Vem **derivada na hora**, de `lancamentosDoFixo`. A coluna é registro do que justificou o aceite, e envelhece | `30-decisoes-e-licoes.md` D-033 |
 | Para trocar a cor do produto, edite o `tailwind.config.js` | ⭐ Edite **`src/index.css`** — é o único lugar onde uma cor de tema é escrita. O config só aponta para as variáveis | `30-decisoes-e-licoes.md` D-037 |
 | Entrar leva ao `/dashboard` | Leva a `/compromissos` desde 30/08. ⚠️ São **dois** caminhos até lá: o redirect pós-login e o `redirectTo` do SSO | `30-decisoes-e-licoes.md` D-038 |

@@ -9,6 +9,11 @@
  * ⭐ Nada aqui é guardado. A âncora de uma cobrança não mensal se **deriva** da última
  * ocorrência observada — última + periodicidade = próxima. Foi o que dispensou a coluna
  * `mes_ancora` que a P27 pedia. É a D-013: não guarde o que dá para derivar.
+ *
+ * ⚠️⚠️ **Contrato de quem chama: não passe fixo com proposta de encerramento.** Esta função
+ * não sabe do silêncio — quem mede isso é `detectarEncerramentos`, e o critério tem de ter um
+ * dono só. Sem esse filtro, um fixo que parou de ser cobrado continua pedindo reserva, e a
+ * tela diz "cai dia 18" ao lado de "sem cobrança há 3 ciclos".
  */
 import { getCycleKey } from './ciclo';
 import { ajusteDeDia, lancamentosDoFixo } from './fixos-propostos';
