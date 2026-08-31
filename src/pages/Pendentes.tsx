@@ -603,9 +603,17 @@ export default function Pendentes() {
                 a lugar nenhum. Com histórico, ele volta a ser um link, senão vira ruído
                 permanente para quem importa extrato toda semana.
 
-                ⚠️ Com `temTransacoes === null` não se renderiza nem uma versão nem outra: um
-                link que vira caixa quando a contagem chega saltaria sob o cursor. Como este
-                é o último elemento do bloco, o vazio de ~100 ms não empurra nada acima. */}
+                ⚠️⚠️ Enquanto `temTransacoes` é `null`, mostra-se a versão **discreta**, e não
+                nada. A primeira versão disto não renderizava nenhuma das duas, para o link
+                não virar caixa sob o cursor — e o comentário afirmava que a espera seria de
+                "~100 ms". ⛔ Não é: as cinco funções da montagem começam com
+                `supabase.auth.getUser()`, que é uma requisição HTTP **serializada por um lock
+                exclusivo**, e a contagem é a quarta da fila. São ~2 s, e nesse tempo o
+                elemento mais importante da tela vazia simplesmente não existia. → P38
+
+                ⭐ O discreto é o palpite certo para "não sei": ele é o estado final de quem
+                já tem histórico, que é o caso comum — para essa pessoa a tela nunca muda.
+                Só a conta vazia vê o link crescer, e ali não há nada abaixo para deslocar. */}
             {temTransacoes === false && (
               <div className="mt-6 w-full max-w-2xl bg-primary/10 border border-primary/25 rounded-2xl p-5 flex items-start gap-3 text-left">
                 <FileText size={20} className="text-primary shrink-0 mt-0.5" />
@@ -626,7 +634,7 @@ export default function Pendentes() {
               </div>
             )}
 
-            {temTransacoes === true && (
+            {temTransacoes !== false && (
               <button
                 type="button"
                 onClick={() => baixarDemonstracao()}
