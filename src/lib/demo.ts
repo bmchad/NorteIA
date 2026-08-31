@@ -130,7 +130,8 @@ const centavos = (n: number) => Math.round(n * 100) / 100;
 export const ROTEIRO: string[] = [
   'Salário mensal — alimenta Renda e "o que sobra"',
   'Netflix, Spotify e academia — aceite automático (3+ ocorrências)',
-  '⭐ A conta de R$ 94,90 com um nome diferente a cada mês — só a regra valor + dia a pega',
+  '⭐ Seis cobranças de nome variável — Spotify, Smart Fit, Claro TV, seguro, odonto e a',
+  '   conta de R$ 94,90: nenhuma é pega por nome, todas pela regra valor + dia',
   'Dias que escorregam ±1 — a tolerância, a moda e o ajuste de fim de semana',
   'Curso de inglês em 2 meses — proposta, não aceite automático',
   'Internet que subiu de preço — proposta de correção de valor',
@@ -222,6 +223,40 @@ function montarLinhas(hoje: Date): Linha[] {
    * D-048 abriu espaço para existir, e o único jeito de não cair nele é não escrever datas
    * com barra nas descrições.
    */
+  /**
+   * ⭐⭐ As cinco cobranças cujo nome muda a cada mês — e que por isso saem da regra
+   * `nome + valor` e caem na regra `valor + dia`, que é a que se quer exercitar.
+   *
+   * **Marca legível** nas três primeiras: elas variam o bastante para derrotar o casamento
+   * por nome exato, mas o card continua dizendo o que é. **Anônimas** nas duas últimas —
+   * débito automático chega assim mesmo, e ali a ilegibilidade É a demonstração.
+   *
+   * ⚠️ `CLARO TV` mantém o "TV" em todas as variações de propósito: a conta caótica já é da
+   * Claro, e sem isso o painel mostraria dois blocos indistinguíveis da mesma operadora.
+   *
+   * ⛔ Duas proibições, e as duas já morderam: **nenhuma vírgula** (o CSV é escrito sem
+   * aspas) e **nenhum padrão `N/M`** — um `ref 08/2026` vira "parcela 8 de 202" e a cobrança
+   * sai da camada Recorrente para virar um parcelamento inventado.
+   */
+  const SPOTIFY = [
+    'SPOTIFY BR', 'PAG*SPOTIFY', 'SPOTIFY.COM 2214', 'SPOTIFY BRASIL LTDA',
+    'SPOTIFYP2214BR', 'PAGAMENTO SPOTIFY', 'SPOTIFY *PREMIUM',
+  ];
+  const SMART_FIT = [
+    'SMART FIT ACADEMIA', 'SMARTFIT *MENSALIDADE', 'PAG*SMART FIT', 'SMART FIT SP 0412',
+    'ACADEMIA SMART FIT', 'SMARTFIT BR', 'SMART FIT *PLANO',
+  ];
+  const CLARO_TV = [
+    'CLARO TV *ASSINATURA', 'PAG*CLARO TV', 'CLARO TV BR', 'CLARO TV MENSALIDADE',
+  ];
+  const SEGURO = [
+    'Debito automatico: "0091447722"', 'TED 0032118-9', 'DEB CONV 771290',
+  ];
+  const ODONTO = [
+    'Debito conv 4471902', 'DEB AUT 0221447', 'Pix enviado: "Cp :77129034"',
+    'Debito automatico: "0044719021"', 'DEB AUT ODONTO 7712', 'Pix QRS 88123-A',
+  ];
+
   const CONTA_CAOTICA = [
     'Debito automatico: "0071845220196"',
     'CLARO NET FIXO',
@@ -236,12 +271,15 @@ function montarLinhas(hoje: Date): Linha[] {
     adiciona(diaUtil(k, 5), 'SALARIO EMPRESA XYZ', 5200);
 
     // 2 · Três assinaturas em todos os seis meses: 3+ ocorrências entram sozinhas.
-    //     ⭐ O dia oscila e o agrupamento não sente: com nome estável quem reivindica é a
-    //     regra `nome + valor`, que ignora o dia por completo. A oscilação só alimenta a moda
-    //     e o ajuste de fim de semana.
+    //     ⭐ Só a Netflix tem nome estável, e é de propósito: ela é reivindicada pela regra
+    //     `nome + valor`, enquanto Spotify e Smart Fit — de nome variável — caem na regra
+    //     `valor + dia`. A demonstração precisa das DUAS funcionando lado a lado.
+    //     ⚠️ Para a Netflix o dia oscila e o agrupamento não sente, porque aquela regra
+    //     ignora o dia. Para as outras duas o dia é metade da chave, e é por isso que a
+    //     amplitude da oscilação não pode passar de 2.
     adiciona(diaUtil(k, 15), 'NETFLIX.COM', -44.9);
-    adiciona(diaUtil(k, 8), 'SPOTIFY', -21.9);
-    adiciona(diaUtil(k, 10), 'ACADEMIA SMARTFIT', -99.9);
+    adiciona(diaUtil(k, 8), SPOTIFY[k % SPOTIFY.length], -21.9);
+    adiciona(diaUtil(k, 10), SMART_FIT[k % SMART_FIT.length], -99.9);
 
     // 4 · O mesmo nome com dois valores: nos três primeiros meses 99, nos três últimos 109.
     //     É o que gera a proposta de **correção** depois que o fixo já existe.
@@ -278,10 +316,12 @@ function montarLinhas(hoje: Date): Linha[] {
   adiciona(diaUtil(MESES - 2, 20), 'CURSO INGLES ONLINE', -189);
   adiciona(diaUtil(MESES - 1, 20), 'CURSO INGLES ONLINE', -189);
 
-  // 5 · Presente nos quatro primeiros meses e ausente nos dois últimos: o card do fixo passa
+  // 5 · ⚠️ O nome varia, então quem a reencontra é a regra `valor + dia` — e é ela também
+  //     que sustenta o aviso de silêncio, porque `lancamentosDoFixo` ignora o nome nessa
+  //     origem. Presente nos quatro primeiros meses e ausente nos dois últimos: o card passa
   //     a dizer "sem cobrança há N ciclos". ⚠️ São quatro ocorrências, e não duas, porque o
   //     aviso só existe para fixo **ativo** — e ativo sozinho exige 3.
-  for (let k = 0; k < 4; k++) adiciona(diaUtil(k, 18), 'TV A CABO CLARO', -89.9);
+  for (let k = 0; k < 4; k++) adiciona(diaUtil(k, 18), CLARO_TV[k % CLARO_TV.length], -89.9);
 
   // 6 · ⭐⭐ A cobrança NÃO MENSAL, e ela está posicionada com precisão: a cada dois ciclos,
   //     em k=0, 2 e 4, de modo que a **próxima caia no ciclo corrente**. É o caso que o card
@@ -291,12 +331,12 @@ function montarLinhas(hoje: Date): Linha[] {
   //     existiria depois de um clique. Com três ela é aceita sozinha.
   //     ⚠️ E o silêncio de 2 ciclos fica abaixo do limiar `periodicidade + 1 = 3`, então não
   //     dispara alarme falso de encerramento. O painel amortiza 143,70 / 2 por mês.
-  for (const k of [0, 2, 4]) adiciona(diaUtil(k, 22), 'SEGURO RESIDENCIAL', -143.7);
+  [0, 2, 4].forEach((k, i) => adiciona(diaUtil(k, 22), SEGURO[i], -143.7));
 
   // 14 · ⭐ O pendente mensal. Dia 25 — depois do corte do ciclo corrente —, então ele nunca
   //      tem lançamento neste ciclo e o card diz "cai dia 25". Seis ocorrências nos ciclos
   //      fechados o fazem ser aceito sozinho, sem clique nenhum.
-  for (let k = 0; k < MESES; k++) adiciona(diaUtil(k, 25), 'PLANO ODONTO', -89);
+  for (let k = 0; k < MESES; k++) adiciona(diaUtil(k, 25), ODONTO[k % ODONTO.length], -89);
 
   // 10 · Estorno. ⚠️ **Mesmo dia, mesmo nome, mesmo valor absoluto** — a regra de
   //      `separarEstornos` é estrita nos três campos, e um nome diferente ("ESTORNO IFOOD")
@@ -345,7 +385,7 @@ function montarLinhas(hoje: Date): Linha[] {
   //      ⛔ O que NÃO entra aqui, e cada um por um motivo diferente:
   //      · `CURSO INGLES ONLINE` (20) tem de ficar em exatamente 2 ocorrências — uma terceira
   //        o faria ser aceito sozinho, e o bloco existe para mostrar a diferença dos limiares;
-  //      · `TV A CABO CLARO` (18) é o bloco do silêncio, e uma cobrança nova apaga o aviso;
+  //      · a Claro TV (18) é o bloco do silêncio, e uma cobrança nova apaga o aviso;
   //      · `SEGURO` (22) e `PLANO ODONTO` (25) são os pendentes — é a ausência deles que
   //        produz o "cai dia N";
   //      · as parcelas, cujas contagens já estão certas e que não ganham tese com mais uma.
@@ -355,8 +395,8 @@ function montarLinhas(hoje: Date): Linha[] {
   };
 
   agora(5, 'SALARIO EMPRESA XYZ', 5200);
-  agora(8, 'SPOTIFY', -21.9);
-  agora(10, 'ACADEMIA SMARTFIT', -99.9);
+  agora(8, SPOTIFY[MESES % SPOTIFY.length], -21.9);
+  agora(10, SMART_FIT[MESES % SMART_FIT.length], -99.9);
   agora(12, 'INTERNET FIBRA 300MB', -109);
   agora(15, 'NETFLIX.COM', -44.9);
   // ⭐ A conta caótica também cai neste ciclo, e com o sétimo nome. Ela aparece em "já caiu"
