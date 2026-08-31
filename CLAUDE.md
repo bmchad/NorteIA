@@ -41,7 +41,7 @@ o deploy**. → `context/30-decisoes-e-licoes.md` L-001
 | Front | React 19 · TypeScript 6 · Vite 8 · Tailwind 3 (fonte Outfit) |
 | Rotas | `react-router-dom` 7, tudo em `src/App.tsx` |
 | Dados | Supabase (Auth + Postgres), cliente único em `src/lib/supabase.ts` |
-| IA | ⭐ Edge Function `ai-agents` (Deno), que chama `MODELO.RAPIDO` (`gemini-3.5-flash`). **O front não fala com o Gemini** |
+| IA | ⭐ Edge Function `ai-agents` (Deno): `MODELO.EXTRACAO` e `MODELO.CLASSIFICACAO` no Gemini, com `MODELO.FALLBACK` no Claude só em 503. **O front não fala com nenhum dos dois** |
 | Gráficos | `recharts` 3 |
 | Planilhas | `xlsx` (SheetJS), lê `.xlsx` e converte para CSV |
 | Deploy | Vercel — `balanco-geral-beta.vercel.app` |
@@ -62,8 +62,12 @@ Ficam no `.env` (gitignorado) e **também precisam estar configuradas na Vercel*
 ⚠️ **`VITE_GEMINI_API_KEY` não é mais lida pelo código.** A chave vive como secret
 `GEMINI_API_KEY` da Edge Function `ai-agents`. Se ainda estiver no `.env` ou na Vercel, pode sair.
 
-**Secrets do servidor** (painel do Supabase, nunca no repositório): `GEMINI_API_KEY` em `ai-agents`;
-`RESEND_API_KEY`, `SELLER_EMAIL` e ⚠️ `WEBHOOK_SECRET` em `send-email`.
+**Secrets do servidor** (painel do Supabase, nunca no repositório): `GEMINI_API_KEY` e
+⭐ `CLAUDE_API_KEY` em `ai-agents`; `RESEND_API_KEY`, `SELLER_EMAIL` e ⚠️ `WEBHOOK_SECRET` em
+`send-email`.
+
+⭐ **`CLAUDE_API_KEY` é o provedor reserva**, acionado só quando o Gemini responde 503. ⚠️ Sem ela o
+fallback simplesmente não existe e o erro do Gemini segue — nada quebra. → D-055
 
 ⛔ **`send-email` tem ordem de deploy.** Ela passou a exigir o header `x-webhook-secret`. Crie o
 secret → configure o header no Database Webhook → **só então** publique. Ao contrário, o e-mail de
@@ -209,7 +213,12 @@ extração, os dois respondem, o último a escrever vence, e a classificação p
 entre importações. → D-034
 
 **5c. ⚠️ Id de modelo errado só falha em runtime**, com 404 da API. `tsc`, `deno check` e o deploy
-passam. As constantes são `MODELO.EXTRACAO` e `MODELO.CLASSIFICACAO`, em `lib/modelos.ts`.
+passam. As constantes são `MODELO.EXTRACAO`, `MODELO.CLASSIFICACAO` e `MODELO.FALLBACK`, em
+`lib/modelos.ts`.
+
+**5d. ⭐ Há um provedor reserva, e ele só entra no 503.** `lib/claude.ts` é chamado de dentro de
+`gerar()`, e ⛔ **nunca lança**: falhou, devolve `null` e o erro original do Gemini é que sobe. Um
+plano B que cria um modo de falha novo não é plano B. → D-055
 
 **6. `Pendentes.tsx` tem ~1.000 linhas** e concentra upload, três pipelines de IA, seed de
 categorias, pós-processamento e revisão. É o arquivo mais arriscado do projeto.

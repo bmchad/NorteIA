@@ -12,4 +12,15 @@ export const MODELO = {
   EXTRACAO: 'gemini-3.7-flash',
   /** Agente 2: classificacao de compromisso. So texto, sem anexo. */
   CLASSIFICACAO: 'gemini-3.7-flash',
+  /**
+   * O provedor reserva, acionado so quando o Gemini responde 503.
+   *
+   * ⭐ Um id para os dois agentes, e nao dois: o fallback existe para a IMPORTACAO nao
+   * morrer numa indisponibilidade do provedor primario, e nao para ajustar qualidade por
+   * tarefa. Se um dia valer diferenciar, e aqui que se separa.
+   *
+   * ⚠️ Outro provedor, outra chave: `CLAUDE_API_KEY`, secret da funcao. Sem ela o fallback
+   * simplesmente nao existe, e o erro do Gemini segue.
+   */
+  FALLBACK: 'claude-sonnet-5',
 };

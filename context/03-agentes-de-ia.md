@@ -89,12 +89,29 @@ ele **tira a transação da camada Previsível**, porque a cascata da D-033 conf
 |---|---|---|
 | `MODELO.EXTRACAO` | `gemini-3.7-flash` | agente 1 |
 | `MODELO.CLASSIFICACAO` | `gemini-3.7-flash` | agente 2 |
+| ⭐ `MODELO.FALLBACK` | `claude-sonnet-5` | **os dois**, só quando o Gemini responde 503 |
 
 ⭐ **Mesmo id, constantes separadas de propósito:** trocar o modelo de um agente deixa de tocar no
 outro, que é o motivo de eles serem separados. `MODELO.RAPIDO` não existe mais.
 
 ⚠️ **Id de modelo inválido falha em runtime, com 404 da API** — não em build, não em `tsc`, não em
 `deno check`. → `20-pendencias-e-dividas.md`.
+
+### ⭐ O provedor reserva
+
+Quando o Gemini responde **503**, `gerar()` repete a chamada no Claude (`lib/claude.ts`, `fetch`
+direto na Messages API, sem SDK) e devolve o texto dele. Vale para os **dois** agentes, porque o
+fallback mora na porta única de geração.
+
+⭐ **Só o 503.** `classificar()` continua sendo o dono do critério: 429 é limite da conta e resposta
+malformada é problema de prompt — nenhum dos dois melhora trocando de provedor.
+
+⛔ **`tentarClaude` nunca lança.** Chave ausente, HTTP de erro, resposta vazia: tudo vira `null` mais
+uma linha no log, e o erro **original** do Gemini é que sobe. Um plano B que introduz um modo de
+falha novo não é plano B.
+
+⚠️ No log, `fallback.usado` é a linha que diz que a importação saiu pelo Claude — e `claude.sem.chave`
+diz que o `CLAUDE_API_KEY` não está configurado. → D-055
 
 ---
 

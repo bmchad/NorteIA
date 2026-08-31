@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI } from 'https://esm.sh/@google/generative-ai@0.24.1';
 import { ErroDeAgente } from '../../_shared/resposta.ts';
 import type { Log } from '../../_shared/log.ts';
+import { tentarClaude } from './claude.ts';
+import { MODELO } from './modelos.ts';
 
 /** Um arquivo enviado ao modelo como conteudo inline. */
 export interface ArquivoInline {
@@ -33,6 +35,10 @@ function classificar(e: unknown): ErroDeAgente {
 /**
  * Envia o prompt e os arquivos ao modelo e devolve o texto cru da resposta.
  *
+ * ⭐⭐ **E a porta unica de geracao dos dois agentes** — por isso o fallback mora aqui, e nao
+ * em cada um deles. 🔶 O nome do arquivo ficou mais estreito do que o papel: `gemini.ts`
+ * agora orquestra dois provedores.
+ *
  * ⚠️ **O ponto mais caro da funcao, e o mais provavel de morrer sem falar.** O SDK serializa
  * o base64 inteiro num corpo JSON: com anexo grande, o pico de memoria aqui e multiplo do
  * tamanho do arquivo. Dai as duas etapas em volta -- ver `_shared/log.ts`.
@@ -63,7 +69,23 @@ export async function gerar(
     // ⚠️ Id de modelo invalido chega aqui como 404 do provedor, e nao em build nem em tsc.
     // Sem esta linha ele viraria um ERRO_INTERNO generico. → P33
     log?.falha('gemini.erro', e);
-    throw classificar(e);
+    const classificado = classificar(e);
+
+    // ⭐ **So o 503.** `classificar` ja e o dono do criterio: 429 e limite da conta e
+    // resposta malformada e problema de prompt — nenhum dos dois melhora trocando de
+    // provedor, e tentar de novo neles so gasta tempo e token.
+    //
+    // ⭐ `tentarClaude` nunca lanca: devolve `null` quando nao deu, e ai o erro ORIGINAL do
+    // Gemini e que sobe. O fallback nao pode introduzir um modo de falha novo.
+    if (classificado.codigo === 'IA_INDISPONIVEL') {
+      const reserva = await tentarClaude(MODELO.FALLBACK, prompt, arquivos, log);
+      if (reserva !== null) {
+        log?.etapa('fallback.usado', { de: modelo, para: MODELO.FALLBACK });
+        return reserva;
+      }
+    }
+
+    throw classificado;
   }
 }
 
