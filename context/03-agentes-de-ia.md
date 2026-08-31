@@ -258,8 +258,13 @@ com deploy, CORS e auth próprios. → D-012
 
 ## As 28 categorias padrão
 
-Na primeira vez que o usuário abre `/novos-registros`, se `categories` estiver vazia, o sistema
-semeia 28 categorias com cor. A lista literal está em `seedDefaultCategories`, em `Pendentes.tsx`.
+⭐ **Nascem com a conta**, por `public.semear_conta`, chamada pela `handle_new_user`. A lista
+literal vive na migration `20260830240000_semente_no_cadastro.sql` — ⚠️ **não no TypeScript**, e a
+diferença importa: a semente só faz sentido no instante do cadastro, e esse instante acontece no
+banco. → D-053
+
+⚠️ **Correção de 2026-08-30:** até aqui elas eram semeadas pelo `Pendentes.tsx`, na primeira vez que
+o usuário abrisse `/novos-registros` — quem nunca abrisse aquela tela não tinha categoria nenhuma.
 
 ⚠️ **Essa lista é o vocabulário da IA.** Apagar uma categoria remove a opção do prompt.
 

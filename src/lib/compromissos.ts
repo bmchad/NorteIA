@@ -32,52 +32,14 @@ export const TETO_TIPOS_ATIVOS = 25;
  */
 export const TETO_EXEMPLOS = 10;
 
-export interface TipoSemente {
-  slug: string;
-  titulo: string;
-}
-
 /**
- * Os tipos semeados no primeiro acesso.
- *
- * ⚠️ **É semente, não fonte da verdade.** Depois do primeiro acesso a lista é do usuário,
- * editada no `/perfil`. Acrescentar um tipo aqui NÃO alcança quem já usa o app — é o mesmo
- * comportamento das 27 categorias padrão.
- *
- * O que entra passa por três testes, todos estruturais — o produto é horizontal, então a
- * lista se justifica pelo que vale para pessoas em geral e nunca pelo extrato de alguém:
- *
- * 1. É obrigação ou necessidade recorrente para a maioria?
- * 2. O nome do estabelecimento varia enquanto a natureza não? (Se o nome fosse estável, a
- *    detecção por nome e valor já resolveria.)
- * 3. ⭐ Um punhado de marcas domina, ou o nome é reconhecível? É o teste que decide —
- *    categoria que o modelo não infere pelo nome é inútil aqui.
- *
- * ⛔ Fora, e o motivo vale a regra: `restaurante`, `entretenimento`, `viagem`, `vestuario`.
- * Neles o nome varia E a natureza varia junto — é gasto disperso, não compromisso.
- * `delivery` entra e `restaurante` não porque no delivery duas ou três marcas cobrem quase
- * tudo.
+ * ⚠️ **A lista dos 18 tipos semente NÃO mora mais aqui.** Ela foi para
+ * `public.semear_conta`, na migration `20260830240000_semente_no_cadastro.sql`, junto com
+ * as 28 categorias — porque a semente só tem sentido no instante em que a conta nasce, e
+ * esse instante acontece no banco. Manter uma cópia aqui seria um segundo dono do mesmo
+ * fato, e um dos dois envelheceria calado. ⭐ Os três testes que decidem o que entra na
+ * lista estão escritos junto dela, no comentário da migration. → D-053
  */
-export const TIPOS_SEMENTE: TipoSemente[] = [
-  { slug: 'aluguel', titulo: 'Aluguel' },
-  { slug: 'condominio', titulo: 'Condomínio' },
-  { slug: 'utilidades', titulo: 'Água, luz e gás' },
-  { slug: 'internet_telefone', titulo: 'Internet e telefone' },
-  { slug: 'supermercado', titulo: 'Supermercado' },
-  { slug: 'delivery', titulo: 'Delivery' },
-  { slug: 'combustivel', titulo: 'Combustível' },
-  { slug: 'transporte_app', titulo: 'Transporte por aplicativo' },
-  { slug: 'transporte_publico', titulo: 'Transporte público' },
-  { slug: 'estacionamento', titulo: 'Estacionamento' },
-  { slug: 'farmacia', titulo: 'Farmácia' },
-  { slug: 'saude', titulo: 'Saúde' },
-  { slug: 'academia', titulo: 'Academia' },
-  { slug: 'educacao', titulo: 'Educação' },
-  { slug: 'seguro', titulo: 'Seguro' },
-  { slug: 'imposto', titulo: 'Imposto' },
-  { slug: 'investimento', titulo: 'Investimento' },
-  { slug: 'pet', titulo: 'Pet' },
-];
 
 export interface CompromissoDetectado {
   slug: string;

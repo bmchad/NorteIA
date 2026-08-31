@@ -124,10 +124,10 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
 |---|---|---|
 | `transactions` | a tabela central, uma linha por lançamento | `user_id` |
 | `profiles` | ⭐ `id` + `email`, criada pelo trigger `handle_new_user` a cada cadastro. Dispara o e-mail de boas-vindas; nenhuma tela lê | `id` |
-| `categories` | categorias do usuário (nome + cor + `e_renda`); ⚠️ **28** semeadas no 1º acesso, duas já marcadas como renda (D-051) | `user_id` |
+| `categories` | categorias do usuário (nome + cor + `e_renda`); ⭐ **28 semeadas no cadastro**, por `semear_conta`, duas já marcadas como renda. Único em `(user_id, nome)` | `user_id` |
 | `fixos` | despesas recorrentes (nome, valor, dia) — **hoje desligadas dos balanços**. ⚠️ Guarda três coisas: ativos, recusas e encerrados, com `DEFAULT 'ativo'` | `user_id` |
 | `memory` | ⚠️ não é memória de IA: guarda `ciclo_dia` e as Notas do Dashboard, 1 linha por usuário | `user_id` |
-| `compromissos` | ⭐ tipos que a IA reconhece **e** o compromisso detectado — 1:1, uma tabela só | `user_id` |
+| `compromissos` | ⭐ tipos que a IA reconhece **e** o compromisso detectado — 1:1, uma tabela só. **18 semeados no cadastro**, por `semear_conta` | `user_id` |
 | `compromisso_exemplos` | ⭐ até 10 transações por tipo, apontadas pelo usuário; vão ao prompt do agente 2. Teto imposto por **trigger**, `on delete cascade` na transação (D-035) | `user_id` |
 | `vocabulario` | regras (`nome contém X` → categoria) e notas para o prompt (D-030) | `user_id` |
 | `cores` | ⭐ paleta **global**, sem dono. RLS ligada: legível por todos, **gravável por ninguém** | — |
@@ -172,6 +172,9 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
     apelido e é só rótulo de exibição. Índice único em `(user_id, assinatura)`. → D-043
 14. ⛔ **Função de carga só lê.** `insert`/`update`/`upsert` dentro de um `carregar()` vira corrida
     sob `StrictMode`, que roda o efeito duas vezes. → L-008
+15. ⭐ **O que uma conta nova recebe é decidido no banco**, por `handle_new_user`: a linha de
+    `memory`, as 28 categorias e os 18 tipos de compromisso (`semear_conta`). ⛔ Nenhuma tela
+    semeia nada — semear numa tela deixa o dado faltando para quem não a abre. → D-052, D-053
 
 ---
 

@@ -97,74 +97,13 @@ export default function Pendentes() {
 
       if (error) throw error;
 
-      if (data && data.length === 0) {
-        await seedDefaultCategories(user.id);
-      } else if (data) {
-        setCategories(data);
-      }
+      // ⭐ Só lê. A semente das 28 categorias mora em `semear_conta`, no banco, e roda no
+      // cadastro. Semear aqui era escrita dentro de uma leitura: sob StrictMode os dois
+      // efeitos viam a lista vazia e semeavam os dois — e `categories` não tinha índice
+      // único para barrar o segundo. → L-008, D-053
+      setCategories(data ?? []);
     } catch (err) {
       console.error("Erro ao buscar categorias:", err);
-    }
-  };
-
-  /**
-   * As categorias do primeiro acesso.
-   *
-   * ⭐ **Três delas carregam uma decisão, e não só um nome.** `Salário` e `Outras Receitas`
-   * nascem marcadas como renda, porque sem nenhuma marcada o card Renda e o "o que sobra"
-   * do Dashboard aparecem vazios até alguém descobrir o interruptor no `/perfil`.
-   *
-   * ⭐⭐ **`Reembolsos` é o que torna `Outras Receitas` segura como renda.** Sem um destino
-   * para o positivo que não é renda, devolução e rateio caem no mesmo balde e inflam o
-   * divisor de "% da renda" com dinheiro que apenas voltou para a conta. → D-025
-   *
-   * ⚠️ **Só roda com `categories` vazia**, isto é, no primeiro acesso. Quem já usa o app não
-   * ganha `Reembolsos` nem as marcas de renda — marcar `e_renda` numa conta em uso mudaria o
-   * divisor do Dashboard sem aviso, e quem configurou à mão pode ter escolhido diferente.
-   */
-  const seedDefaultCategories = async (userId: string) => {
-    const defaultList: { nome: string; cor: string; e_renda?: boolean }[] = [
-      { nome: 'Aluguel', cor: '#4B0082' },
-      { nome: 'Farmácia', cor: '#D9FF00' },
-      { nome: 'Educação', cor: '#FF007F' },
-      { nome: 'Outras Receitas', cor: '#00FF00', e_renda: true },
-      { nome: 'Comércio', cor: '#FF00F4' },
-      { nome: 'Lavanderia', cor: '#A020F0' },
-      { nome: 'Supermercado', cor: '#00FFFF' },
-      { nome: 'Bancos', cor: '#FF8C00' },
-      { nome: 'Viagem', cor: '#8F00FF' },
-      { nome: 'Uber/99', cor: '#FFE900' },
-      { nome: 'Carro', cor: '#FF00F4' },
-      { nome: 'Táxi', cor: '#FFE900' },
-      { nome: 'Vestuário/Beleza', cor: '#FF007F' },
-      { nome: 'Entreterimento', cor: '#CF00FF' },
-      { nome: 'Academia', cor: '#00BFFF' },
-      { nome: 'Outros', cor: '#FF0000' },
-      { nome: 'Ônibus/Metrô', cor: '#FF8C00' },
-      { nome: 'Casa', cor: '#00FFF9' },
-      { nome: 'Eletrônicos', cor: '#00BFFF' },
-      { nome: 'Lingua estrangeira', cor: '#ef4444' },
-      { nome: 'Assinaturas', cor: '#D9FF00' },
-      { nome: 'Streaming', cor: '#D9FF00' },
-      { nome: 'Governo', cor: '#BFFF00' },
-      { nome: 'Comida', cor: '#001AFF' },
-      { nome: 'Salário', cor: '#00FF00', e_renda: true },
-      { nome: 'Médicos/Saúde', cor: '#FF00FF' },
-      { nome: 'Apostas/Loteria', cor: '#8F00FF' },
-      { nome: 'Reembolsos', cor: '#22c55e' }
-    ];
-
-    const insertData = defaultList.map((item) => ({
-      user_id: userId,
-      nome: item.nome,
-      cor: item.cor,
-      e_renda: item.e_renda ?? false
-    }));
-
-    const { error } = await supabase.from('categories').insert(insertData);
-    if (!error) {
-      const { data } = await supabase.from('categories').select('*').eq('user_id', userId).order('nome');
-      if (data) setCategories(data);
     }
   };
 
@@ -719,7 +658,7 @@ export default function Pendentes() {
                     }`}
                 >
                   {loading ? (
-                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Processando com IA... não saia da tela, pode demorar até 2 minutos.</>
+                    <><div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> Processando com IA... não saia da tela, pode demorar até 1 minuto.</>
                   ) : 'Iniciar Leitura'}
                 </button>
 

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter, ArrowLeftRight, Layers, BookOpen } from 'lucide-react';
-import { TETO_EXEMPLOS, TETO_TIPOS_ATIVOS, TIPOS_SEMENTE } from '../lib/compromissos';
+import { TETO_EXEMPLOS, TETO_TIPOS_ATIVOS } from '../lib/compromissos';
 import ConfirmModal from '../components/ConfirmModal';
 import ExemplosDoCompromisso from '../components/ExemplosDoCompromisso';
 import SeletorDeTransacoes, { type TransacaoEscolhida } from '../components/SeletorDeTransacoes';
@@ -219,24 +219,19 @@ export default function Perfil() {
   };
 
   /**
-   * Carrega os tipos de compromisso e semeia os padrão no primeiro acesso.
+   * Carrega os tipos de compromisso.
    *
-   * ⚠️ **Semente, não fonte da verdade.** Depois disto a lista é do usuário: acrescentar um
-   * tipo em `TIPOS_SEMENTE` NÃO alcança quem já usa o app — igual às 27 categorias padrão.
+   * ⭐ **Só lê.** A semente dos 18 tipos padrão mora em `semear_conta`, no banco, e roda no
+   * cadastro — não aqui. Semear nesta tela deixava um usuário novo sem tipo nenhum até ele
+   * adivinhar que precisava passar no `/perfil`, e a entrada do app é o `/compromissos`,
+   * que lê esta mesma tabela. → D-053
+   *
+   * ⚠️ **Continua sendo semente, não fonte da verdade:** depois do cadastro a lista é do
+   * usuário, e acrescentar um tipo à semente NÃO alcança quem já usa o app.
    */
   const carregarTipos = async () => {
-    const user = (await supabase.auth.getUser()).data.user;
-    if (!user) return;
-
     const { data } = await supabase.from('compromissos').select('*').order('titulo');
-    if (data && data.length > 0) { setTiposCompromisso(data); await carregarExemplos(); return; }
-
-    const semente = TIPOS_SEMENTE.map(t => ({ user_id: user.id, slug: t.slug, titulo: t.titulo }));
-    const { error } = await supabase.from('compromissos').insert(semente);
-    if (error) { console.error('Erro ao semear tipos de compromisso:', error); return; }
-
-    const { data: novos } = await supabase.from('compromissos').select('*').order('titulo');
-    setTiposCompromisso(novos ?? []);
+    setTiposCompromisso(data ?? []);
     await carregarExemplos();
   };
 

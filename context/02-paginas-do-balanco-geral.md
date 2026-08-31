@@ -103,9 +103,8 @@ parcelas.
 
 ⭐ **Duas portas: Arquivo e Registro manual.** A extensão do arquivo escolhe o modo — print, PDF e
 planilha entram pelo mesmo lugar. ⚠️ **Um tipo por vez**: um envio carrega um `modo`, e o `modo`
-escolhe um prompt (D-046). Depois vem a revisão dos rascunhos. É também onde as **28 categorias
-padrão são semeadas** no primeiro acesso — três delas com uma decisão junto, e não só um nome
-(D-051).
+escolhe um prompt (D-046). Depois vem a revisão dos rascunhos. ⚠️ **Correção de 30/08: esta tela
+não semeia mais as categorias.** Elas nascem com a conta, no banco. → D-053
 
 ⭐ **Na revisão, o rascunho tem cinco campos**, e o quinto é **Compromisso**, ao lado de Categoria.
 Escolher ali grava `compromisso_manual` junto: é declaração, não palpite, e nada automático a
@@ -209,7 +208,8 @@ na criação. ⚠️ Só as de renda entram no divisor de "% da renda" do Dashbo
 **Vocabulário** · o que só o usuário sabe. **Regras** (`nome contém X` → categoria) rodam no código,
 sem token; **notas** vão ao prompt. → D-030
 
-**Compromissos** · os tipos que a IA reconhece, semeados no primeiro acesso e editáveis. Cada um tem
+**Compromissos** · os tipos que a IA reconhece, ⭐ **semeados no cadastro** (no banco, não aqui —
+D-053) e editáveis. Cada um tem
 uma periodicidade em **texto livre** — pista para a IA, nenhum código a interpreta — e um valor, que
 ⚠️ **entra na camada Previsível do painel**. Teto de 25.
 
