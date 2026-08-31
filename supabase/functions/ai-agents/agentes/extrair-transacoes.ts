@@ -1,5 +1,6 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { ErroDeAgente } from '../../_shared/resposta.ts';
+import type { Log } from '../../_shared/log.ts';
 import { extrairArrayJson, gerar, type ArquivoInline } from '../lib/gemini.ts';
 import { MODELO } from '../lib/modelos.ts';
 import { memoriaDeCategoria } from '../lib/memoria-categoria.ts';
@@ -80,11 +81,21 @@ function validar(req: Requisicao): { modo: Modo; arquivos: ArquivoInline[]; csv:
   return { modo, arquivos, csv };
 }
 
-export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClient) {
+export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClient, log?: Log) {
   const { modo, arquivos, csv } = validar(req);
+  // ⭐ A primeira linha util do post-mortem: diz de que tamanho era a chamada que morreu.
+  log?.etapa('extrair.validado', {
+    modo,
+    anexos: arquivos.length,
+    anexoChars: arquivos.reduce((n, a) => n + a.base64.length, 0),
+    csvChars: csv?.length ?? 0,
+  });
+
   const { cicloDia, categorias } = await contextoDoUsuario(supabase);
+  log?.etapa('extrair.contexto', { cicloDia, categorias: categorias.length });
 
   const vocabulario = await carregarVocabulario(supabase);
+  log?.etapa('extrair.vocabulario', { regras: vocabulario.regras.length, notas: vocabulario.notas.length });
 
   const prompt = montarPrompt({
     modo,
@@ -98,8 +109,9 @@ export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClien
   });
 
   // A planilha vai como texto dentro do prompt; imagem e PDF vão como conteúdo inline.
-  const texto = await gerar(MODELO.EXTRACAO, prompt, modo === 'planilha' ? [] : arquivos);
+  const texto = await gerar(MODELO.EXTRACAO, prompt, modo === 'planilha' ? [] : arquivos, log);
   const brutas = extrairArrayJson<TransacaoBruta>(texto);
+  log?.etapa('extrair.json', { linhas: brutas.length });
 
   // O que o usuário já ensinou vale mais que o palpite do modelo, para os nomes que ele
   // já confirmou 3 vezes ou mais. Invisível para ele. Ver lib/memoria-categoria.ts.
@@ -108,6 +120,7 @@ export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClien
     memoriaDeCategoria(supabase, nomes),
     memoriaDeCompromisso(supabase, nomes),
   ]);
+  log?.etapa('extrair.memoria', { categoria: memoria.size, compromisso: memoriaCompromisso.size });
 
   // Compra e estorno que se anulam no mesmo lote saem daqui. O front avisa quantos foram:
   // ⚠️ nada some sem o usuário saber. Ver lib/estornos.ts.
@@ -119,11 +132,13 @@ export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClien
   );
 
   const { ficam, estornos } = separarEstornos(normalizadas);
+  log?.etapa('extrair.normalizado', { ficam: ficam.length, estornos: estornos.length });
 
   // ⭐ O agente 2 entra aqui, e só sobre o que ficou: classificar uma compra que vai ser
   // descartada como estorno seria token gasto num rótulo que ninguém vê.
   // ⚠️ Depois da memória, nunca antes — o que o usuário já confirmou vence o palpite.
-  const classificadas = await classificarPendentes(supabase, ficam);
+  const classificadas = await classificarPendentes(supabase, ficam, log);
+  log?.etapa('extrair.fim', { transacoes: classificadas.length });
 
   return { transacoes: classificadas, estornos };
 }

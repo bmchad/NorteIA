@@ -215,6 +215,13 @@ categorias, pós-processamento e revisão. É o arquivo mais arriscado do projet
 
 **8. Erro vira `alert()`.** Não há tratamento estruturado em lugar nenhum. → P3
 
+**8b. ⛔ Um `546` da Edge Function não passa pelo `catch` dela.** É o runtime **matando o
+worker** por estourar memória ou tempo de CPU (`WORKER_LIMIT`) — o `try` de `index.ts` nunca roda e
+o código de erro nunca é escolhido. O mesmo vale para `504`. ⭐ Por isso o log de
+`_shared/log.ts` é **incremental**: cada etapa imprime ao *entrar*, e a **última linha impressa é o
+diagnóstico** — ela nomeia a etapa que começou e não terminou. ⛔ Nunca acumule log para imprimir no
+fim, e ⛔ nunca registre conteúdo (nome, valor, trecho de prompt): só tamanho, contagem e tempo.
+
 **9. ⚠️ Rota nova de SPA depende do `vercel.json`.** As rotas são do `BrowserRouter` e não existem
 como arquivo: sem o `rewrites` para `/index.html`, recarregar qualquer tela com F5 dá 404 — e o
 retorno do login, que vai direto para `/dashboard`, também. → `context/30-decisoes-e-licoes.md`

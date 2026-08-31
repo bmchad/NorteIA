@@ -1,5 +1,6 @@
 import type { SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
 import { extrairArrayJson, gerar } from '../lib/gemini.ts';
+import type { Log } from '../../_shared/log.ts';
 import { MODELO } from '../lib/modelos.ts';
 import { exemplosPorTipo, tiposAtivos } from '../lib/compromisso.ts';
 import { montarPrompt, type ParaClassificar } from '../prompts/classificar-compromisso.ts';
@@ -38,19 +39,25 @@ export interface Requisicao {
 export async function classificarPendentes<T extends Record<string, any>>(
   supabase: SupabaseClient,
   transacoes: T[],
+  log?: Log,
 ): Promise<T[]> {
   // Entradas não são compromisso, e o que já tem rótulo está resolvido.
   const alvos = transacoes
     .map((t, i) => ({ t, i }))
     .filter(({ t }) => !t.compromisso && Number(t.valor) < 0);
 
+  log?.etapa('classificar.inicio', { total: transacoes.length, alvos: alvos.length });
   if (alvos.length === 0) return transacoes;
 
   try {
     const tipos = await tiposAtivos(supabase);
-    if (tipos.length === 0) return transacoes;
+    if (tipos.length === 0) {
+      log?.etapa('classificar.sem.tipos');
+      return transacoes;
+    }
 
     const exemplos = await exemplosPorTipo(supabase, tipos.map(t => t.slug));
+    log?.etapa('classificar.contexto', { tipos: tipos.length, exemplos: exemplos.size });
 
     const paraClassificar: ParaClassificar[] = alvos.map(({ t, i }) => ({
       i,
@@ -59,8 +66,9 @@ export async function classificarPendentes<T extends Record<string, any>>(
       valor: Number(t.valor) || 0,
     }));
 
-    const texto = await gerar(MODELO.CLASSIFICACAO, montarPrompt(tipos, exemplos, paraClassificar));
+    const texto = await gerar(MODELO.CLASSIFICACAO, montarPrompt(tipos, exemplos, paraClassificar), [], log);
     const respostas = extrairArrayJson<{ i: number; compromisso: string }>(texto);
+    log?.etapa('classificar.json', { respostas: respostas.length });
 
     const slugsValidos = new Set(tipos.map(t => t.slug));
     const porIndice = new Map<number, string>();
@@ -74,6 +82,9 @@ export async function classificarPendentes<T extends Record<string, any>>(
       porIndice.has(i) ? { ...t, compromisso: porIndice.get(i)! } : t,
     );
   } catch (e) {
+    // ⚠️ Falha aqui NAO derruba a importacao: sem rotulo, a transacao entra e o usuario
+    // atribui a mao. Por isso ela precisa aparecer no log -- senao some por completo.
+    log?.falha('classificar.falhou', e);
     console.error('Classificação de compromisso falhou; seguindo sem rótulo:', e);
     return transacoes;
   }
@@ -85,7 +96,7 @@ export async function classificarPendentes<T extends Record<string, any>>(
  * ⭐ Existe separada da importação porque a lista de tipos muda depois: criar um tipo novo
  * no `/perfil` não deveria obrigar a reimportar o extrato para vê-lo aplicado.
  */
-export async function classificarCompromisso(req: Requisicao, supabase: SupabaseClient) {
+export async function classificarCompromisso(req: Requisicao, supabase: SupabaseClient, log?: Log) {
   const transacoes = req.transacoes ?? [];
-  return { transacoes: await classificarPendentes(supabase, transacoes) };
+  return { transacoes: await classificarPendentes(supabase, transacoes, log) };
 }

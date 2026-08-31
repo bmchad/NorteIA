@@ -1,5 +1,6 @@
 import { GoogleGenerativeAI } from 'https://esm.sh/@google/generative-ai@0.24.1';
 import { ErroDeAgente } from '../../_shared/resposta.ts';
+import type { Log } from '../../_shared/log.ts';
 
 /** Um arquivo enviado ao modelo como conteudo inline. */
 export interface ArquivoInline {
@@ -29,16 +30,39 @@ function classificar(e: unknown): ErroDeAgente {
   return new ErroDeAgente('ERRO_INTERNO', texto, 500);
 }
 
-/** Envia o prompt e os arquivos ao modelo e devolve o texto cru da resposta. */
-export async function gerar(modelo: string, prompt: string, arquivos: ArquivoInline[] = []): Promise<string> {
+/**
+ * Envia o prompt e os arquivos ao modelo e devolve o texto cru da resposta.
+ *
+ * ⚠️ **O ponto mais caro da funcao, e o mais provavel de morrer sem falar.** O SDK serializa
+ * o base64 inteiro num corpo JSON: com anexo grande, o pico de memoria aqui e multiplo do
+ * tamanho do arquivo. Dai as duas etapas em volta -- ver `_shared/log.ts`.
+ */
+export async function gerar(
+  modelo: string,
+  prompt: string,
+  arquivos: ArquivoInline[] = [],
+  log?: Log,
+): Promise<string> {
   const genAI = new GoogleGenerativeAI(chave());
   const model = genAI.getGenerativeModel({ model: modelo });
   const partes = [prompt, ...arquivos.map((a) => ({ inlineData: { data: a.base64, mimeType: a.mimeType } }))];
 
+  log?.etapa('gemini.envio', {
+    modelo,
+    promptChars: prompt.length,
+    anexos: arquivos.length,
+    anexoChars: arquivos.reduce((n, a) => n + a.base64.length, 0),
+  });
+
   try {
     const resultado = await model.generateContent(partes);
-    return resultado.response.text();
+    const texto = resultado.response.text();
+    log?.etapa('gemini.resposta', { chars: texto.length });
+    return texto;
   } catch (e) {
+    // ⚠️ Id de modelo invalido chega aqui como 404 do provedor, e nao em build nem em tsc.
+    // Sem esta linha ele viraria um ERRO_INTERNO generico. → P33
+    log?.falha('gemini.erro', e);
     throw classificar(e);
   }
 }

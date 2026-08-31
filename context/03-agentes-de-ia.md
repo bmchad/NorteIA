@@ -233,6 +233,22 @@ supabase/functions/
       extrair-transacoes.ts   ⭐ um prompt montado de partes, os três modos
 ```
 
+### O log de estágio
+
+⭐⭐ **Existe por um modo de falha específico:** o `546` do Supabase é o runtime **matando o
+worker** por limite de memória ou CPU. Nenhum `catch` roda e a função devolve um status que ela
+nunca escolheu — então um relatório de erro no fim não sobrevive.
+
+`_shared/log.ts` imprime **ao entrar em cada etapa**, com id de chamada, tempo acumulado, delta e
+memória do worker. ⭐ **A última linha impressa nomeia a etapa que não terminou.** As etapas vão de
+`inicio` (com os bytes do corpo) a `extrair.fim`, passando por `gemini.envio` e `gemini.resposta`.
+
+⛔ **O log mede, nunca transcreve.** Tamanho, contagem, tempo e código de erro — jamais nome de
+estabelecimento, valor ou trecho de prompt. Os logs são legíveis no painel, e isto é dado
+financeiro pessoal.
+
+---
+
 ⭐ **Agente novo é um arquivo em `agentes/` e uma linha no roteador** — não uma Edge Function nova,
 com deploy, CORS e auth próprios. → D-012
 
