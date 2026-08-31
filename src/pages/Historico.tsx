@@ -20,7 +20,10 @@ export default function Historico() {
   const [isApelidoFilterOpen, setIsApelidoFilterOpen] = useState(false);
   const [isCategoriaFilterOpen, setIsCategoriaFilterOpen] = useState(false);
   const [confirmModal, setConfirmModal] = useState<{isOpen: boolean, title: string, message: string, onConfirm: () => void}>({isOpen: false, title: '', message: '', onConfirm: () => {}});
-  const [cicloDia, setCicloDia] = useState<number>(5);
+  // ⚠️ Valor do PRIMEIRO render, antes de a consulta voltar -- nao e so um
+  // placeholder: com um numero diferente do que esta no banco, a primeira pintura
+  // agrupa por uma fronteira de ciclo e a segunda por outra. Padrao 1.
+  const [cicloDia, setCicloDia] = useState<number>(1);
 
   const handleSort = (key: 'data' | 'valor' | 'created_at') => {
     let direction: 'asc' | 'desc' = 'asc';

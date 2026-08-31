@@ -79,7 +79,7 @@ export default function Compromissos() {
         supabase.from('compromisso_exemplos').select('id, slug, transaction_id, transactions(data, nome, apelido)'),
       ]);
 
-      setCicloDia(mem.data?.ciclo_dia ?? 5);
+      setCicloDia(mem.data?.ciclo_dia ?? 1);
       setTransacoes(tx.data ?? []);
       setFixos(fx.data ?? []);
       setTipos(tp.data ?? []);
@@ -359,7 +359,7 @@ export default function Compromissos() {
       supabase.from('memory').select('ciclo_dia').maybeSingle(),
     ]);
 
-    const automaticas = detectarPropostas(tx.data ?? [], fx.data ?? [], mem.data?.ciclo_dia ?? 5)
+    const automaticas = detectarPropostas(tx.data ?? [], fx.data ?? [], mem.data?.ciclo_dia ?? 1)
       .filter(p => p.natureza === 'criar' && p.evidencia.length >= PISO_AUTO);
     if (automaticas.length === 0) return;
 

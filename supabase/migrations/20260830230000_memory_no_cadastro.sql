@@ -57,18 +57,31 @@ CREATE UNIQUE INDEX IF NOT EXISTS memory_user_id_unico
 ALTER TABLE public.memory ALTER COLUMN ciclo_dia SET DEFAULT 1;
 
 -- ---------------------------------------------------------------------------
--- 4. Quem ja existe ganha a linha que faltava -- com 5, nao com 1.
+-- 4. Quem ja existe ganha a linha que faltava, tambem com 1.
 --
--- ⛔ Isto NAO e inconsistencia: 5 e o valor que essas contas ja experimentam
--- hoje, pelo fallback do front. Gravar 1 nelas moveria a fronteira de todos os
--- ciclos ja calculados, em silencio, sobre o campo de maior alcance do sistema.
--- O padrao novo vale para conta nova; conta velha conserva o que ja vivia.
+-- O padrao novo vale para todo mundo, e nao so para conta nova.
 -- ---------------------------------------------------------------------------
-INSERT INTO public.memory (user_id, ciclo_dia)
-SELECT u.id, 5
+INSERT INTO public.memory (user_id)
+SELECT u.id
 FROM auth.users u
 WHERE NOT EXISTS (SELECT 1 FROM public.memory m WHERE m.user_id = u.id)
 ON CONFLICT (user_id) DO NOTHING;
+
+-- ---------------------------------------------------------------------------
+-- 4b. As linhas que ainda carregam o padrao ANTIGO passam para o novo.
+--
+-- ⚠️⚠️ Nao ha como distinguir um 5 escolhido de um 5 herdado. O `insert` de
+-- nota do Dashboard grava `memory` sem `ciclo_dia`, entao a linha nascia com o
+-- DEFAULT antigo sem ninguem ter decidido nada -- e fica identica a de quem
+-- digitou 5 no /perfil. Trocar os dois e a decisao tomada: o dia 1 vale tambem
+-- para as contas que ja existem.
+--
+-- ⛔ O que NAO se toca: qualquer valor diferente de 5. Um 7, um 10 ou um 15 so
+-- pode ter vindo do campo do /perfil, e ali houve escolha explicita. Ciclo e o
+-- campo de maior alcance do sistema -- mover o de quem escolheu reescreveria a
+-- fronteira de todos os balancos dessa conta, em silencio.
+-- ---------------------------------------------------------------------------
+UPDATE public.memory SET ciclo_dia = 1 WHERE ciclo_dia = 5;
 
 -- ---------------------------------------------------------------------------
 -- 5. A conta nova nasce com a linha.

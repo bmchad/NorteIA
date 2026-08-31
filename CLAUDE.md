@@ -143,9 +143,10 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
 
 1. ⭐ **A IA nunca grava registro final.** Tudo entra com `pendente: true`. Toda tela de balanço
    filtra `pendente = false`. → `context/30-decisoes-e-licoes.md` D-001
-2. ⭐ **A unidade de tempo é o ciclo de fatura**, definido por `memory.ciclo_dia` (padrão 5) — não o
-   mês do calendário. Vale em **todas** as telas, inclusive o Dashboard Anual, cujo "ano" vai de
-   06/01 a 05/01 do ano seguinte. → D-002
+2. ⭐ **A unidade de tempo é o ciclo de fatura**, definido por `memory.ciclo_dia` — não o mês do
+   calendário. Vale em **todas** as telas, inclusive o Dashboard Anual, cujo "ano" acompanha o
+   ciclo. ⚠️ **O padrão é 1 desde 30/08** (era 5), e o dono do número é o `DEFAULT` da coluna: a
+   linha de `memory` nasce junto com a conta. → D-002, D-052
 3. **Toda query filtra por `user_id`.** Sem exceção nas tabelas de usuário.
 4. **`valor` é assinado:** positivo é entrada, negativo é saída. Não há coluna de tipo.
 5. **A IA não calcula.** Ela extrai e classifica; toda soma e agrupamento é JavaScript. 🔶

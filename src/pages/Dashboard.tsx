@@ -19,7 +19,10 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [chartData, setChartData] = useState<any[]>([]);
   const [latestTransaction, setLatestTransaction] = useState<any>(null);
-  const [cicloDia, setCicloDia] = useState<number>(5);
+  // ⚠️ Valor do PRIMEIRO render, antes de a consulta voltar -- nao e so um
+  // placeholder: com um numero diferente do que esta no banco, a primeira pintura
+  // agrupa por uma fronteira de ciclo e a segunda por outra. Padrao 1.
+  const [cicloDia, setCicloDia] = useState<number>(1);
   const [restanteParcelas, setRestanteParcelas] = useState(0);
   const [qtdParcelasRestantes, setQtdParcelasRestantes] = useState(0);
   // ⭐ O comprometido tem três camadas desde o B1, e o card mostrava só a primeira —
@@ -108,7 +111,7 @@ export default function Dashboard() {
       ]);
 
       const c = comprometidoDoCiclo(
-        tx.data ?? [], fx.data ?? [], tp.data ?? [], mem.data?.ciclo_dia ?? 5,
+        tx.data ?? [], fx.data ?? [], tp.data ?? [], mem.data?.ciclo_dia ?? 1,
       );
       setComprometido(c);
 

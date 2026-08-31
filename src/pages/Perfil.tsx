@@ -43,7 +43,10 @@ export default function Perfil() {
   const [sortType, setSortType] = useState<'recentes' | 'antigas' | 'az'>('recentes');
   const [isSortOpen, setIsSortOpen] = useState(false);
 
-  const [cicloDia, setCicloDia] = useState<number>(5);
+  // ⚠️ Valor do PRIMEIRO render, antes de a consulta voltar -- nao e so um
+  // placeholder: com um numero diferente do que esta no banco, a primeira pintura
+  // agrupa por uma fronteira de ciclo e a segunda por outra. Padrao 1.
+  const [cicloDia, setCicloDia] = useState<number>(1);
   const [isSavingCiclo, setIsSavingCiclo] = useState(false);
 
   useEffect(() => {

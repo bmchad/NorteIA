@@ -45,7 +45,11 @@ async function contextoDoUsuario(supabase: SupabaseClient): Promise<{ cicloDia: 
   }
 
   return {
-    cicloDia: memoria.data?.ciclo_dia ?? 5,
+    // O padrao vive no DEFAULT da coluna `memory.ciclo_dia`, hoje 1. Este `??` so
+    // existe para o caso de a consulta falhar -- desde 30/08 a linha nasce com a
+    // conta, entao ele nao deveria disparar nunca. ⚠️ Este e o unico ponto em que
+    // o ciclo entra no PROMPT: errar aqui muda o `mes_fatura` que a IA devolve.
+    cicloDia: memoria.data?.ciclo_dia ?? 1,
     categorias: (cats.data ?? []) as Categoria[],
   };
 }

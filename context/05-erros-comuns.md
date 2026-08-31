@@ -27,6 +27,8 @@ atualizado_em: 2026-08-30
 | "Pendente" é conta a pagar | É rascunho de IA não revisado | `04-glossario.md` |
 | Uma compra em 10x cria 10 registros | Cria um registro por parcela **conforme ela aparece na fatura**, com a data deslocada | `30-decisoes-e-licoes.md` D-003 |
 | ⭐ A categoria automática vem sempre da IA | Se você já confirmou a mesma categoria 3 vezes para aquele nome, **a sua memória sobrescreve a IA** — em silêncio, sem tela | `03-agentes-de-ia.md` |
+| ⭐ O padrão de `ciclo_dia` é 5 | ⚠️ **É 1 desde 30/08**, e o dono do número é o `DEFAULT` da coluna — não os `??` do TypeScript. A linha de `memory` nasce com a conta | `30-decisoes-e-licoes.md` D-052 |
+| Um `406` do PostgREST é falta de permissão | ⭐ É **cardinalidade**: `.single()` exige exatamente uma linha e recebeu zero (ou duas). RLS que esconde tudo dá o mesmo 406 | `30-decisoes-e-licoes.md` D-052 |
 | ⭐ O ciclo existe para bater com a fatura do banco | A âncora é o **salário** — o mês de uma pessoa começa quando o dinheiro entra. A fatura só costuma cair perto | `30-decisoes-e-licoes.md` D-002 |
 | `/parcelas` deveria agrupar pelo nome do estabelecimento | Agrupar por nome foi a primeira versão e **falhava** — o nome muda entre faturas da mesma compra | `30-decisoes-e-licoes.md` D-008 |
 | Gastos fixos entram nos balanços | ⚠️ **Não entram.** `fixos` é uma lista paralela, sem ligação com `transactions` | `02-paginas-do-balanco-geral.md` |

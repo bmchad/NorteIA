@@ -15,7 +15,10 @@ export default function Pendentes() {
   const [instrucao, setInstrucao] = useState('');
   const [activeMode, setActiveMode] = useState<'selection' | 'arquivo' | 'manual'>('selection');
   const [formManual, setFormManual] = useState({ nome: '', valor: '', data: '', categoria_id: '' });
-  const [cicloDia, setCicloDia] = useState<number>(5);
+  // ⚠️ Valor do PRIMEIRO render, antes de a consulta voltar -- nao e so um
+  // placeholder: com um numero diferente do que esta no banco, a primeira pintura
+  // agrupa por uma fronteira de ciclo e a segunda por outra. Padrao 1.
+  const [cicloDia, setCicloDia] = useState<number>(1);
   const [expandedRascunhos, setExpandedRascunhos] = useState<Set<string>>(new Set());
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
   const [avisoEstorno, setAvisoEstorno] = useState<string | null>(null);
