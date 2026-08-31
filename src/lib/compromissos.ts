@@ -1,3 +1,6 @@
+import { cicloDeHoje, ciclosNoIntervalo, diaNoCiclo, getCycleKey, isoLocal, limitesDoCiclo, passoDeCiclo } from './ciclo';
+import { centavos } from './dinheiro';
+
 /**
  * Compromisso: dinheiro que já tem dono antes de você decidir qualquer coisa.
  *
@@ -118,4 +121,120 @@ export function valorDoCompromisso(c: CompromissoDetectado): number {
 /** Soma da camada "previsível" do painel. */
 export function totalPrevisivel(detectados: CompromissoDetectado[]): number {
   return detectados.reduce((acc, c) => acc + valorDoCompromisso(c), 0);
+}
+
+/**
+ * Quantos ciclos fechados a comparação de ritmo exige para existir.
+ *
+ * ⭐ **Três, e não os dois do resto do sistema.** `PISO_COMPROMISSO` decide se um tipo
+ * *existe*, e ali errar custa pouco. Aqui o número afirma qual é o **seu normal**: com dois
+ * ciclos, um mês atípico desloca a referência pela metade, e a comparação vira ruído com cara
+ * de fato.
+ */
+export const MINIMO_DE_CICLOS_DE_BASE = 3;
+
+/**
+ * Até quantos ciclos fechados entram na referência.
+ *
+ * ⭐ Hábito de um ano atrás não é o "normal" de hoje. A janela impede que uma mudança de vida
+ * — mudou de cidade, trocou de mercado — fique diluída para sempre numa média longa demais.
+ */
+export const JANELA_DE_CICLOS = 6;
+
+/**
+ * Abaixo desta diferença a tela diz "em linha", e não um número.
+ *
+ * ⭐ Segue o precedente de `proximoAlivio`, que ignora diferenças abaixo de R$ 1 porque
+ * "diferença de centavos não é alívio". Sem o piso, o card alternaria entre "R$ 2 acima" e
+ * "R$ 3 abaixo" a cada importação, e um número que oscila sozinho ensina a ser ignorado.
+ */
+export const PISO_DE_RELEVANCIA = 500;
+
+export interface RitmoDoCiclo {
+  /** Quanto já saiu deste tipo neste ciclo, até hoje. */
+  gastoAtual: number;
+  /** Quanto costuma ter saído até o MESMO dia do ciclo. */
+  referencia: number;
+  /** `gastoAtual − referencia`. Positivo é acima do normal. */
+  diferenca: number;
+  /** Quantos ciclos fechados sustentam a referência — inclui os que ficaram em zero. */
+  ciclosDeBase: number;
+  /** O dia do ciclo corrente em que a leitura foi feita, 1-based. */
+  diaDoCiclo: number;
+  /** O comprimento do ciclo corrente, de 28 a 31. */
+  diasDoCiclo: number;
+  /** A diferença é pequena demais para valer um número. */
+  emLinha: boolean;
+}
+
+/**
+ * O gasto deste ciclo contra o que se costuma ter gasto **no mesmo ponto do ciclo**.
+ *
+ * ⭐⭐ **A referência exclui o ciclo corrente, e é o ponto inteiro da função.**
+ * `amortizadoObservado` divide pelo número de ciclos observados, e o ciclo corrente parcial
+ * entra ali como ciclo cheio — comparar o ciclo corrente contra uma média que o contém é
+ * comparar um número consigo mesmo, e o viés puxa a média para baixo justamente na direção
+ * que apagaria o alerta.
+ *
+ * ⭐ **"Mesmo ponto" é medido em dias decorridos, não em fração do ciclo.** Ciclos têm de 28 a
+ * 31 dias; o dia 18 de um e o dia 18 do outro tiveram a mesma quantidade de oportunidades de
+ * gastar. Converter para porcentagem compararia 58% com 64% e trocaria um eixo que a pessoa
+ * vive por um que ela não vive.
+ *
+ * ⭐ **Ciclo vazio conta como zero — mas só a partir da primeira ocorrência.** Um mês sem
+ * supermercado é informação sobre o hábito e tem de diluir a média. ⛔ Já um ciclo anterior à
+ * primeira compra é ausência de dado, e contá-lo inventaria uma economia que não houve.
+ *
+ * ⚠️ Devolve `null` quando não há base suficiente. A tela precisa distinguir isso de "está
+ * normal", senão o silêncio fica ambíguo.
+ *
+ * @param transacoes as do tipo, **já depuradas pela cascata** (`CompromissoDetectado.transacoes`)
+ */
+export function ritmoDoCiclo(
+  transacoes: any[],
+  cicloDia: number,
+  hoje: Date = new Date(),
+): RitmoDoCiclo | null {
+  if (transacoes.length === 0) return null;
+
+  const atual = cicloDeHoje(cicloDia, hoje);
+  const { dias } = limitesDoCiclo(atual, cicloDia);
+  // ⭐ A posição de hoje sai do mesmo primitivo que a das transações: uma régua só.
+  const posicao = diaNoCiclo(isoLocal(hoje), null, cicloDia);
+
+  const marcadas = transacoes.map(t => ({
+    chave: getCycleKey(t.data, t.mes_fatura, cicloDia),
+    dia: diaNoCiclo(t.data, t.mes_fatura, cicloDia),
+    valor: centavos(t.valor),
+  }));
+
+  const primeira = marcadas.reduce((min, m) => (m.chave < min ? m.chave : min), marcadas[0].chave);
+  const janela = passoDeCiclo(atual, -JANELA_DE_CICLOS);
+  const base = ciclosNoIntervalo(
+    primeira > janela ? primeira : janela,
+    passoDeCiclo(atual, -1),
+  );
+
+  if (base.length < MINIMO_DE_CICLOS_DE_BASE) return null;
+
+  // ⚠️ O mesmo predicado dos dois lados, inclusive no ciclo corrente. Sem o `dia <= posicao`
+  // aqui, uma transação que o `mes_fatura` empurrou para o fim deste ciclo seria contada hoje
+  // contra ciclos passados que só a contariam no fim — o único jeito de o número mentir.
+  const acumulado = (chave: string) => marcadas.reduce(
+    (soma, m) => (m.chave === chave && m.dia <= posicao ? soma + m.valor : soma), 0,
+  );
+
+  const referencia = Math.round(base.reduce((soma, k) => soma + acumulado(k), 0) / base.length);
+  const gastoAtual = acumulado(atual);
+  const diferenca = gastoAtual - referencia;
+
+  return {
+    gastoAtual: gastoAtual / 100,
+    referencia: referencia / 100,
+    diferenca: diferenca / 100,
+    ciclosDeBase: base.length,
+    diaDoCiclo: posicao,
+    diasDoCiclo: dias,
+    emLinha: Math.abs(diferenca) < PISO_DE_RELEVANCIA,
+  };
 }

@@ -161,7 +161,7 @@ tem caixa própria, acima delas.
 |---|---|
 | **Contratado** | comprometido restante, projeção de 6 ciclos, cards de compra com progresso e histórico, e a seção *Quitadas* — ⚠️ que não entra em total nenhum |
 | **Recorrente** | ⭐ o card **"deixe reservado"** (o que ainda cai neste ciclo, com data e nome), ativos, propostas, dispensados, e o cadastro manual — que pede o **nome exato do extrato** (D-045, D-047) |
-| **Previsível** | tipos detectados, com acrescentar/remover transação e o botão que leva ao `/perfil` |
+| **Previsível** | tipos detectados, com acrescentar/remover transação e o botão que leva ao `/perfil`. ⭐ Cada card diz **onde você está neste ciclo** — o gasto até hoje contra o normal para o mesmo dia do ciclo (D-057) |
 
 **Propostas** têm três naturezas: *criar*, *corrigir* (casa com um fixo mas o valor ou o dia
 divergem) e *encerrar* (sem lançamento há dois ciclos além da periodicidade). Cada uma mostra os

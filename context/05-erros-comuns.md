@@ -38,6 +38,8 @@ atualizado_em: 2026-08-30
 | Gastos fixos entram nos balanços | ⚠️ **Não entram.** `fixos` é uma lista paralela, sem ligação com `transactions` | `02-paginas-do-balanco-geral.md` |
 | Existem três agentes de IA | São **dois** — extrair e classificar compromisso —, e o de extração tem três portas de entrada (imagem, planilha, PDF). ⚠️ Era um só até 30/08 | `03-agentes-de-ia.md` |
 | ⭐ A IA escolhe o `compromisso` no mesmo prompt em que extrai | Não. É o **agente 2**, numa segunda chamada, e o campo foi retirado do prompt de extração de propósito | `30-decisoes-e-licoes.md` D-034 |
+| ⭐ A média por ciclo de um compromisso é comparável com o ciclo corrente | ⛔ **Não é.** `amortizadoObservado` inclui o ciclo corrente parcial no divisor, então ele contém o próprio termo da comparação. O ritmo usa uma referência que **exclui** o ciclo corrente | `30-decisoes-e-licoes.md` D-057 |
+| O ciclo corrente pode ser comparado com os anteriores direto | Só **no mesmo ponto**: um ciclo pela metade contra ciclos inteiros diz sempre que você gastou menos | `30-decisoes-e-licoes.md` D-057 |
 | ⭐⭐ Se cada regra reivindica sua transação, o total está certo | ⛔ A cascata precisa atravessar as **três camadas**. Ela parava dentro da detecção de fixos, e uma academia rotulada + aceita como fixo virava o dobro | `30-decisoes-e-licoes.md` D-033 |
 | Gasto fixo se cadastra à mão em `/compromissos` | ⚠️ **Cadastra sim** — mas o campo pede o **nome exato do extrato**, porque é por ele que o fixo acha as próprias cobranças | `30-decisoes-e-licoes.md` D-045 |
 | ⭐ O gasto fixo é identificado pelo `nome` | ⛔ Pela **assinatura**. `fixos.nome` guarda o apelido e é só rótulo — usá-lo como chave fez um fixo com 4 cobranças mostrar 1 | `30-decisoes-e-licoes.md` D-043 |

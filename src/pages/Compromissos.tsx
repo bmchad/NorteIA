@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, Trash2, TrendingDown, Undo2, ShoppingCart, ListChecks, AlertTriangle, PlusCircle, CheckCheck, PiggyBank, type LucideIcon } from 'lucide-react';
+import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, Trash2, TrendingDown, TrendingUp, Minus, Undo2, ShoppingCart, ListChecks, AlertTriangle, PlusCircle, CheckCheck, PiggyBank, type LucideIcon } from 'lucide-react';
 import {
   agruparParcelas, comprometidoRestante, contaDaCompra, parcelasRestantes, projecaoPorCiclo,
 } from '../lib/parcelas';
@@ -10,7 +10,9 @@ import ExemplosDoCompromisso from '../components/ExemplosDoCompromisso';
 import {
   detectarPropostas, lancamentosDoFixo, PISO_AUTO, PREFIXO_CORRECAO, type PropostaDeFixo,
 } from '../lib/fixos-propostos';
-import { TETO_EXEMPLOS, valorDoCompromisso } from '../lib/compromissos';
+import {
+  MINIMO_DE_CICLOS_DE_BASE, ritmoDoCiclo, TETO_EXEMPLOS, valorDoCompromisso, type RitmoDoCiclo,
+} from '../lib/compromissos';
 import { comprometidoDoCiclo, proximoAlivio } from '../lib/comprometido';
 import { cobrancasDoCiclo, type Cobranca } from '../lib/reserva';
 
@@ -105,6 +107,23 @@ export default function Compromissos() {
       () => comprometidoDoCiclo(transacoes, fixos, tipos, cicloDia),
       [transacoes, fixos, tipos, cicloDia],
     );
+
+  /**
+   * O ritmo de cada tipo previsível, por slug.
+   *
+   * ⛔ **De propósito fora de `comprometidoDoCiclo`.** Aquela função é pura em relação ao
+   * relógio, e o Dashboard soma o retorno dela: injetar `hoje` ali faria o total do painel
+   * depender da hora em que a tela montou. O ritmo é leitura, não total.
+   *
+   * ⭐ E deriva de `c.transacoes`, que já saiu da cascata sem parcelas e sem cobranças de
+   * fixo. Refazer a conta a partir de `transacoes` cru faria os números discordarem do
+   * painel — a D-007 outra vez.
+   */
+  const ritmos = useMemo(() => {
+    const mapa = new Map<string, RitmoDoCiclo | null>();
+    for (const c of detectados) mapa.set(c.slug, ritmoDoCiclo(c.transacoes, cicloDia));
+    return mapa;
+  }, [detectados, cicloDia]);
 
   /**
    * As compras já quitadas.
@@ -766,6 +785,11 @@ export default function Compromissos() {
                   className="mt-2"
                 />
 
+                {/* ⭐⭐ Onde você está AGORA. O resto do card é o passado: quanto custa por mês,
+                    quantos lançamentos, qual valor você fixou. Esta linha é a única que responde
+                    "e este ciclo, vai bem?" — que é a pergunta que ainda dá para agir sobre. */}
+                <Ritmo ritmo={ritmos.get(c.slug) ?? null} brl={brl} />
+
                 {/* ⭐ Avisa, não age: valor que persegue a própria média nunca discorda de você. */}
                 {c.divergente && (
                   <div className="mt-3 flex items-start gap-2 text-xs text-text-light bg-primary/5 rounded-lg p-3">
@@ -1021,6 +1045,59 @@ function Lancamentos({ itens, brl, rotulo }: {
 
 /** Um gasto fixo ativo, com os lançamentos que o sustentam e o aviso de silêncio. */
 /** `2026-02-05` → `5 de fevereiro`. */
+/**
+ * O gasto do ciclo corrente contra o normal para o mesmo ponto do ciclo.
+ *
+ * ⭐ **Verde para baixo, vermelho para cima.** Aqui gastar menos é boa notícia, e o projeto já
+ * usa `TrendingDown` em verde com esse sentido no aviso de alívio das parcelas. ⚠️ No Dashboard
+ * os mesmos dois ícones querem dizer *entrada* e *saída*, não tendência — não é de lá que este
+ * uso vem.
+ *
+ * ⭐ **Linha, e não painel.** O aviso de divergência logo abaixo é um `bg-primary/5` e responde
+ * outra pergunta: observado contra o valor que você fixou. Dois blocos iguais empilhados
+ * leriam como contradição, quando na verdade são dois recortes diferentes.
+ *
+ * ⚠️ **Sem base, a linha fala mesmo assim.** Silêncio ficaria ambíguo entre "está normal" e
+ * "ainda não sei", e as duas coisas pedem reações opostas.
+ */
+function Ritmo({ ritmo, brl }: { ritmo: RitmoDoCiclo | null; brl: (v: number) => string }) {
+  if (!ritmo) {
+    return (
+      <div className="mt-2 text-[10px] text-text-light/70">
+        Comparação de ritmo a partir de {MINIMO_DE_CICLOS_DE_BASE} ciclos fechados.
+      </div>
+    );
+  }
+
+  const { diferenca, emLinha, diaDoCiclo, diasDoCiclo, gastoAtual, referencia, ciclosDeBase } = ritmo;
+  const acima = diferenca > 0;
+  const Icone = emLinha ? Minus : acima ? TrendingUp : TrendingDown;
+  const cor = emLinha ? 'text-text-light' : acima ? 'text-danger' : 'text-[#10b981]';
+
+  return (
+    <div
+      className="mt-2 flex items-center gap-2 text-xs"
+      // ⭐ A conta por extenso vive aqui: o número tem de ser auditável sem ocupar a linha.
+      title={
+        `Você está em ${brl(gastoAtual)} neste ciclo; costuma estar em ${brl(referencia)} `
+        + `no dia ${diaDoCiclo}, média de ${ciclosDeBase} ciclos fechados.`
+      }
+    >
+      <Icone size={14} className={`shrink-0 ${cor}`} />
+      <span className="text-text-light">
+        {emLinha ? (
+          <>Em linha com o normal para o dia {diaDoCiclo} do ciclo</>
+        ) : (
+          <>
+            <strong className={cor}>{brl(Math.abs(diferenca))}</strong>{' '}
+            {acima ? 'acima' : 'abaixo'} do normal para o dia {diaDoCiclo} de {diasDoCiclo}
+          </>
+        )}
+      </span>
+    </div>
+  );
+}
+
 function diaEMes(iso: string): string {
   const [, mes, dia] = iso.split('-').map(Number);
   return `${dia} de ${MES_LONGO[mes - 1]}`;
