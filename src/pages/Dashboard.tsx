@@ -228,7 +228,17 @@ export default function Dashboard() {
 
       await fetchComprometido(user.id);
 
-      // Buscar última transação
+      // Buscar última transação.
+      //
+      // ⚠️ `maybeSingle`, nunca `single`. Conta sem nenhuma transação confirmada é
+      // estado legítimo — e `.single()` respondia `406 Not Acceptable` nela, porque
+      // manda `Accept: application/vnd.pgrst.object+json` e exige exatamente uma
+      // linha. ⛔ Diferente do caso de `memory`, aqui não há trigger que resolva:
+      // consertar seria inventar uma transação.
+      //
+      // ⭐ `limit(1)` com `single()` é contradição de intenção: um diz "no máximo
+      // uma", o outro "exatamente uma". Onde os dois aparecem juntos, o errado é o
+      // `single()`.
       const { data: latest } = await supabase
         .from('transactions')
         .select('*, categories(nome)')
@@ -236,7 +246,7 @@ export default function Dashboard() {
         .eq('pendente', false)
         .order('data', { ascending: false })
         .limit(1)
-        .single();
+        .maybeSingle();
 
       if (latest) {
         setLatestTransaction(latest);
