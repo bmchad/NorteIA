@@ -115,30 +115,22 @@ export default function Dashboard() {
       );
       setComprometido(c);
 
-      const data = (tx.data ?? []).filter(t => t.parcela_total);
-      const error = tx.error;
-      if (error) throw error;
+      if (tx.error) throw tx.error;
 
-      const grupos: any[][] = [];
-      for (const p of data ?? []) {
-        const valor = Math.abs(Number(p.valor)).toFixed(2);
-        const total = p.parcela_total || 1;
-        const dia = parseInt(p.data.split('-')[2], 10);
-
-        const grupo = grupos.find(g => {
-          const b = g[0];
-          return Math.abs(Number(b.valor)).toFixed(2) === valor
-            && (b.parcela_total || 1) === total
-            && Math.abs(parseInt(b.data.split('-')[2], 10) - dia) <= 2;
-        });
-
-        if (grupo) grupo.push(p);
-        else grupos.push([p]);
-      }
-
-      const emAndamento = grupos.filter(g => g.length < (g[0].parcela_total || 1));
-      setRestanteParcelas(comprometidoRestante(emAndamento));
-      setQtdParcelasRestantes(parcelasRestantes(emAndamento));
+      // ⭐⭐ Os grupos vêm de `comprometidoDoCiclo`, que agrupa por `agruparParcelas` — o dono
+      // da regra. Aqui existia uma CÓPIA dela, feita à mão, e ela ficou para trás: comparava
+      // o valor como texto exato (`toFixed(2) === valor`) em vez de tolerar um centavo.
+      //
+      // ⛔ O estrago: a última parcela de uma compra difere de um centavo (é o resto que o
+      // banco joga nela), então cada compra virava DUAS — e o pedaço de uma parcela só passava
+      // a dever `total − 1`. O card dizia R$ 11.065,97 em 43 parcelas onde eram R$ 3.238,82 em
+      // 12, e uma compra já quitada voltava a aparecer como dívida.
+      //
+      // ⚠️ E as duas telas discordavam: `/compromissos` sempre mostrou o número certo, porque
+      // chama a função. É a D-007 — e a lição é que regra duplicada não diverge quando é
+      // escrita, diverge quando uma das cópias é corrigida. → L-010
+      setRestanteParcelas(comprometidoRestante(c.gruposEmAndamento));
+      setQtdParcelasRestantes(parcelasRestantes(c.gruposEmAndamento));
     } catch (err) {
       console.error("Erro ao buscar comprometido de parcelas:", err);
     }

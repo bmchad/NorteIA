@@ -68,6 +68,8 @@ atualizado_em: 2026-08-30
 | Entrar leva ao `/dashboard` | Leva a `/compromissos` desde 30/08. ⚠️ São **dois** caminhos até lá: o redirect pós-login e o `redirectTo` do SSO | `30-decisoes-e-licoes.md` D-038 |
 | O produto se chama Balanço Geral | Na **vitrine** é "Assistente Itaú", protótipo do InovaCamp WI. Repositório, banco e domínio continuam `balanco-geral` | `30-decisoes-e-licoes.md` D-039 |
 | O "ano" do Dashboard é de 1º de janeiro a 31 de dezembro | É um **ano de ciclos**: com ciclo 5, vai de 06/01 a 05/01 do ano seguinte. O total bate com a soma dos 12 ciclos do `/meses` | `02-paginas-do-balanco-geral.md` |
+| ⭐ Duplicar uma regra é arriscado no dia em que se escreve | ⛔ É no dia em que **uma das cópias é corrigida**. As duas convivem idênticas por meses; quem conserta uma raramente sabe da outra | `30-decisoes-e-licoes.md` L-010 |
+| O número de parcelas do Dashboard vem de `agruparParcelas` | ⚠️ **Vinha de uma cópia** que comparava valor como texto exato, e por isso partia cada compra em duas — R$ 11.065,97 onde eram R$ 3.238,82 | `30-decisoes-e-licoes.md` L-010 |
 | Cada tela calcula o ciclo do seu jeito | Há **uma função só**, `src/lib/ciclo.ts`. Duplicar a regra foi o que causou a divergência corrigida em 2026-08-27 | `30-decisoes-e-licoes.md` D-007 |
 
 ---
