@@ -254,6 +254,10 @@ volta sem sessão. → P34
 **em silêncio**, sem erro de build. E `text-primary` pinta ícone e texto: dentro da plataforma o
 texto usa `text-azul`. → D-037
 
+**11b. ⚠️ O `#FF6200` de `public/favicon.svg` é a única duplicação legítima da cor de marca.**
+Arquivo em `public/` não enxerga variável CSS e o navegador não passa cor nenhuma — não há como
+derivá-la. Mudou `--marca` em `src/index.css`? O favicon muda junto, à mão. → D-037
+
 **12b. ⚠️ Fixture que iguala `nome` e `apelido` não consegue falhar.** Campo que existe para ser
 diferente tem de ser diferente no teste, senão ele prova só o caso degenerado. → L-009
 
