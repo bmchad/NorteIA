@@ -81,6 +81,7 @@ export async function tentarClaude(
   prompt: string,
   arquivos: ArquivoInline[] = [],
   log?: Log,
+  prazoMs = 90_000,
 ): Promise<string | null> {
   const chave = Deno.env.get('CLAUDE_API_KEY');
   if (!chave) {
@@ -96,11 +97,16 @@ export async function tentarClaude(
     return null;
   }
 
-  log?.etapa('claude.envio', { modelo, promptChars: prompt.length, anexos: arquivos.length, anexoChars });
+  log?.etapa('claude.envio', { modelo, promptChars: prompt.length, anexos: arquivos.length, anexoChars, prazoMs });
 
   try {
     const resposta = await fetch(URL_MENSAGENS, {
       method: 'POST',
+      // ⭐⭐ O prazo é o que transforma "worker morto" em "erro com mensagem". Estourado, o
+      // `fetch` lança, a função devolve `null`, e o erro do Gemini chega ao usuário com o
+      // texto que ele sabe ler. ⛔ Sem ele, quem decide o desfecho é o runtime, e o runtime
+      // não escreve mensagem nenhuma.
+      signal: AbortSignal.timeout(prazoMs),
       headers: {
         'x-api-key': chave,
         'anthropic-version': VERSAO_API,

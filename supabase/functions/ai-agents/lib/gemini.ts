@@ -10,6 +10,29 @@ export interface ArquivoInline {
   base64: string;
 }
 
+/**
+ * ⭐⭐ **O orçamento de relógio da requisição inteira, e a razão de ele existir.**
+ *
+ * Uma chamada que cai no reserva paga **dois** modelos: o que falhou e o que assumiu. A Edge
+ * Function tem um teto de tempo dimensionado para um. Estourá-lo não devolve erro — o runtime
+ * **mata o worker** (`546`), o `catch` não roda, e o browser recebe um status que a função
+ * nunca escolheu. ⛔ Era exatamente isto que acontecia: `gemini.erro` (503), `claude.envio`, e
+ * nada mais — com a chamada já faturada do outro lado.
+ *
+ * ⭐ Então o tempo se **orça**, em vez de se torcer: o primário tem prazo, o reserva recebe o
+ * que sobrou, e se não sobrou o bastante ele nem começa. Melhor um `503` com mensagem na tela
+ * que um `546` mudo.
+ *
+ * 🔶 Os números supõem o teto conservador de 150 s. Com um teto maior dá para subir os dois.
+ */
+const ORCAMENTO_MS = 140_000;
+
+/** Abaixo disto o reserva não tem como terminar, então nem tenta. */
+const MINIMO_DO_RESERVA_MS = 40_000;
+
+/** Prazo do primário — o resto do orçamento fica reservado para o plano B. */
+const PRAZO_PRIMARIO_MS = ORCAMENTO_MS - MINIMO_DO_RESERVA_MS;
+
 const chave = () => {
   const k = Deno.env.get('GEMINI_API_KEY');
   if (!k) throw new ErroDeAgente('ERRO_INTERNO', 'GEMINI_API_KEY nao configurada na funcao.', 500);
@@ -49,8 +72,11 @@ export async function gerar(
   arquivos: ArquivoInline[] = [],
   log?: Log,
 ): Promise<string> {
+  const inicio = Date.now();
   const genAI = new GoogleGenerativeAI(chave());
-  const model = genAI.getGenerativeModel({ model: modelo });
+  // ⚠️ O `timeout` não é zelo: sem prazo, o primário pode consumir o orçamento inteiro e o
+  // reserva começa condenado — que é como o worker morria.
+  const model = genAI.getGenerativeModel({ model: modelo }, { timeout: PRAZO_PRIMARIO_MS });
   const partes = [prompt, ...arquivos.map((a) => ({ inlineData: { data: a.base64, mimeType: a.mimeType } }))];
 
   log?.etapa('gemini.envio', {
@@ -78,7 +104,15 @@ export async function gerar(
     // ⭐ `tentarClaude` nunca lanca: devolve `null` quando nao deu, e ai o erro ORIGINAL do
     // Gemini e que sobe. O fallback nao pode introduzir um modo de falha novo.
     if (classificado.codigo === 'IA_INDISPONIVEL') {
-      const reserva = await tentarClaude(MODELO.FALLBACK, prompt, arquivos, log);
+      // ⭐ O reserva herda o que sobrou do orçamento, e não um prazo próprio: quem gastou o
+      // relógio foi a tentativa anterior, e ignorar isso é o que estoura o teto da função.
+      const restante = ORCAMENTO_MS - (Date.now() - inicio);
+      if (restante < MINIMO_DO_RESERVA_MS) {
+        log?.etapa('fallback.sem.tempo', { restante, minimo: MINIMO_DO_RESERVA_MS });
+        throw classificado;
+      }
+
+      const reserva = await tentarClaude(MODELO.FALLBACK, prompt, arquivos, log, restante);
       if (reserva !== null) {
         log?.etapa('fallback.usado', { de: modelo, para: MODELO.FALLBACK });
         return reserva;

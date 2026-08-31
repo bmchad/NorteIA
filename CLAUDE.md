@@ -216,6 +216,11 @@ entre importações. → D-034
 passam. As constantes são `MODELO.EXTRACAO`, `MODELO.CLASSIFICACAO` e `MODELO.FALLBACK`, em
 `lib/modelos.ts`.
 
+**5e. ⛔ Uma chamada que cai no reserva paga DOIS modelos, sobre um teto de tempo dimensionado para
+um.** Por isso o tempo é orçado em `lib/gemini.ts`: o primário tem prazo, o reserva recebe o que
+sobrou, e sem orçamento ele nem começa. ⚠️ Estourar o teto não devolve erro — mata o worker
+(`546`), e aí nenhuma mensagem chega à tela. → D-055
+
 **5d. ⭐ Há um provedor reserva, e ele só entra no 503.** `lib/claude.ts` é chamado de dentro de
 `gerar()`, e ⛔ **nunca lança**: falhou, devolve `null` e o erro original do Gemini é que sobe. Um
 plano B que cria um modo de falha novo não é plano B. → D-055
