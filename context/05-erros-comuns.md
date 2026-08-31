@@ -19,6 +19,8 @@ atualizado_em: 2026-08-30
 |---|---|---|
 | ⭐⭐ O produto serve para consultar quanto se gasta por categoria | É a **terceira** etapa. A ordem é `comprometido → o que sobra → como você gasta`. Consulta sozinha é relatório do passado | `30-decisoes-e-licoes.md` D-027 |
 | O comprometido é um número só | ⭐ São **três camadas de certeza** — contratado, recorrente, previsível — e somá-las esconde o que dá para cancelar | `04-glossario.md` |
+| ⭐ A "Taxa de poupança" do Dashboard divide pela renda | ⚠️ Divide por **todas as entradas** — reembolso e devolução entram no divisor e a taxa aparece melhor do que é. Decidido assim; a tooltip diz "de tudo que entrou" | `src/pages/Dashboard.tsx` |
+| Uma taxa de poupança negativa é um erro para travar em zero | ⛔ É o fato mais importante que o card tem a dar: você gastou mais do que entrou. "0%" diria outra coisa, e mais branda | `30-decisoes-e-licoes.md` D-027 |
 | Toda transação positiva é renda | ⚠️ Não. Estorno, reembolso e venda entram positivos e não são renda. `categories.e_renda` separa | `30-decisoes-e-licoes.md` D-025 |
 | ⭐ A IA não categoriza entrada | ⚠️ **Categoriza desde 30/08.** Antes o prompt mandava devolver `null` em todo positivo — e com isso o card Renda, que depende da categoria, ficava zerado | `30-decisoes-e-licoes.md` D-054 |
 | O histórico do Bernardo mede o produto | ⛔ É **horizontal**: uma amostra de um usuário mede o usuário. Decisão se justifica por argumento estrutural | `01-o-que-e-o-balanco-geral.md` |

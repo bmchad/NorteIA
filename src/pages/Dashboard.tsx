@@ -485,19 +485,26 @@ export default function Dashboard() {
                   )}
                 </div>
 
+                {/* ⭐ De tudo que entrou, quanto sobrou. ⛔ E o negativo NAO se trava em zero:
+                    "0%" diz "voce nao poupou nada", e a verdade e "voce gastou mais do que
+                    entrou" -- fatos diferentes, e o segundo e pior. Travar esconderia o caso
+                    que mais precisa ser visto. O numero ja fica vermelho. → D-027
+                    ⚠️ O divisor sao TODAS as entradas, e nao a renda: quem tem reembolso ve a
+                    taxa melhor do que ela e. Foi decidido assim; a tooltip diz "de tudo que
+                    entrou" para nao prometer o que a conta nao faz. */}
                 <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <span className="font-bold text-text-light uppercase tracking-wider text-sm">Base</span>
+                    <span className="font-bold text-text-light uppercase tracking-wider text-sm">Taxa de poupança</span>
                     <div className="group/tooltip relative flex items-center justify-center">
                       <Info size={16} className="text-primary cursor-help" />
                       <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 w-48 p-2 bg-text text-white text-xs rounded-lg opacity-0 invisible group-hover/tooltip:opacity-100 group-hover/tooltip:visible transition-all z-10 text-center pointer-events-none shadow-lg">
-                        A porcentagem das entradas que se tornam resultado
+                        De tudo que entrou, quanto sobrou depois das saídas. Negativo significa que você gastou mais do que entrou no período.
                         <div className="absolute top-full left-1/2 -translate-x-1/2 border-4 border-transparent border-t-text"></div>
                       </div>
                     </div>
                   </div>
                   <span className={`font-bold text-lg ${entradas > 0 ? ((1 - (saidas / entradas)) * 100 >= 0 ? 'text-azul' : 'text-danger') : 'text-text-light'}`}>
-                    {entradas > 0 ? ((1 - (saidas / entradas)) * 100).toFixed(2) : '0.00'}%
+                    {entradas > 0 ? ((1 - (saidas / entradas)) * 100).toFixed(0) : '0'}%
                   </span>
                 </div>
               </div>
