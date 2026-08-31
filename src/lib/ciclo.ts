@@ -5,6 +5,11 @@
  * `ciclo_dia` do usuário (`memory.ciclo_dia`, padrão **1** desde a D-052). Com ciclo 5, a
  * fatura de Janeiro vai do dia 6 de Janeiro ao dia 5 de Fevereiro.
  *
+ * ⚠️⚠️ **Com `ciclo_dia = 1` — o padrão, e portanto o caso de todo mundo — o ciclo de Janeiro
+ * vai de 02/01 a 01/02.** É o mês do calendário **deslocado em um dia**, e não o mês do
+ * calendário: o dia 1º pertence sempre ao ciclo anterior, porque a regra é `dia <= ciclo_dia`.
+ * O mês exato exigiria `ciclo_dia = 0`, que o `CHECK` da coluna proíbe. → D-052
+ *
  * Toda tela que agrupa transações por período usa este módulo. Duplicar a regra foi o que
  * fez o /dashboard e o /meses divergirem por um ano inteiro.
  */

@@ -23,6 +23,7 @@ atualizado_em: 2026-08-30
 | ⭐ A IA não categoriza entrada | ⚠️ **Categoriza desde 30/08.** Antes o prompt mandava devolver `null` em todo positivo — e com isso o card Renda, que depende da categoria, ficava zerado | `30-decisoes-e-licoes.md` D-054 |
 | O histórico do Bernardo mede o produto | ⛔ É **horizontal**: uma amostra de um usuário mede o usuário. Decisão se justifica por argumento estrutural | `01-o-que-e-o-balanco-geral.md` |
 | A IA grava a transação direto no histórico | Grava como **rascunho** (`pendente: true`); só a sua revisão a torna real | `03-agentes-de-ia.md` |
+| ⭐ Com `ciclo_dia = 1` o ciclo é o mês do calendário | ⚠️ É o mês **deslocado em um dia**: janeiro vai de 02/01 a 01/02, porque o dia 1º cai sempre no ciclo anterior. O mês exato exigiria ciclo 0, que o `CHECK` proíbe | `30-decisoes-e-licoes.md` D-052 |
 | ⭐ O balanço de Janeiro tem as transações de Janeiro | Tem as do **ciclo** de Janeiro — do dia 6/01 ao dia 5/02, com ciclo 5 | `04-glossario.md` |
 | `data` é o mês em que a transação entra no balanço | Isso é `mes_fatura`. `data` é quando a compra aconteceu | `04-glossario.md` |
 | "Pendente" é conta a pagar | É rascunho de IA não revisado | `04-glossario.md` |

@@ -1074,6 +1074,24 @@ function Ritmo({ ritmo, brl }: { ritmo: RitmoDoCiclo | null; brl: (v: number) =>
   const Icone = emLinha ? Minus : acima ? TrendingUp : TrendingDown;
   const cor = emLinha ? 'text-text-light' : acima ? 'text-danger' : 'text-[#10b981]';
 
+  /**
+   * ⭐⭐ **Quanto ainda dá para corrigir** — e não em que dia do ciclo estamos.
+   *
+   * "R$ 120 acima do normal, faltam 22 dias" e "R$ 120 acima do normal, falta 1 dia" pedem
+   * reações opostas, e é esta metade da frase que decide qual. O ordinal carrega a mesma
+   * informação escondida atrás de uma subtração — e escrita de um jeito que **parece errado**
+   * justamente onde a régua confunde: com `ciclo_dia = 1`, o ciclo de agosto vai de 02/08 a
+   * 01/09, então no dia 31/08 o card dizia "dia 30 de 31".
+   *
+   * ⚠️ O plural é tratado: "faltam 1 dia" faria desconfiar do número ao lado.
+   */
+  const restam = diasDoCiclo - diaDoCiclo;
+  const prazo = restam === 0
+    ? 'último dia do ciclo'
+    : restam === 1
+      ? 'falta 1 dia para o ciclo fechar'
+      : `faltam ${restam} dias para o ciclo fechar`;
+
   return (
     <div
       className="mt-2 flex items-center gap-2 text-xs"
@@ -1086,11 +1104,11 @@ function Ritmo({ ritmo, brl }: { ritmo: RitmoDoCiclo | null; brl: (v: number) =>
       <Icone size={14} className={`shrink-0 ${cor}`} />
       <span className="text-text-light">
         {emLinha ? (
-          <>Em linha com o normal para o dia {diaDoCiclo} do ciclo</>
+          <>Em linha com o normal · {prazo}</>
         ) : (
           <>
             <strong className={cor}>{brl(Math.abs(diferenca))}</strong>{' '}
-            {acima ? 'acima' : 'abaixo'} do normal para o dia {diaDoCiclo} de {diasDoCiclo}
+            {acima ? 'acima' : 'abaixo'} do normal · {prazo}
           </>
         )}
       </span>
