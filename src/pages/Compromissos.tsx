@@ -1041,16 +1041,25 @@ function LinhaDeCobranca({ c, brl }: { c: Cobranca; brl: (v: number) => string }
   const dia = Number(c.data.split('-')[2]);
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
-      <span className="flex items-baseline gap-2 min-w-0">
-        <span className="text-text-light text-xs shrink-0">dia {String(dia).padStart(2, '0')}</span>
-        <span className="text-text truncate">{c.fixo.nome}</span>
-        {/* ⚠️ Quando o dia nominal cai em fim de semana, a data muda — e esconder isso faria
-            o usuário achar que o app errou. */}
-        {c.ajustada && (
-          <span className="text-[10px] text-text-light/70 shrink-0" title="O dia caía num fim de semana">
-            ajustado
-          </span>
-        )}
+      <span className="flex items-center gap-3 min-w-0">
+        {/* ⭐⭐ O dia é a informação que esta linha existe para dar, e era o elemento mais
+            apagado dela — cinza, 12px, do tamanho de uma legenda. Agora é uma pastilha de
+            largura fixa, e a largura fixa é o ponto: os dias se alinham numa coluna e a
+            lista inteira se lê de cima a baixo como um calendário do ciclo. */}
+        <span className="shrink-0 w-11 rounded-lg bg-primary/10 py-1 text-center leading-none">
+          <span className="block text-[9px] font-semibold uppercase tracking-wide text-primary/70">dia</span>
+          <span className="block text-base font-bold text-primary">{String(dia).padStart(2, '0')}</span>
+        </span>
+        <span className="flex items-baseline gap-2 min-w-0">
+          <span className="text-text truncate">{c.fixo.nome}</span>
+          {/* ⚠️ Quando o dia nominal cai em fim de semana, a data muda — e esconder isso faria
+              o usuário achar que o app errou. */}
+          {c.ajustada && (
+            <span className="text-[10px] text-text-light/70 shrink-0" title="O dia caía num fim de semana">
+              ajustado
+            </span>
+          )}
+        </span>
       </span>
       <span className="font-medium text-text shrink-0">{brl(c.valor)}</span>
     </div>
@@ -1074,7 +1083,7 @@ function FixoAtivo({ f, brl, lancamentos, estado, encerramento, onExcluir, onEnc
             {estado
               ? (estado.jaCaiu
                 ? <span className="text-text-light/70">já caiu neste ciclo</span>
-                : <span className="text-primary font-medium">cai dia {Number(estado.data.split('-')[2])}</span>)
+                : <span className="text-primary font-bold">cai dia {Number(estado.data.split('-')[2])}</span>)
               : (f.dia ? `dia ${f.dia}` : 'sem dia')}
             {(f.periodicidade_meses ?? 1) > 1 && ` · a cada ${f.periodicidade_meses} meses`}
             {f.origem === 'manual' && ' · cadastrado por você'}
