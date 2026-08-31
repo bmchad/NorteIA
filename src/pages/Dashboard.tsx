@@ -318,7 +318,7 @@ export default function Dashboard() {
                   <DollarSign size={20} />
                 </div>
               </div>
-              <span className="text-3xl font-bold text-azul mt-2">R$ {resultadoLiquido.toFixed(2).replace('.', ',')}</span>
+              <span className={`text-3xl font-bold mt-2 ${resultadoLiquido >= 0 ? 'text-azul' : 'text-danger'}`}>R$ {resultadoLiquido.toFixed(2).replace('.', ',')}</span>
               {restanteParcelas > 0 && (
                 <span className="text-xs text-text-light mt-1" title="Dívida: tudo que ainda vai ser cobrado em parcelas">
                   ⏳ R$ {restanteParcelas.toFixed(2).replace('.', ',')} a pagar em{' '}
@@ -360,7 +360,7 @@ export default function Dashboard() {
                   <DollarSign size={20} />
                 </div>
               </div>
-              <span className="text-2xl font-bold text-azul mt-2">R$ {(resultadoLiquido / mesesAtivos).toFixed(2).replace('.', ',')}</span>
+              <span className={`text-2xl font-bold mt-2 ${resultadoLiquido >= 0 ? 'text-azul' : 'text-danger'}`}>R$ {(resultadoLiquido / mesesAtivos).toFixed(2).replace('.', ',')}</span>
               <span className="text-[10px] text-text-light uppercase">Por mês ativo</span>
             </div>
 
