@@ -83,6 +83,8 @@ export const ROTEIRO: string[] = [
   'Delivery — volume realista, alimenta a memória de categoria',
   'Compra e estorno no mesmo dia — descartados com aviso',
   'Smart TV em 10x — Contratado, com progresso e projeção',
+  'Amazon em 3x, quitada — a seção Quitadas, que não entra em total nenhum',
+  'Magazine Luiza em 12x e Latam em 6x — o nome muda a cada fatura, o agrupamento não',
   'Ruído de extrato — o que categorizar',
   'Devolução três semanas depois — entrada que não é renda',
 ];
@@ -98,6 +100,38 @@ function montarLinhas(hoje: Date): Linha[] {
   const r = sorteio(hoje.getFullYear() * 10000 + (hoje.getMonth() + 1) * 100 + hoje.getDate());
   const adiciona = (data: string, descricao: string, valor: number) =>
     linhas.push({ data, descricao, valor: centavos(valor) });
+
+  /**
+   * Uma compra parcelada, do jeito que a fatura de cartão a apresenta.
+   *
+   * `nomes` traz um estabelecimento por parcela — ⭐ **é isso que exercita a D-008**: o nome
+   * varia entre faturas da mesma compra, e o agrupamento tem de sobreviver a ele.
+   *
+   * ⚠️ Todas as linhas levam a **data da compra**, e é ela que decide onde cada parcela cai:
+   * o servidor desloca cada uma para `compra + (atual − 1)` meses. Por isso a data se calcula
+   * de trás para frente, a partir de onde a primeira parcela mostrada deve aparecer.
+   *
+   * ⭐ A última parcela difere de um centavo, sempre para cima. É o resto da divisão que o
+   * banco joga na última, e o único caso em que a tolerância de `mesmoValor` importa.
+   * ⛔ Só a última, e só um centavo: a comparação é sempre contra a **primeira** linha do
+   * grupo, então um espalhamento de dois centavos partiria a compra em duas.
+   */
+  const parcelada = (
+    nomes: string[],
+    total: number,
+    primeira: number,
+    kDaPrimeira: number,
+    base: number,
+    diaDoMes: number,
+  ) => {
+    const compra = dia(hoje, kDaPrimeira - (primeira - 1), diaDoMes);
+    const largura = String(total).length;
+    nomes.forEach((nome, i) => {
+      const numero = String(primeira + i).padStart(largura, '0');
+      const valor = i === nomes.length - 1 ? base + 0.01 : base;
+      adiciona(compra, `${nome} PARC ${numero}/${total}`, -valor);
+    });
+  };
 
   for (let k = 0; k < MESES; k++) {
     // 1 · Renda. Sem ela, "o que sobra" não tem divisor e o card Renda fica vazio.
@@ -158,16 +192,29 @@ function montarLinhas(hoje: Date): Linha[] {
   adiciona(diaDoEstorno, 'IFOOD *RESTAURANTE', 89.9);
 
   // 11 · Parcelas. ⚠️⚠️ **A data é a da compra, não a da cobrança.** O servidor desloca cada
-  //      parcela para `compra + (atual - 1)` meses (D-003), então as seis linhas carregam a
-  //      mesma data e só o número muda — é assim que uma fatura de cartão as apresenta, e é
-  //      o que faz elas caírem em seis meses consecutivos depois da importação.
+  //      parcela para `compra + (atual - 1)` meses (D-003), então todas as linhas de uma
+  //      compra carregam a mesma data e só o número muda — é assim que uma fatura de cartão
+  //      as apresenta, e é o que faz elas caírem em meses consecutivos depois da importação.
   //      ⚠️ O padrão `N/M` **escrito na descrição** é o que autoriza a extração da parcela
   //      numa planilha. Sem ele, cada linha vira gasto avulso.
-  const compra = dia(hoje, -2, 15);
-  for (let k = 0; k < MESES; k++) {
-    const parcela = String(3 + k).padStart(2, '0');
-    adiciona(compra, `SMART TV 55 LG PARC ${parcela}/10`, -389.9);
-  }
+  //
+  // ⭐⭐ As três compras novas provam o que a **D-008** decidiu: o agrupamento é por valor,
+  //     total e dia — **nunca por nome**. Cada parcela chega com o estabelecimento escrito
+  //     de um jeito, como o extrato real entrega, e as quatro viram uma compra só.
+  // ⭐ E a última parcela de cada uma difere de **um centavo**: é o arredondamento que o
+  //     banco distribui, e o caso que a tolerância de `dinheiro.ts` existe para cobrir.
+  parcelada(['SMART TV 55 LG', 'SMART TV 55 LG', 'SMART TV 55 LG', 'SMART TV 55 LG', 'SMART TV 55 LG', 'SMART TV 55 LG'], 10, 3, 0, 389.9, 15);
+
+  // ⭐ Quitada: as três parcelas presentes. Ela aparece em **Quitadas** e ⚠️ não entra em
+  //   total nenhum — o comprometido é o que ainda vai sair, e esta já saiu inteira.
+  parcelada(['AMAZON BR', 'AMZN MKTPLACE BR', 'AMAZON.COM.BR'], 3, 1, 0, 129.9, 8);
+
+  parcelada(
+    ['MAGAZINE LUIZA', 'MAGALU *LOJA 042', 'MAGAZ LUIZA SA', 'MAGALU PAGAMENTOS', 'MAGAZINE LUIZA SA', 'MAGALU *MKTPLACE'],
+    12, 5, 0, 249.9, 20,
+  );
+
+  parcelada(['LATAM AIRLINES', 'LATAM LINHAS AEREAS', 'TAM LINHAS AEREAS', 'LATAM *PASSAGEM'], 6, 2, 2, 89.9, 26);
 
   // 13 · Reembolso tardio. ⭐ Não é estorno: nome diferente e três semanas depois, então as
   //      duas linhas ficam. A devolução entra positiva e **não é renda** — é para ela que a

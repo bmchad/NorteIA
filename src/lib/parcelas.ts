@@ -1,3 +1,5 @@
+import { mesmoValor } from './dinheiro';
+
 /**
  * O que ainda falta pagar das compras parceladas.
  *
@@ -161,7 +163,11 @@ export function agruparParcelas(transacoes: any[]): GrupoDeParcelas[] {
       // ⚠️ Tolerância de um centavo, não igualdade exata: o banco distribui o arredondamento
       // da compra entre as parcelas, e a última costuma diferir de um centavo. Comparar o
       // texto de `toFixed(2)` deixava essa parcela fora da própria compra.
-      return Math.abs(Math.abs(Number(b.valor)) - valor) < 0.01
+      //
+      // ⛔ E a tolerância **em ponto flutuante não funcionava**: `129,90` contra `129,91`
+      // agrupava e `389,90` contra `389,91` não, porque a subtração dá 0.00999… num caso e
+      // 0.01000… no outro. A comparação mora em `dinheiro.ts` e roda em centavos inteiros.
+      return mesmoValor(b.valor, valor)
         && (b.parcela_total || 1) === total
         && Math.abs(parseInt(String(b.data).split('-')[2], 10) - dia) <= 2;
     });

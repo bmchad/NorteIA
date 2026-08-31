@@ -16,6 +16,7 @@
  * `src/lib/parcelas.ts`, e contá-lo de novo como fixo seria dupla contagem.
  */
 import { getCycleKey } from './ciclo';
+import { mesmoValor } from './dinheiro';
 
 /**
  * Ocorrências mínimas para virar proposta de gasto fixo.
@@ -203,7 +204,7 @@ interface Candidato {
 function mesmoCompromisso(fixo: any, c: Candidato): boolean {
   if (fixo.origem === 'auto-valor-dia') {
     const diaBate = fixo.dia != null && Math.abs(Number(fixo.dia) - c.dia) <= TOLERANCIA_DIA;
-    return diaBate && Math.abs(Math.abs(Number(fixo.valor) || 0) - c.valor) < 0.01;
+    return diaBate && mesmoValor(fixo.valor, c.valor);
   }
 
   if (fixo.assinatura) {
@@ -397,7 +398,7 @@ export function detectarPropostas(
       continue;
     }
     // Casa e concorda: nada a propor.
-    if (Math.abs(Number(casado.valor) - p.valor) < 0.01 && Number(casado.dia) === p.dia) continue;
+    if (mesmoValor(casado.valor, p.valor) && Number(casado.dia) === p.dia) continue;
 
     saida.push({
       ...p,

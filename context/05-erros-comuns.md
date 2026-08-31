@@ -33,6 +33,7 @@ atualizado_em: 2026-08-30
 | Todo `406` se resolve garantindo que a linha exista | ⛔ **Não.** Depende de zero linhas ser ausência ou estado legítimo. Em `memory` é ausência, e um trigger resolve; em `transactions` é conta vazia, e aí o certo é `maybeSingle` | `30-decisoes-e-licoes.md` D-052 |
 | ⭐ `.limit(1).single()` pede uma linha | São intenções contrárias: `limit(1)` diz *no máximo uma*, `single()` diz *exatamente uma*. Onde os dois aparecem juntos, o errado é o `single()` | `30-decisoes-e-licoes.md` D-052 |
 | ⭐ O ciclo existe para bater com a fatura do banco | A âncora é o **salário** — o mês de uma pessoa começa quando o dinheiro entra. A fatura só costuma cair perto | `30-decisoes-e-licoes.md` D-002 |
+| ⭐ Tolerar “até um centavo” é escrever `Math.abs(a - b) < 0.01` | ⛔ **Não é.** 129,90 vs 129,91 dá 0.00999… e agrupa; 389,90 vs 389,91 dá 0.01000… e não agrupa. Dinheiro se compara em **centavos inteiros** (`src/lib/dinheiro.ts`) | `30-decisoes-e-licoes.md` D-056 |
 | `/parcelas` deveria agrupar pelo nome do estabelecimento | Agrupar por nome foi a primeira versão e **falhava** — o nome muda entre faturas da mesma compra | `30-decisoes-e-licoes.md` D-008 |
 | Gastos fixos entram nos balanços | ⚠️ **Não entram.** `fixos` é uma lista paralela, sem ligação com `transactions` | `02-paginas-do-balanco-geral.md` |
 | Existem três agentes de IA | São **dois** — extrair e classificar compromisso —, e o de extração tem três portas de entrada (imagem, planilha, PDF). ⚠️ Era um só até 30/08 | `03-agentes-de-ia.md` |
