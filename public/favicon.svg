@@ -1,19 +1,23 @@
-<!--
-  O ícone da aba: os mesmos quadrados que marcam o produto na sidebar, no cabeçalho da
-  landing e no hero — o `LayoutDashboard` do lucide-react, com a geometria copiada
-  exatamente de `node_modules/lucide-react/dist/esm/icons/layout-dashboard.mjs`.
-
-  Substitui o raio roxo que veio do andaime do projeto e nunca foi trocado.
-
-  Preenchido, e não traçado como no app: a 16 px numa aba, o traço de 2 px do lucide vira
-  1,3 px e as formas somem. Tile laranja sólido com quadrados brancos porque favicon precisa
-  contrastar tanto em aba clara quanto escura.
-
-  ⚠️ O `#FF6200` aqui é a ÚNICA duplicação legítima da cor de marca fora de `src/index.css`
-  (D-037): arquivo em `public/` não enxerga variável CSS, e o navegador não passa cor
-  nenhuma. Mudou `--marca`? Esta linha muda junto — não há como derivá-la.
--->
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <title>Assistente Itaú</title>
+  <desc>
+    Os mesmos quadrados que marcam o produto na sidebar, no cabeçalho da landing e no hero: o
+    LayoutDashboard do lucide-react, com a geometria copiada de
+    node_modules/lucide-react/dist/esm/icons/layout-dashboard.mjs. Substitui o raio roxo que veio
+    do andaime do projeto.
+
+    Preenchido, e não traçado como no app: a 16 px numa aba, o traço de 2 px do lucide vira 1,3 px
+    e as formas somem. Tile laranja sólido com quadrados brancos porque favicon precisa contrastar
+    tanto em aba clara quanto escura.
+
+    ATENÇÃO: o #FF6200 abaixo é a única duplicação legítima da cor de marca fora de src/index.css
+    (D-037). Arquivo em public/ não enxerga variável CSS e o navegador não passa cor nenhuma, então
+    não há como derivá-la. Mudou a variável de marca? Esta linha muda junto, à mão.
+
+    E este texto está em desc, não em comentário: dois hifens seguidos são proibidos dentro de
+    comentário XML, e a variável de marca tem dois no nome. O arquivo inteiro deixava de fazer
+    parse, e o navegador seguia mostrando o ícone antigo do cache como se nada tivesse mudado.
+  </desc>
   <rect width="32" height="32" rx="7" fill="#FF6200"/>
   <g transform="translate(4 4)" fill="#ffffff">
     <rect x="3" y="3" width="7" height="9" rx="1.5"/>
