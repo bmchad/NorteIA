@@ -54,12 +54,31 @@ function camposParcela(modo: Modo): string {
   return '- "parcela_atual": Número da parcela atual (se for compra parcelada, ex: "1 de 10" -> 1). Se não houver, retorne null.\n- "parcela_total": Total de parcelas (ex: "1 de 10" -> 10). Se não houver, retorne null.';
 }
 
-/** De onde a categoria pode ser deduzida — a planilha pode ter uma coluna própria. */
+/**
+ * De onde a categoria pode ser deduzida — a planilha pode ter uma coluna própria.
+ *
+ * ⛔ **A regra antiga mandava devolver `null` para toda entrada, e isso virou um defeito.**
+ * Ela nasceu quando `categories` era só uma taxonomia de gasto: categorizar entrada era
+ * ruído. Depois veio `categories.e_renda` (D-025), e com ele a lista passou a ter um lado de
+ * renda — mas o prompt continuava proibindo o modelo de usá-lo. O sintoma: `SALARIO EMPRESA
+ * XYZ` entrava sem categoria nenhuma, para sempre, por instrução explícita.
+ *
+ * ⭐⭐ **E o estrago não parava na linha sem rótulo.** O card Renda do Dashboard só conta a
+ * entrada cuja categoria está marcada como renda, e cai em "toda entrada conta" **enquanto
+ * nenhuma categoria estiver marcada**. Quando a semente passou a marcar `Salário` e `Outras
+ * Receitas` (D-051), o fallback desligou — e como nenhuma entrada tinha categoria, a renda
+ * virou **zero**. Duas decisões certas, cada uma inofensiva sozinha.
+ *
+ * ⭐ **A lista não se divide por `e_renda` aqui, de propósito.** Restringir a entrada às
+ * categorias de renda impediria justamente o caso que a D-051 existe para resolver:
+ * devolução e reembolso são **positivos que não são renda**, e vão para uma categoria que
+ * NÃO está marcada.
+ */
 function campoCategoria(modo: Modo, categorias: string): string {
   const fonte = modo === 'planilha'
     ? 'de acordo com o nome, apelido ou qualquer coluna de categoria da planilha'
     : 'de acordo com o nome e apelido da transação';
-  return `- "categoria_sugerida": Se o "valor" for negativo (saída), deduza a categoria mais provável ${fonte} e selecione obrigatoriamente um dos seguintes valores exatos da nossa lista: [ ${categorias} ]. Se o "valor" for positivo (entrada/receita), ou se nenhuma categoria da lista fizer sentido, retorne null.`;
+  return `- "categoria_sugerida": Deduza a categoria mais provável ${fonte} e selecione obrigatoriamente um dos seguintes valores exatos da nossa lista: [ ${categorias} ]. Isto vale para SAÍDAS E TAMBÉM PARA ENTRADAS: um salário pertence à categoria de salário, uma receita avulsa à de outras receitas, e uma devolução ou reembolso à categoria de reembolso — quando essas categorias existirem na lista acima. Se nenhuma categoria da lista fizer sentido, retorne null.`;
 }
 
 /**

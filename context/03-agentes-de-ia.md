@@ -142,7 +142,7 @@ O prompt pede **apenas** um array JSON, um objeto por transação:
 | `mes_fatura` | nome do mês em português, capitalizado, ou `null` |
 | `hora` | `HH:MM:SS`; padrão `12:00:00` |
 | `parcela_atual` / `parcela_total` | de `"3 de 10"` → `3` e `10`. ⚠️ Na planilha, **só** quando o padrão `N/M` está escrito na descrição (D-048) |
-| `categoria_sugerida` | ⭐ **obrigatoriamente** um nome da lista do usuário, injetada no prompt |
+| `categoria_sugerida` | ⭐ **obrigatoriamente** um nome da lista do usuário, injetada no prompt. ⚠️ **Vale para entrada também** desde 30/08: até aí o prompt mandava devolver `null` em todo valor positivo, e o salário entrava sem categoria para sempre → D-054 |
 
 **Duas regras críticas que o prompt impõe:**
 1. Transação sem data **ou** sem nome **ou** sem valor claro é **ignorada por inteiro** — nunca
