@@ -43,6 +43,9 @@ atualizado_em: 2026-08-30
 | O ciclo corrente pode ser comparado com os anteriores direto | Só **no mesmo ponto**: um ciclo pela metade contra ciclos inteiros diz sempre que você gastou menos | `30-decisoes-e-licoes.md` D-057 |
 | ⭐⭐ Se cada regra reivindica sua transação, o total está certo | ⛔ A cascata precisa atravessar as **três camadas**. Ela parava dentro da detecção de fixos, e uma academia rotulada + aceita como fixo virava o dobro | `30-decisoes-e-licoes.md` D-033 |
 | Gasto fixo se cadastra à mão em `/compromissos` | ⚠️ **Cadastra sim** — mas o campo pede o **nome exato do extrato**, porque é por ele que o fixo acha as próprias cobranças | `30-decisoes-e-licoes.md` D-045 |
+| ⭐ A recorrência é detectada pelo nome que se repete | São **duas** regras: `nome + valor` primeiro e, sobre o que sobrou, `valor + dia` — que é a única capaz de pegar a cobrança cujo nome muda a cada mês | `30-decisoes-e-licoes.md` D-060 |
+| A tolerância de ±2 dias compara cada cobrança com a anterior | ⛔ Compara todas com a **primeira do array**. Sem `order` na consulta, a âncora é a que o Postgres devolver primeiro | `30-decisoes-e-licoes.md` D-060 |
+| Uma descrição de extrato é texto inofensivo | ⚠️ Um `ref 08/2026` vira **parcela 8 de 202**: o prompt extrai parcela do padrão `N/M` escrito na linha | `30-decisoes-e-licoes.md` D-060 |
 | ⭐ O gasto fixo é identificado pelo `nome` | ⛔ Pela **assinatura**. `fixos.nome` guarda o apelido e é só rótulo — usá-lo como chave fez um fixo com 4 cobranças mostrar 1 | `30-decisoes-e-licoes.md` D-043 |
 | ⭐ Um limiar só, 3, para tudo | São **dois critérios**: detectar exige 2, sobrescrever o usuário exige 3. Demorar a detectar subestima o comprometido | `30-decisoes-e-licoes.md` D-040 |
 | Toda proposta de gasto fixo espera sua aprovação | Com 3+ ocorrências ela **entra sozinha**, com aviso. E excluir um fixo detectado registra recusa — senão ele voltaria | `30-decisoes-e-licoes.md` D-041 |

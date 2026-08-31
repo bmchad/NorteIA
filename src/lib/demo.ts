@@ -66,6 +66,28 @@ function dia(hoje: Date, k: number, diaDoMes: number): string {
 }
 
 /**
+ * O quanto o dia de cada ciclo escorrega do dia típico.
+ *
+ * ⭐⭐ **Débito automático não cai no mesmo número todo mês** — ele escorrega para o dia útil.
+ * Sem essa variação, três mecanismos do produto ficam sem uso: a tolerância de ±2 dias no
+ * agrupamento, a **moda** dos dias que decide o `dia` do gasto fixo, e o ajuste de fim de
+ * semana. ⛔ E `ajusteDeDia` **nunca** devolvia `'adiar'`, porque empate resolve para
+ * `'antecipar'` e o dado nunca desempatava.
+ *
+ * ⚠️ **Os três números foram escolhidos, não sorteados:**
+ * · **amplitude 2** (de −1 a +1) porque a regra `valor + dia` compara todas as ocorrências
+ *   contra a **primeira do array**, não entre si. Espalhar mais deixaria uma ponta fora da
+ *   tolerância quando a âncora calhasse na outra ponta — e a órfã cairia na camada
+ *   Previsível, virando dupla contagem;
+ * · **o 0 aparecendo mais vezes** para a moda ser folgada. Moda instável faria o produto
+ *   emitir uma proposta de *corrigir* cuja única diferença é o dia, porque ali a comparação
+ *   de dia é por igualdade exata;
+ * · **mais deslocamentos para cima que para baixo** (dois +1 contra um −1), que é o que faz
+ *   `ajusteDeDia` finalmente devolver `'adiar'`.
+ */
+const OSCILACAO = [0, 1, -1, 0, 1, 0];
+
+/**
  * O dia `diaDoMes` do mês corrente, ou `null` se ele ainda não chegou.
  *
  * ⛔⛔ **Nunca no futuro.** Gerar uma linha adiante de hoje seria pior que não gerar: um
@@ -108,6 +130,8 @@ const centavos = (n: number) => Math.round(n * 100) / 100;
 export const ROTEIRO: string[] = [
   'Salário mensal — alimenta Renda e "o que sobra"',
   'Netflix, Spotify e academia — aceite automático (3+ ocorrências)',
+  '⭐ A conta de R$ 94,90 com um nome diferente a cada mês — só a regra valor + dia a pega',
+  'Dias que escorregam ±1 — a tolerância, a moda e o ajuste de fim de semana',
   'Curso de inglês em 2 meses — proposta, não aceite automático',
   'Internet que subiu de preço — proposta de correção de valor',
   'TV a cabo que sumiu — aviso de "sem cobrança há N ciclos"',
@@ -169,54 +193,95 @@ function montarLinhas(hoje: Date): Linha[] {
     });
   };
 
-  const mercados = ['ATACADAO', 'ASSAI ATACADISTA', 'CARREFOUR'];
-  const ruido = ['UBER *TRIP', 'PADARIA DO BAIRRO', 'DROGASIL', 'CINEMARK', 'PIX ENVIADO'];
+  /** O dia típico do ciclo `k`, já escorregado. Ver `OSCILACAO`. */
+  const diaUtil = (k: number, tipico: number) => dia(hoje, k, tipico + OSCILACAO[k % OSCILACAO.length]);
+
+  // ⭐ Sujeira de maquininha: é assim que o nome chega no extrato. Aqui ela testa a
+  //    **classificação pela IA**, que precisa achar a bandeira sob o prefixo da adquirente —
+  //    outro mecanismo, não o da detecção de recorrente.
+  // ⚠️ Sujo, mas não irreconhecível: `PAG*ATACADAO` mantém a marca, `PAG*4412 SP` não. Se a
+  //    IA parar de classificar, a camada Previsível esvazia e a demonstração piora.
+  const mercados = ['PAG*ATACADAO SUPERM', 'MP *ASSAI ATACADISTA', 'CARREFOUR COM BR 4412'];
+  const ruido = ['UBER *TRIP SP', 'PAG*PADARIA DO BAIRRO', 'DROGASIL 1147', 'CINEMARK BR', 'PIX ENVIADO'];
+
+  /**
+   * ⭐⭐ A conta cujo nome muda a cada mês — o caso que só a regra `valor + dia` pega.
+   *
+   * Num extrato de verdade a mesma cobrança chega como Pix com código de barras, como débito
+   * automático com número de contrato, e como o nome do provedor por extenso. ⛔ A regra
+   * `nome + valor` vê seis cobranças distintas, cada uma com uma ocorrência, e não reivindica
+   * nenhuma — elas sobram inteiras para a segunda regra, que é o ponto.
+   *
+   * ⚠️ **O valor tem de ser idêntico nas seis**, e isso é contraintuitivo: a tolerância de um
+   * centavo vale para *casar com um fixo já aceito*, mas o **agrupamento** compara o valor
+   * como texto. Um centavo aqui partiria a cobrança em dois grupos.
+   *
+   * ⛔⛔ **E nenhum nome pode conter um padrão `N/M`.** O prompt manda extrair parcela quando
+   * ele aparece escrito na linha, então um `ref 08/2026` vira "parcela 8 de 202" e a cobrança
+   * some da camada Recorrente para virar um parcelamento inventado. É o defeito exato que a
+   * D-048 abriu espaço para existir, e o único jeito de não cair nele é não escrever datas
+   * com barra nas descrições.
+   */
+  const CONTA_CAOTICA = [
+    'Debito automatico: "0071845220196"',
+    'CLARO NET FIXO',
+    'Pix enviado: "Cp :48213097-CLARO"',
+    'Débito automático Net Serviço',
+    'PAGTO CONTA CLARO SA',
+    'DEB AUT CLARO 0071845220196',
+  ];
 
   for (let k = 0; k < MESES; k++) {
     // 1 · Renda. Sem ela, "o que sobra" não tem divisor e o card Renda fica vazio.
-    adiciona(dia(hoje, k, 5), 'SALARIO EMPRESA XYZ', 5200);
+    adiciona(diaUtil(k, 5), 'SALARIO EMPRESA XYZ', 5200);
 
     // 2 · Três assinaturas em todos os seis meses: 3+ ocorrências entram sozinhas.
-    adiciona(dia(hoje, k, 15), 'NETFLIX.COM', -44.9);
-    adiciona(dia(hoje, k, 8), 'SPOTIFY', -21.9);
-    adiciona(dia(hoje, k, 10), 'ACADEMIA SMARTFIT', -99.9);
+    //     ⭐ O dia oscila e o agrupamento não sente: com nome estável quem reivindica é a
+    //     regra `nome + valor`, que ignora o dia por completo. A oscilação só alimenta a moda
+    //     e o ajuste de fim de semana.
+    adiciona(diaUtil(k, 15), 'NETFLIX.COM', -44.9);
+    adiciona(diaUtil(k, 8), 'SPOTIFY', -21.9);
+    adiciona(diaUtil(k, 10), 'ACADEMIA SMARTFIT', -99.9);
 
     // 4 · O mesmo nome com dois valores: nos três primeiros meses 99, nos três últimos 109.
     //     É o que gera a proposta de **correção** depois que o fixo já existe.
-    adiciona(dia(hoje, k, 12), 'INTERNET FIBRA 300MB', k < 3 ? -99 : -109);
+    adiciona(diaUtil(k, 12), 'INTERNET FIBRA 300MB', k < 3 ? -99 : -109);
+
+    // 16 · ⭐⭐ A conta de nome caótico, por volta do dia 10. Ver `CONTA_CAOTICA`.
+    adiciona(diaUtil(k, 10), CONTA_CAOTICA[k % CONTA_CAOTICA.length], -94.9);
 
     // 7 · Supermercado: três bandeiras, uma natureza. O nome varia e o tipo não.
     const quantos = 2 + Math.floor(r(0, 2));
     for (let i = 0; i < quantos; i++) {
-      adiciona(dia(hoje, k, 6 + i * 9), escolha(mercados, r(0, 3)), -r(180, 420));
+      adiciona(diaUtil(k, 6 + i * 9), escolha(mercados, r(0, 3)), -r(180, 420));
     }
 
     // 8 · Combustível: segundo tipo previsível, pelo mesmo motivo.
-    adiciona(dia(hoje, k, 9), 'POSTO IPIRANGA', -r(150, 280));
-    adiciona(dia(hoje, k, 23), 'SHELL SELECT', -r(150, 280));
+    adiciona(diaUtil(k, 9), 'POSTO IPIRANGA AUTO', -r(150, 280));
+    adiciona(diaUtil(k, 23), 'SHELL SELECT 0413', -r(150, 280));
 
     // 9 · Delivery: volume. Sem ele o extrato parece sintético.
     for (let i = 0; i < 2; i++) {
-      adiciona(dia(hoje, k, 7 + i * 8), 'IFOOD *RESTAURANTE', -r(25, 90));
+      adiciona(diaUtil(k, 7 + i * 8), 'IFOOD *IFD BRASIL', -r(25, 90));
     }
 
     // 12 · Ruído realista — o que existe em qualquer extrato e não é compromisso nenhum.
     // ⚠️ Dois por ciclo, e não três: o arquivo cresceu com o ciclo corrente, e o gargalo da
     // importação é o limite de SAÍDA do modelo — um objeto JSON por transação.
     for (let i = 0; i < 2; i++) {
-      adiciona(dia(hoje, k, 4 + i * 8), escolha(ruido, r(0, 5)), -r(18, 120));
+      adiciona(diaUtil(k, 4 + i * 8), escolha(ruido, r(0, 5)), -r(18, 120));
     }
   }
 
   // 3 · Duas ocorrências só, nos dois últimos meses: fica em **proposta**, não é aceita
   //     sozinha. É o que mostra a diferença entre os dois limiares (2 e 3).
-  adiciona(dia(hoje, MESES - 2, 20), 'CURSO INGLES ONLINE', -189);
-  adiciona(dia(hoje, MESES - 1, 20), 'CURSO INGLES ONLINE', -189);
+  adiciona(diaUtil(MESES - 2, 20), 'CURSO INGLES ONLINE', -189);
+  adiciona(diaUtil(MESES - 1, 20), 'CURSO INGLES ONLINE', -189);
 
   // 5 · Presente nos quatro primeiros meses e ausente nos dois últimos: o card do fixo passa
   //     a dizer "sem cobrança há N ciclos". ⚠️ São quatro ocorrências, e não duas, porque o
   //     aviso só existe para fixo **ativo** — e ativo sozinho exige 3.
-  for (let k = 0; k < 4; k++) adiciona(dia(hoje, k, 18), 'TV A CABO CLARO', -89.9);
+  for (let k = 0; k < 4; k++) adiciona(diaUtil(k, 18), 'TV A CABO CLARO', -89.9);
 
   // 6 · ⭐⭐ A cobrança NÃO MENSAL, e ela está posicionada com precisão: a cada dois ciclos,
   //     em k=0, 2 e 4, de modo que a **próxima caia no ciclo corrente**. É o caso que o card
@@ -226,12 +291,12 @@ function montarLinhas(hoje: Date): Linha[] {
   //     existiria depois de um clique. Com três ela é aceita sozinha.
   //     ⚠️ E o silêncio de 2 ciclos fica abaixo do limiar `periodicidade + 1 = 3`, então não
   //     dispara alarme falso de encerramento. O painel amortiza 143,70 / 2 por mês.
-  for (const k of [0, 2, 4]) adiciona(dia(hoje, k, 22), 'SEGURO RESIDENCIAL', -143.7);
+  for (const k of [0, 2, 4]) adiciona(diaUtil(k, 22), 'SEGURO RESIDENCIAL', -143.7);
 
   // 14 · ⭐ O pendente mensal. Dia 25 — depois do corte do ciclo corrente —, então ele nunca
   //      tem lançamento neste ciclo e o card diz "cai dia 25". Seis ocorrências nos ciclos
   //      fechados o fazem ser aceito sozinho, sem clique nenhum.
-  for (let k = 0; k < MESES; k++) adiciona(dia(hoje, k, 25), 'PLANO ODONTO', -89);
+  for (let k = 0; k < MESES; k++) adiciona(diaUtil(k, 25), 'PLANO ODONTO', -89);
 
   // 10 · Estorno. ⚠️ **Mesmo dia, mesmo nome, mesmo valor absoluto** — a regra de
   //      `separarEstornos` é estrita nos três campos, e um nome diferente ("ESTORNO IFOOD")
@@ -294,11 +359,14 @@ function montarLinhas(hoje: Date): Linha[] {
   agora(10, 'ACADEMIA SMARTFIT', -99.9);
   agora(12, 'INTERNET FIBRA 300MB', -109);
   agora(15, 'NETFLIX.COM', -44.9);
+  // ⭐ A conta caótica também cai neste ciclo, e com o sétimo nome. Ela aparece em "já caiu"
+  //   com um nome que não diz nada — que é exatamente a tese: o produto a reconheceu assim.
+  agora(10, 'Deb aut CLARO NET FIXO', -94.9);
   agora(6, escolha(mercados, r(0, 3)), -r(180, 420));
   agora(15, escolha(mercados, r(0, 3)), -r(180, 420));
-  agora(9, 'POSTO IPIRANGA', -r(150, 280));
-  agora(7, 'IFOOD *RESTAURANTE', -r(25, 90));
-  agora(15, 'IFOOD *RESTAURANTE', -r(25, 90));
+  agora(9, 'POSTO IPIRANGA AUTO', -r(150, 280));
+  agora(7, 'IFOOD *IFD BRASIL', -r(25, 90));
+  agora(15, 'IFOOD *IFD BRASIL', -r(25, 90));
   agora(4, escolha(ruido, r(0, 5)), -r(18, 120));
   agora(12, escolha(ruido, r(0, 5)), -r(18, 120));
 

@@ -75,7 +75,13 @@ export default function Compromissos() {
 
       const [mem, tx, fx, tp, ex] = await Promise.all([
         supabase.from('memory').select('ciclo_dia').maybeSingle(),
-        supabase.from('transactions').select('*').eq('pendente', false),
+        // ⛔⛔ O `order` NAO e cosmetico. A regra `valor + dia` **ancora no primeiro
+        // elemento do array**: o dia dele vira o centro da tolerancia, e `fixos.nome` e a
+        // `assinatura` saem dele. Sem ordem definida, o Postgres devolve o que quiser e a
+        // assinatura de um gasto fixo muda entre carregamentos -- e `casarComFixo` compara
+        // assinaturas antes de tudo, entao a proposta deixa de casar com o proprio fixo e
+        // reaparece duplicada. So aparece quando o nome varia entre as cobrancas. → D-060
+        supabase.from('transactions').select('*').eq('pendente', false).order('data'),
         supabase.from('fixos').select('*'),
         supabase.from('compromissos').select('*').order('titulo'),
         supabase.from('compromisso_exemplos').select('id, slug, transaction_id, transactions(data, nome, apelido)'),
