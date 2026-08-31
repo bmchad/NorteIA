@@ -268,7 +268,7 @@ function montarLinhas(hoje: Date): Linha[] {
 
   for (let k = 0; k < MESES; k++) {
     // 1 · Renda. Sem ela, "o que sobra" não tem divisor e o card Renda fica vazio.
-    adiciona(diaUtil(k, 5), 'SALARIO EMPRESA XYZ', 5200);
+    adiciona(diaUtil(k, 5), 'SALARIO EMPRESA XYZ', 3000);
 
     // 2 · Três assinaturas em todos os seis meses: 3+ ocorrências entram sozinhas.
     //     ⭐ Só a Netflix tem nome estável, e é de propósito: ela é reivindicada pela regra
@@ -394,7 +394,7 @@ function montarLinhas(hoje: Date): Linha[] {
     if (data) adiciona(data, descricao, valor);
   };
 
-  agora(5, 'SALARIO EMPRESA XYZ', 5200);
+  agora(5, 'SALARIO EMPRESA XYZ', 3000);
   agora(8, SPOTIFY[MESES % SPOTIFY.length], -21.9);
   agora(10, SMART_FIT[MESES % SMART_FIT.length], -99.9);
   agora(12, 'INTERNET FIBRA 300MB', -109);
