@@ -195,6 +195,97 @@ export function ritmoDoCiclo(
   cicloDia: number,
   hoje: Date = new Date(),
 ): RitmoDoCiclo | null {
+  const curva = curvaDoCiclo(transacoes, cicloDia, hoje);
+  if (!curva) return null;
+
+  // ⭐ Uma leitura da curva, no dia de hoje. O cálculo em si não mora mais aqui — é o mesmo
+  // motivo da D-007: duas implementações da mesma média divergem sem ninguém notar.
+  const i = curva.diaDoCiclo - 1;
+  const gastoAtual = curva.atual[i];
+  const referencia = curva.media[i];
+
+  // ⚠️⚠️ **A subtração volta para centavos inteiros antes de virar reais.** `16,29 − 0` em
+  // ponto flutuante dá `16.289999999999992`, e `diferenca` é número exibido: subtrair dois
+  // valores já divididos por 100 introduz um resto que a versão anterior não tinha, porque
+  // ela subtraía centavos e dividia uma vez só. `Math.round(x * 100)` recupera o inteiro
+  // exato, já que os dois lados saíram de um `Math.round` em centavos.
+  const emCentavos = Math.round(gastoAtual * 100) - Math.round(referencia * 100);
+
+  return {
+    gastoAtual,
+    referencia,
+    diferenca: emCentavos / 100,
+    ciclosDeBase: curva.ciclosDeBase,
+    diaDoCiclo: curva.diaDoCiclo,
+    diasDoCiclo: curva.diasDoCiclo,
+    // `PISO_DE_RELEVANCIA` está em centavos, como esta diferença.
+    emLinha: Math.abs(emCentavos) < PISO_DE_RELEVANCIA,
+  };
+}
+
+export interface CurvaDoCiclo {
+  /**
+   * O acumulado **médio** dos ciclos de base, um valor por dia do ciclo, em reais.
+   * `media[0]` é o dia 1. Monótona não decrescente, porque é acumulado.
+   */
+  media: number[];
+  /**
+   * O acumulado do ciclo **corrente**, no mesmo formato.
+   *
+   * ⚠️ Depois de `diaDoCiclo` ele fica plano: o ciclo corrente não tem dado de amanhã, e
+   * inventá-lo aqui seria projeção disfarçada de medição. Quem quiser projetar o resto do
+   * ciclo compõe `atual[hoje] + (media[d] − media[hoje])` — mas essa é uma decisão de quem
+   * chama, não deste módulo.
+   */
+  atual: number[];
+  /** Quantos ciclos fechados sustentam a média — inclui os que ficaram em zero. */
+  ciclosDeBase: number;
+  /** O dia do ciclo corrente em que a leitura foi feita, 1-based. */
+  diaDoCiclo: number;
+  /** O comprimento do ciclo corrente, de 28 a 31. `media.length === diasDoCiclo`. */
+  diasDoCiclo: number;
+}
+
+/**
+ * A curva de gasto acumulado ao longo do ciclo — a média dos ciclos passados, dia a dia.
+ *
+ * ⭐⭐ **É `ritmoDoCiclo` generalizada de um dia para o ciclo inteiro**, e ele passou a ser
+ * uma leitura desta. Existe porque o Mercado de Datas precisa da forma da curva, não de um
+ * ponto: ninguém gasta em linha reta — há pico no começo do ciclo, vale no meio, mercado no
+ * fim de semana —, e uma reta de 0 até a média inventaria um formato que os dados não têm.
+ *
+ * Os três cuidados que já estavam em `ritmoDoCiclo` continuam valendo, e são o motivo de
+ * este cálculo não ser duas linhas de `reduce` na tela:
+ *
+ * ⭐⭐ **A base exclui o ciclo corrente.** `amortizadoObservado` divide pelo número de ciclos
+ * observados e o corrente parcial entra ali como ciclo cheio — comparar o ciclo corrente
+ * contra uma média que o contém é comparar um número consigo mesmo, e o viés puxa a média
+ * para baixo justamente na direção que apagaria o alerta.
+ *
+ * ⭐ **"Mesmo ponto" é medido em dias decorridos, não em fração do ciclo.** Ciclos têm de 28 a
+ * 31 dias; o dia 18 de um e o dia 18 do outro tiveram a mesma quantidade de oportunidades de
+ * gastar. Converter para porcentagem compararia 58% com 64% e trocaria um eixo que a pessoa
+ * vive por um que ela não vive.
+ *
+ * ⭐ **Ciclo vazio conta como zero — mas só a partir da primeira ocorrência.** Um mês sem
+ * supermercado é informação sobre o hábito e tem de diluir a média. ⛔ Já um ciclo anterior à
+ * primeira compra é ausência de dado, e contá-lo inventaria uma economia que não houve.
+ *
+ * ⚠️ Devolve `null` quando não há base suficiente. A tela precisa distinguir isso de "está
+ * normal", senão o silêncio fica ambíguo.
+ *
+ * ⚠️ **O comprimento do vetor é o do ciclo CORRENTE.** Um ciclo de base com 31 dias tem um dia
+ * 31 que o corrente de 30 não tem, e ele é descartado — no dia 30 daquele ciclo aquela compra
+ * ainda não havia acontecido. O contrário — um ciclo de base mais curto — não deixa buraco,
+ * porque o acumulado do último dia dele já é o total, e é o que os dias seguintes repetem.
+ *
+ * @param transacoes as do tipo, **já depuradas pela cascata** (`CompromissoDetectado.transacoes`)
+ */
+export function curvaDoCiclo(
+  transacoes: any[],
+  cicloDia: number,
+  hoje: Date = new Date(),
+): CurvaDoCiclo | null {
   if (transacoes.length === 0) return null;
 
   const atual = cicloDeHoje(cicloDia, hoje);
@@ -217,24 +308,46 @@ export function ritmoDoCiclo(
 
   if (base.length < MINIMO_DE_CICLOS_DE_BASE) return null;
 
-  // ⚠️ O mesmo predicado dos dois lados, inclusive no ciclo corrente. Sem o `dia <= posicao`
-  // aqui, uma transação que o `mes_fatura` empurrou para o fim deste ciclo seria contada hoje
-  // contra ciclos passados que só a contariam no fim — o único jeito de o número mentir.
-  const acumulado = (chave: string) => marcadas.reduce(
-    (soma, m) => (m.chave === chave && m.dia <= posicao ? soma + m.valor : soma), 0,
-  );
+  /**
+   * O acumulado de um ciclo até cada dia, em centavos — um passo só sobre as transações.
+   *
+   * ⚠️ **O corte por dia é `<= d`, e é o mesmo predicado em todos os ciclos.** Era o
+   * `dia <= posicao` de `ritmoDoCiclo`, e a razão dele não mudou: sem ele, uma transação que
+   * o `mes_fatura` empurrou para o fim deste ciclo seria contada hoje contra ciclos passados
+   * que só a contariam no fim — o único jeito de o número mentir.
+   */
+  const acumuladoPorDia = (chave: string): number[] => {
+    const porDia = new Array<number>(dias).fill(0);
+    for (const m of marcadas) {
+      if (m.chave !== chave) continue;
+      // ⚠️⚠️ **Dia além do fim do ciclo corrente é DESCARTADO, não dobrado no último dia.**
+      // Um ciclo de base com 31 dias tem um dia 31 que o corrente de 30 não tem — e no dia 30
+      // daquele ciclo aquela compra ainda não havia acontecido. Somá-la ao dia 30 inflaria a
+      // referência com dinheiro que, no ponto comparado, ainda não tinha saído. Era o que o
+      // `dia <= posicao` de `ritmoDoCiclo` já fazia; preservar isso é o que mantém o número
+      // do /compromissos idêntico ao de antes.
+      if (m.dia > dias) continue;
+      porDia[m.dia - 1] += m.valor;
+    }
+    for (let d = 1; d < dias; d++) porDia[d] += porDia[d - 1];
+    return porDia;
+  };
 
-  const referencia = Math.round(base.reduce((soma, k) => soma + acumulado(k), 0) / base.length);
-  const gastoAtual = acumulado(atual);
-  const diferenca = gastoAtual - referencia;
+  const soma = new Array<number>(dias).fill(0);
+  for (const chave of base) {
+    const c = acumuladoPorDia(chave);
+    for (let d = 0; d < dias; d++) soma[d] += c[d];
+  }
+
+  const doCicloAtual = acumuladoPorDia(atual);
 
   return {
-    gastoAtual: gastoAtual / 100,
-    referencia: referencia / 100,
-    diferenca: diferenca / 100,
+    media: soma.map(v => Math.round(v / base.length) / 100),
+    // ⚠️ Plano depois de hoje: o acumulado repete o último valor conhecido porque não há
+    // transação futura, não porque o gasto tenha parado. Ver o comentário do campo.
+    atual: doCicloAtual.map((v, d) => (d < posicao ? v : doCicloAtual[posicao - 1]) / 100),
     ciclosDeBase: base.length,
     diaDoCiclo: posicao,
     diasDoCiclo: dias,
-    emLinha: Math.abs(diferenca) < PISO_DE_RELEVANCIA,
   };
 }
