@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter, ArrowLeftRight, Layers, BookOpen } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter, ArrowLeftRight, Layers, BookOpen, CreditCard } from 'lucide-react';
 import { TETO_EXEMPLOS, TETO_TIPOS_ATIVOS } from '../lib/compromissos';
 import ConfirmModal from '../components/ConfirmModal';
 import ExemplosDoCompromisso from '../components/ExemplosDoCompromisso';
@@ -49,10 +49,27 @@ export default function Perfil() {
   const [cicloDia, setCicloDia] = useState<number>(1);
   const [isSavingCiclo, setIsSavingCiclo] = useState(false);
 
+  /** `{ banco, dia }` — o dia em que a fatura daquele cartão vence. */
+  const [vencimentos, setVencimentos] = useState<any[]>([]);
+  /**
+   * Os bancos que aparecem nas transações do usuário, com quantas delas são de cartão.
+   *
+   * ⭐⭐ **Derivado dos dados, nunca de uma cópia da lista `BANCOS`.** O enum de bancos tem
+   * um dono só — `supabase/functions/ai-agents/lib/bancos.ts` —, e foi a D-011 que o
+   * consolidou lá, derrubando a `chk_banco` justamente porque a lista estava duplicada entre
+   * o Postgres e o prompt. Aquele arquivo vive em `supabase/functions/` (Deno) e o front não
+   * importa de lá. Derivar dos próprios lançamentos mostra só os bancos que a pessoa tem e
+   * não pode divergir de nada.
+   */
+  const [bancos, setBancos] = useState<{ nome: string; noCartao: number }[]>([]);
+  const [salvandoVencimento, setSalvandoVencimento] = useState<string | null>(null);
+
   useEffect(() => {
     fetchCores();
     fetchCategories();
     fetchCiclo();
+    fetchVencimentos();
+    fetchBancos();
   }, []);
 
   const fetchCiclo = async () => {
@@ -86,6 +103,82 @@ export default function Perfil() {
       console.error("Erro ao salvar ciclo:", err);
     } finally {
       setIsSavingCiclo(false);
+    }
+  };
+
+  const fetchVencimentos = async () => {
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+      const { data, error } = await supabase
+        .from('vencimentos')
+        .select('id, banco, dia')
+        .eq('user_id', user.id);
+      if (error) throw error;
+      setVencimentos(data ?? []);
+    } catch (err) {
+      console.error('Erro ao buscar vencimentos:', err);
+    }
+  };
+
+  const fetchBancos = async () => {
+    try {
+      const { data, error } = await supabase
+        .from('transactions')
+        .select('banco, tipo')
+        .not('banco', 'is', null);
+      if (error) throw error;
+
+      // A contagem de lançamentos no cartão não filtra a lista, só ordena e rotula: um banco
+      // sem nenhuma linha de cartão ainda pode ganhar vencimento agora, antes da primeira
+      // fatura entrar. O contrário — esconder o banco até a fatura chegar — deixaria a tela
+      // vazia justamente para quem está configurando o produto pela primeira vez.
+      const porBanco = new Map<string, number>();
+      for (const t of data ?? []) {
+        const nome = String(t.banco).trim();
+        if (!nome) continue;
+        porBanco.set(nome, (porBanco.get(nome) ?? 0) + (t.tipo === 'credito' ? 1 : 0));
+      }
+
+      setBancos(
+        [...porBanco.entries()]
+          .map(([nome, noCartao]) => ({ nome, noCartao }))
+          .sort((a, b) => b.noCartao - a.noCartao || a.nome.localeCompare(b.nome, 'pt-BR')),
+      );
+    } catch (err) {
+      console.error('Erro ao buscar bancos:', err);
+    }
+  };
+
+  /**
+   * Grava (ou apaga) o vencimento de um banco.
+   *
+   * ⛔ Campo vazio **apaga a linha**, e não grava um dia qualquer. Sem vencimento, o Mercado
+   * de Datas deixa aquele cartão fora da curva e diz isso na tela — que é o comportamento
+   * certo, pelo mesmo princípio do `reserva.ts`: chutar um dia produziria um aviso falso,
+   * pior que aviso nenhum.
+   */
+  const handleSaveVencimento = async (banco: string, valor: string) => {
+    setSalvandoVencimento(banco);
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+
+      if (valor.trim() === '') {
+        await supabase.from('vencimentos').delete().eq('user_id', user.id).eq('banco', banco);
+      } else {
+        // A mesma faixa do `CHECK` da coluna e do `ciclo_dia`: dia 29-31 não existe em todo
+        // mês, e um vencimento que some em fevereiro é um bug silencioso.
+        const dia = Math.max(1, Math.min(28, Number(valor)));
+        await supabase
+          .from('vencimentos')
+          .upsert({ user_id: user.id, banco, dia }, { onConflict: 'user_id,banco' });
+      }
+      await fetchVencimentos();
+    } catch (err) {
+      console.error('Erro ao salvar vencimento:', err);
+    } finally {
+      setSalvandoVencimento(null);
     }
   };
 
@@ -466,7 +559,7 @@ export default function Perfil() {
         <p className="text-text-light mt-1">
           Aqui você define <strong>o que existe</strong>: as categorias que classificam suas
           transações, o vocabulário que traduz os nomes do extrato, os compromissos que a IA
-          reconhece e o dia em que seu mês começa.
+          reconhece, o dia em que seu mês começa e o dia em que cada fatura vence.
         </p>
       </header>
 
@@ -1111,6 +1204,73 @@ export default function Perfil() {
           />
           {isSavingCiclo && <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>}
         </div>
+      </div>
+
+      {/* Vencimento das faturas */}
+      <div className="glass-panel p-6">
+        <h3 className="text-xl font-bold text-text mb-2 flex items-center gap-2">
+          <CreditCard size={20} className="text-primary" /> Vencimento das faturas
+        </h3>
+        {/* ⚠️⚠️ Vencimento não é fechamento, e a distinção decide o que se pode mexer.
+            `ciclo_dia` é onde o ciclo CORTA: mexer nele muda o /meses, o Dashboard e as
+            médias. O vencimento é quando o dinheiro SAI: mexer nele não muda estrutura
+            nenhuma, só a posição de um débito dentro do ciclo. */}
+        <p className="text-sm text-text-light mb-4">
+          Uma compra no cartão não sai da conta no dia em que você a faz — ela espera a fatura.
+          Diga em que dia a fatura de cada banco vence e o Mercado de Datas põe essa saída no
+          dia certo. Isto é diferente do dia em que seu mês começa, acima.
+        </p>
+
+        {bancos.length === 0 ? (
+          <p className="text-sm text-text-light italic">
+            Nenhum banco identificado nas suas transações ainda. Planilhas não trazem o banco;
+            prints e PDFs trazem.
+          </p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {bancos.map(({ nome, noCartao }) => {
+              const atual = vencimentos.find(v => v.banco === nome);
+              return (
+                <div key={nome} className="flex items-center gap-3 py-2 border-b border-border last:border-b-0">
+                  <span className="flex-1 min-w-0">
+                    <span className="text-sm font-semibold text-text block truncate">{nome}</span>
+                    <span className="text-xs text-text-light">
+                      {noCartao > 0
+                        ? `${noCartao} lançamento${noCartao > 1 ? 's' : ''} no cartão`
+                        : 'nenhum lançamento marcado como cartão'}
+                    </span>
+                  </span>
+                  <span className="text-sm text-text-light whitespace-nowrap">vence dia</span>
+                  <input
+                    type="number"
+                    min="1"
+                    max="28"
+                    placeholder="—"
+                    defaultValue={atual?.dia ?? ''}
+                    // ⚠️ `onBlur`, não `onChange`: digitar "1" a caminho de "15" gravaria o
+                    // dia 1 no meio do caminho, e o `ciclo_dia` acima só escapa disso porque
+                    // as setas do spinner andam de um em um.
+                    onBlur={(e) => {
+                      const novo = e.target.value.trim();
+                      if (novo === String(atual?.dia ?? '')) return;
+                      handleSaveVencimento(nome, novo);
+                    }}
+                    className="glass-input w-20 px-3 py-2 text-center font-bold text-azul [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                  />
+                  {salvandoVencimento === nome && (
+                    <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>
+                  )}
+                </div>
+              );
+            })}
+          </div>
+        )}
+
+        <p className="text-xs text-text-light mt-4">
+          ⛔ Banco sem dia preenchido fica <strong>fora</strong> da curva do Mercado de Datas —
+          o produto prefere dizer que não sabe a chutar um dia e avisar sobre um buraco que
+          talvez não exista.
+        </p>
       </div>
     </div>
   );
