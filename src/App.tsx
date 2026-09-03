@@ -8,6 +8,7 @@ import Pendentes from './pages/Pendentes';
 import Meses from './pages/Meses';
 import Perfil from './pages/Perfil';
 import Compromissos from './pages/Compromissos';
+import MercadoDeDatas from './pages/MercadoDeDatas';
 import Historico from './pages/Historico';
 import Layout from './components/Layout';
 import type { Session } from '@supabase/supabase-js';
@@ -57,6 +58,7 @@ function App() {
         <Route path="/meses" element={session ? <Layout><Meses /></Layout> : <Navigate to="/login" replace />} />
         <Route path="/historico" element={session ? <Layout><Historico /></Layout> : <Navigate to="/login" replace />} />
         <Route path="/compromissos" element={session ? <Layout><Compromissos /></Layout> : <Navigate to="/login" replace />} />
+        <Route path="/mercado-de-datas" element={session ? <Layout><MercadoDeDatas /></Layout> : <Navigate to="/login" replace />} />
         {/* ⚠️ Link salvo não pode morrer: as duas telas viraram uma. */}
         <Route path="/parcelas" element={<Navigate to="/compromissos" replace />} />
         <Route path="/fixos" element={<Navigate to="/compromissos" replace />} />

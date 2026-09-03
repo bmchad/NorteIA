@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { LayoutDashboard, Clock, Calendar, LogOut, User, Layers, History } from 'lucide-react';
+import { LayoutDashboard, Clock, Calendar, LogOut, User, Layers, History, CalendarClock } from 'lucide-react';
 
 interface LayoutProps {
   children: ReactNode;
@@ -16,12 +16,17 @@ export default function Layout({ children }: LayoutProps) {
   };
 
   /**
-   * ⭐ A ordem é a da pergunta que a plataforma responde: quanto já tem dono, o que sobra,
-   * como você gasta o que sobra. Compromissos primeiro porque é o número que muda a decisão
-   * de hoje; histórico por último porque é consulta, não decisão.
+   * ⭐ A ordem é a da pergunta que a plataforma responde: quanto já tem dono, **quando** ele
+   * sai, o que sobra, como você gasta o que sobra. Compromissos primeiro porque é o número
+   * que muda a decisão de hoje; histórico por último porque é consulta, não decisão.
+   *
+   * ⭐ Mercado de Datas vem logo depois de Compromissos porque é a mesma pergunta virada de
+   * lado: lá se vê quanto do mês já tem dono, aqui se vê em que dia esse dono cobra — e é a
+   * ordem dos dias, não o total, que decide se falta dinheiro.
    */
   const navItems = [
     { name: 'Compromissos', path: '/compromissos', icon: Layers },
+    { name: 'Mercado de Datas', path: '/mercado-de-datas', icon: CalendarClock },
     { name: 'Dashboard Anual', path: '/dashboard', icon: LayoutDashboard },
     { name: 'Balanços Mensais', path: '/meses', icon: Calendar },
     { name: 'Novos Registros', path: '/novos-registros', icon: Clock },

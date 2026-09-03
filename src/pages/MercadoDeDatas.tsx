@@ -1,0 +1,439 @@
+import { useEffect, useMemo, useState } from 'react';
+import {
+  ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
+  ReferenceLine, ReferenceArea, ResponsiveContainer,
+} from 'recharts';
+import { CalendarClock, CreditCard, AlertTriangle, TrendingUp, Settings } from 'lucide-react';
+import { Link } from 'react-router-dom';
+import { supabase } from '../lib/supabase';
+import {
+  curvaDeFolga, sugestaoDeData,
+  type CurvaDeFolga, type EventoDatado, type FixoDaFolga, type TransacaoDaFolga,
+} from '../lib/folga';
+import { detectarPropostas } from '../lib/fixos-propostos';
+import { MINIMO_DE_CICLOS_DE_BASE } from '../lib/compromissos';
+import { cicloDeHoje, limitesDoCiclo } from '../lib/ciclo';
+
+/**
+ * As cores do gráfico, lidas de `src/index.css` em tempo de execução.
+ *
+ * ⚠️⚠️ **Recharts precisa de uma cor concreta**: `var(--marca)` num atributo de apresentação
+ * SVG não é resolvido pelo navegador, e a linha sai preta sem nenhum erro. Escrever
+ * `#FF6200` aqui seria a duplicação que a armadilha 11 proíbe — `src/index.css` é o único
+ * dono da cor de marca (D-037) —, então a variável é lida de lá.
+ *
+ * `danger` e `border` não passam por variável: são literais no `tailwind.config.js` e não
+ * são cor de marca, então o valor vem de lá mesmo.
+ */
+const COR = {
+  marca: () => daVariavel('--marca', '#FF6200'),
+  texto: () => daVariavel('--texto-suave', '#64748b'),
+  perigo: '#991b1b',
+  grade: '#e2e8f0',
+  renda: '#059669',
+};
+
+function daVariavel(nome: string, reserva: string): string {
+  if (typeof document === 'undefined') return reserva;
+  const canais = getComputedStyle(document.documentElement).getPropertyValue(nome).trim();
+  return canais ? `rgb(${canais})` : reserva;
+}
+
+const real = (v: number) =>
+  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', maximumFractionDigits: 0 });
+
+const realExato = (v: number) =>
+  v.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+
+export default function MercadoDeDatas() {
+  const [transacoes, setTransacoes] = useState<TransacaoDaFolga[]>([]);
+  // `status` não é lido por `folga.ts` — a entrada dele já são os ativos —, mas é lido aqui,
+  // que é quem filtra.
+  const [fixos, setFixos] = useState<(FixoDaFolga & { status?: string | null })[]>([]);
+  const [categorias, setCategorias] = useState<{ id: string; e_renda?: boolean | null }[]>([]);
+  const [vencimentos, setVencimentos] = useState<{ banco: string; dia: number }[]>([]);
+  // ⚠️ Valor do PRIMEIRO render, antes de a consulta voltar -- nao e so um placeholder: com um
+  // numero diferente do que esta no banco, a primeira pintura agrupa por uma fronteira de
+  // ciclo e a segunda por outra. Padrao 1.
+  const [cicloDia, setCicloDia] = useState(1);
+  const [carregando, setCarregando] = useState(true);
+
+  useEffect(() => { carregar(); }, []);
+
+  const carregar = async () => {
+    setCarregando(true);
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+      const [mem, tx, fx, cat, ven] = await Promise.all([
+        supabase.from('memory').select('ciclo_dia').maybeSingle(),
+        // ⛔ O `order` não é cosmético: a detecção de fixos ancora no primeiro elemento do
+        // array, e sem ordem definida a assinatura muda entre carregamentos. → D-060
+        supabase.from('transactions').select('*').eq('pendente', false).order('data'),
+        supabase.from('fixos').select('*'),
+        supabase.from('categories').select('id, e_renda'),
+        supabase.from('vencimentos').select('banco, dia'),
+      ]);
+      setCicloDia(mem.data?.ciclo_dia ?? 1);
+      setTransacoes(tx.data ?? []);
+      setFixos(fx.data ?? []);
+      setCategorias(cat.data ?? []);
+      setVencimentos(ven.data ?? []);
+    } catch (err) {
+      console.error('Erro ao carregar o mercado de datas:', err);
+    } finally {
+      setCarregando(false);
+    }
+  };
+
+  /**
+   * ⚠️⚠️ **O contrato de `cobrancasDoCiclo` vale aqui inteiro:** fixo com proposta de
+   * encerramento não entra. Sem este filtro, uma cobrança que parou de existir continuaria
+   * derrubando a curva, e a tela ofereceria negociar a data de algo que ninguém cobra mais.
+   */
+  const resultado = useMemo(() => {
+    if (carregando) return null;
+    const ativos = fixos.filter(f => f.status === 'ativo');
+    const encerrados = new Set(
+      detectarPropostas(transacoes, fixos, cicloDia)
+        .filter(p => p.natureza === 'encerrar' && p.fixoId)
+        .map(p => p.fixoId as string),
+    );
+    return curvaDeFolga({
+      transacoes,
+      fixosAtivos: ativos.filter(f => !encerrados.has(f.id)),
+      categorias,
+      vencimentos,
+      cicloDia,
+    });
+  }, [carregando, transacoes, fixos, categorias, vencimentos, cicloDia]);
+
+  if (carregando) {
+    return (
+      <div className="flex items-center justify-center h-64">
+        <div className="w-8 h-8 border-4 border-primary border-t-transparent rounded-full animate-spin" />
+      </div>
+    );
+  }
+
+  return (
+    <div className="space-y-6">
+      <header>
+        <h2 className="text-3xl font-bold text-primary flex items-center gap-2">
+          <CalendarClock size={28} /> Mercado de Datas
+        </h2>
+        {/* ⭐ A promessa da tela em uma frase, e ela não é "você gasta demais". É a outra, que
+            só existe porque a data importa. */}
+        <p className="text-text-light mt-1">
+          Não é sobre gastar menos. É sobre <strong>quando</strong> o dinheiro sai: se as
+          cobranças caem antes do salário, falta dinheiro mesmo num mês em que sobra.
+        </p>
+      </header>
+
+      {resultado === null || !resultado.ok
+        ? <SemCurva resultado={resultado} />
+        : <ComCurva curva={resultado.curva} cicloDia={cicloDia} />}
+    </div>
+  );
+}
+
+/**
+ * ⛔ Sem base, a tela diz o que falta — não desenha uma curva chutada.
+ *
+ * É o mesmo princípio de `reserva.ts`: "sem histórico não se afirma nada; chutar produziria
+ * um aviso falso, pior que aviso nenhum". Aqui o silêncio seria ainda pior, porque uma tela
+ * vazia se confunde com "está tudo bem".
+ */
+function SemCurva({ resultado }: { resultado: ReturnType<typeof curvaDeFolga> | null }) {
+  if (!resultado) return null;
+  if (resultado.ok) return null;
+
+  if (resultado.motivo === 'sem-renda') {
+    return (
+      <div className="glass-panel p-8 text-center">
+        <TrendingUp size={32} className="text-primary mx-auto mb-3" />
+        <h3 className="text-lg font-bold text-text mb-2">Falta dizer o que é renda</h3>
+        <p className="text-sm text-text-light max-w-lg mx-auto">
+          A conta inteira parte de <strong>quando</strong> o seu dinheiro entra. Marque no
+          perfil quais categorias são renda — e não basta o valor ser positivo: estorno e
+          reembolso também são, e não são dinheiro que você ganhou.
+        </p>
+        <Link
+          to="/perfil"
+          className="inline-flex items-center gap-2 mt-4 px-4 py-2 rounded-xl bg-primary text-white font-medium hover:bg-primary-hover transition-colors"
+        >
+          <Settings size={16} /> Ir para o Perfil
+        </Link>
+      </div>
+    );
+  }
+
+  const faltam = MINIMO_DE_CICLOS_DE_BASE - resultado.ciclosDeBase;
+  return (
+    <div className="glass-panel p-8 text-center">
+      <CalendarClock size={32} className="text-primary mx-auto mb-3" />
+      <h3 className="text-lg font-bold text-text mb-2">
+        {faltam === 1 ? 'Falta um ciclo' : `Faltam ${faltam} ciclos`}
+      </h3>
+      <p className="text-sm text-text-light max-w-lg mx-auto">
+        Você tem {resultado.ciclosDeBase} de {MINIMO_DE_CICLOS_DE_BASE} ciclos fechados.
+        Com menos que isso, um mês atípico desloca a referência pela metade e a curva vira
+        ruído com cara de fato — então ela ainda não é desenhada.
+      </p>
+    </div>
+  );
+}
+
+function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }) {
+  const sugestao = useMemo(() => sugestaoDeData(curva), [curva]);
+
+  /**
+   * O eixo X mostra a **data**, não o índice do dia do ciclo.
+   *
+   * ⚠️⚠️ O ciclo não é o mês: com `ciclo_dia = 10`, o dia 1 do ciclo é o dia 11 do mês. Um
+   * eixo numerado de 1 a 30 pareceria o calendário e não é — e a pessoa configurou o
+   * vencimento da fatura pelo dia do mês, então ver "9" onde ela escreveu "10" seria um erro
+   * aparente que não existe.
+   */
+  const rotuloDoDia = useMemo(() => {
+    const { inicio } = limitesDoCiclo(cicloDeHoje(cicloDia), cicloDia);
+    const [a, m, d] = inicio.split('-').map(Number);
+    return (dia: number) => {
+      const x = new Date(a, m - 1, d);
+      x.setDate(x.getDate() + dia - 1);
+      return String(x.getDate());
+    };
+  }, [cicloDia]);
+
+  const dados = curva.saldo.map((valor, i) => ({ dia: i + 1, rotulo: rotuloDoDia(i + 1), saldo: valor }));
+  const debitos = curva.eventos.filter(e => e.natureza === 'debito');
+  const faturas = curva.eventos.filter(e => e.natureza === 'fatura');
+  const rendas = curva.eventos.filter(e => e.natureza === 'renda');
+
+  return (
+    <>
+      {/* ---------------------------------------------------------------- o veredito */}
+      {curva.deficit ? (
+        <div className="glass-panel p-6 border-l-4 border-danger">
+          <h3 className="text-lg font-bold text-danger flex items-center gap-2 mb-2">
+            <AlertTriangle size={20} /> Vai faltar dinheiro no dia {rotuloDoDia(curva.deficit.pior)}
+          </h3>
+          <p className="text-sm text-text-light">
+            A folga chega a <strong className="text-danger">{realExato(curva.deficit.valorPior)}</strong> no
+            pior momento, entre os dias {rotuloDoDia(curva.deficit.inicio)} e{' '}
+            {rotuloDoDia(curva.deficit.fim)}. Você não gasta mais do que ganha neste ciclo — o
+            problema é a ordem em que as coisas caem.
+          </p>
+
+          {sugestao && (
+            <div className="mt-4 p-4 rounded-xl bg-primary/10 border border-primary/20">
+              <p className="text-sm text-text">
+                {sugestao.resolve ? (
+                  <>
+                    Mude a cobrança de <strong>{sugestao.evento.rotulo}</strong>{' '}
+                    ({realExato(sugestao.evento.valor)}) do dia{' '}
+                    <strong>{rotuloDoDia(sugestao.evento.dia)}</strong> para o dia{' '}
+                    <strong>{rotuloDoDia(sugestao.diasOfertados[0])}</strong> e o ciclo fecha no
+                    azul — sem gastar um centavo a menos.
+                  </>
+                ) : (
+                  <>
+                    Mover <strong>{sugestao.evento.rotulo}</strong> para o dia{' '}
+                    <strong>{rotuloDoDia(sugestao.diasOfertados[0])}</strong> é o que mais
+                    alivia, mas <strong>não basta</strong>: a folga ainda ficaria em{' '}
+                    {realExato(sugestao.folgaResultante)}. Este buraco não se resolve só com
+                    data.
+                  </>
+                )}
+              </p>
+              {sugestao.resolve && sugestao.diasOfertados.length > 1 && (
+                /* ⭐ Os outros dias existem para a negociação: se o recebedor recusar o
+                   primeiro, há alternativa pronta em vez de recomeçar a conversa. */
+                <p className="text-xs text-text-light mt-2">
+                  Também funcionariam os dias{' '}
+                  {sugestao.diasOfertados.slice(1, 6).map(d => rotuloDoDia(d)).join(', ')}
+                  {sugestao.diasOfertados.length > 6 && ' e outros'}.
+                </p>
+              )}
+            </div>
+          )}
+        </div>
+      ) : (
+        <div className="glass-panel p-6 border-l-4 border-emerald-500">
+          <h3 className="text-lg font-bold text-text mb-1">O ciclo fecha sem aperto</h3>
+          <p className="text-sm text-text-light">
+            Seu pior momento é o dia <strong>{rotuloDoDia(curva.folgaMinima.dia)}</strong>, com{' '}
+            <strong>{realExato(curva.folgaMinima.valor)}</strong> de folga.
+          </p>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------- o gráfico */}
+      <div className="glass-panel p-6">
+        <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+          <h3 className="text-lg font-bold text-text">Sua folga, dia a dia</h3>
+          <span className="text-xs text-text-light">
+            parte de {realExato(curva.saldoInicial)}, a sobra do ciclo passado
+          </span>
+        </div>
+        <p className="text-xs text-text-light mb-4">
+          Média de {curva.ciclosDeBase} ciclos fechados. Os marcadores são as cobranças que caem
+          em cada dia — cada degrau da curva é uma delas.
+        </p>
+
+        <div className="h-80 w-full">
+          <ResponsiveContainer width="100%" height="100%">
+            <ComposedChart data={dados} margin={{ top: 8, right: 8, bottom: 4, left: 8 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke={COR.grade} />
+              <XAxis dataKey="rotulo" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
+              <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => real(Number(v))} width={70} />
+              <Tooltip
+                // ⚠️ A assinatura do `formatter` do Recharts já quebrou o deploy antes
+                // (TS2322, armadilha 4): o retorno tem de ser string, e o valor chega unknown.
+                formatter={(valor) => [realExato(Number(valor)), 'Folga']}
+                labelFormatter={(r) => `Dia ${r}`}
+              />
+
+              {/* A fronteira. É o zero que importa, não o cruzamento de duas retas. */}
+              <ReferenceLine y={0} stroke={COR.perigo} strokeWidth={1.5} />
+
+              {/* A janela de déficit, sombreada — do primeiro dia negativo até voltar. */}
+              {curva.deficit && (
+                <ReferenceArea
+                  x1={dados[curva.deficit.inicio - 1]?.rotulo}
+                  x2={dados[curva.deficit.fim - 1]?.rotulo}
+                  fill={COR.perigo}
+                  fillOpacity={0.08}
+                />
+              )}
+
+              {/* ⭐ Um marcador por débito automático, no dia EXATO em que ele cai — já com o
+                  ajuste de fim de semana, que é onde o dinheiro sai de verdade. É o elemento
+                  que torna o degrau legível: sem ele a pessoa vê uma queda e não sabe de quem
+                  é. */}
+              {debitos.map((e, i) => (
+                <ReferenceLine
+                  key={`d${i}`}
+                  x={dados[e.dia - 1]?.rotulo}
+                  stroke={COR.perigo}
+                  strokeOpacity={e.jaAconteceu ? 0.35 : 0.75}
+                  strokeDasharray={e.ajustada ? '4 3' : undefined}
+                  label={{ value: e.rotulo, position: 'insideTopLeft', fontSize: 10, angle: -90, offset: 8 }}
+                />
+              ))}
+
+              {/* A fatura: um marcador só por banco, o maior de todos. */}
+              {faturas.map((e, i) => (
+                <ReferenceLine
+                  key={`f${i}`}
+                  x={dados[e.dia - 1]?.rotulo}
+                  stroke={COR.marca()}
+                  strokeWidth={2}
+                  strokeDasharray={e.ajustada ? '4 3' : undefined}
+                  label={{ value: e.rotulo, position: 'insideTopLeft', fontSize: 10, angle: -90, offset: 8 }}
+                />
+              ))}
+
+              {/* A renda, como degrau — é o dia em que ela entra que faz o buraco existir. */}
+              {rendas.map((e, i) => (
+                <ReferenceLine
+                  key={`r${i}`}
+                  x={dados[e.dia - 1]?.rotulo}
+                  stroke={COR.renda}
+                  strokeWidth={2}
+                  label={{ value: e.rotulo, position: 'insideTopLeft', fontSize: 10, angle: -90, offset: 8 }}
+                />
+              ))}
+
+              {/* Hoje. */}
+              <ReferenceLine
+                x={dados[curva.diaDeHoje - 1]?.rotulo}
+                stroke={COR.texto()}
+                strokeDasharray="2 2"
+                label={{ value: 'hoje', position: 'top', fontSize: 10 }}
+              />
+
+              <Line
+                type="stepAfter"
+                dataKey="saldo"
+                stroke={COR.marca()}
+                strokeWidth={2.5}
+                dot={false}
+              />
+            </ComposedChart>
+          </ResponsiveContainer>
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------------------- as cobranças */}
+      <div className="glass-panel p-6">
+        <h3 className="text-lg font-bold text-text mb-1">O que cai neste ciclo</h3>
+        {/* ⚠️ Só débito em conta é negociável, e a tela precisa dizer por quê — senão a
+            ausência da fatura na lista de móveis parece descuido. */}
+        <p className="text-xs text-text-light mb-4">
+          Só o débito em conta entra no mercado: é o único que vira multa no dia seguinte.
+          Cobrança no cartão não atrasa nada — ela só espera a fatura.
+        </p>
+        <div className="flex flex-col">
+          {curva.eventos.map((e, i) => (
+            <LinhaDoEvento key={i} evento={e} rotulo={rotuloDoDia(e.dia)} destaque={sugestao?.evento === e} />
+          ))}
+        </div>
+      </div>
+
+      {/* ---------------------------------------------------------------- o que ficou fora */}
+      {(curva.cartoesSemVencimento.length > 0 || curva.semBanco > 0) && (
+        <div className="glass-panel p-6 border-l-4 border-amber-500">
+          <h3 className="text-base font-bold text-text flex items-center gap-2 mb-2">
+            <CreditCard size={18} /> Cartão que ficou fora da curva
+          </h3>
+          {curva.cartoesSemVencimento.map(c => (
+            <p key={c.banco} className="text-sm text-text-light">
+              <strong>{c.banco}</strong>: {realExato(c.valor)} sem dia de vencimento configurado.
+            </p>
+          ))}
+          {curva.semBanco > 0 && (
+            <p className="text-sm text-text-light">
+              {realExato(curva.semBanco)} em lançamentos de cartão sem banco identificado —
+              planilha não traz o banco, e print nem sempre deixa deduzir.
+            </p>
+          )}
+          {/* ⛔ Chutar um vencimento produziria um aviso falso, pior que aviso nenhum. */}
+          <p className="text-xs text-text-light mt-2">
+            Sem o dia, essa saída não entra na conta — e o produto prefere dizer que não sabe.
+          </p>
+          <Link
+            to="/perfil"
+            className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-lg border border-border text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
+          >
+            <Settings size={14} /> Configurar no Perfil
+          </Link>
+        </div>
+      )}
+    </>
+  );
+}
+
+function LinhaDoEvento(
+  { evento, rotulo, destaque }: { evento: EventoDatado; rotulo: string; destaque: boolean },
+) {
+  const cor = evento.natureza === 'renda' ? 'text-emerald-600'
+    : evento.natureza === 'fatura' ? 'text-primary' : 'text-danger';
+  return (
+    <div className={`flex items-center gap-3 py-2 border-b border-border last:border-b-0 ${destaque ? 'bg-primary/5 -mx-2 px-2 rounded-lg' : ''}`}>
+      <span className="w-10 text-sm font-bold text-text-light text-right shrink-0">{rotulo}</span>
+      <span className="flex-1 min-w-0">
+        <span className="text-sm font-semibold text-text block truncate">{evento.rotulo}</span>
+        <span className="text-xs text-text-light">
+          {evento.natureza === 'renda' ? 'entra' : evento.natureza === 'fatura' ? 'fatura do cartão' : 'débito em conta'}
+          {evento.ajustada && ' · escorregou do fim de semana'}
+          {evento.jaAconteceu && ' · já caiu'}
+          {evento.movivel && !evento.jaAconteceu && ' · pode mudar de data'}
+        </span>
+      </span>
+      <span className={`text-sm font-bold whitespace-nowrap ${cor}`}>
+        {evento.natureza === 'renda' ? '+' : '−'} {realExato(evento.valor)}
+      </span>
+    </div>
+  );
+}
