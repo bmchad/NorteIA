@@ -282,7 +282,10 @@ export interface CurvaDoCiclo {
  * @param transacoes as do tipo, **já depuradas pela cascata** (`CompromissoDetectado.transacoes`)
  */
 export function curvaDoCiclo(
-  transacoes: any[],
+  // Estrutural, e não `any[]` como o resto do módulo: são os três únicos campos que a conta
+  // lê, e escrevê-los aqui documenta o contrato sem exigir um tipo de transação que o
+  // projeto ainda não tem. `any[]` continua atribuível a isto, então quem chama não muda.
+  transacoes: { data: string; mes_fatura?: string | null; valor: unknown }[],
   cicloDia: number,
   hoje: Date = new Date(),
 ): CurvaDoCiclo | null {
