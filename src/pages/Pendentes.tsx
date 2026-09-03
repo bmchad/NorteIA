@@ -1,10 +1,12 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
 import { FileText, CheckCircle, XCircle, X, Image as ImageIcon, PlusCircle, ArrowLeft, ChevronDown, ChevronUp, Clock, Info, Download } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ConfirmModal from '../components/ConfirmModal';
 import { grupoDoModo, modoDoArquivo, ROTULO_MODO } from '../lib/arquivos';
 import { baixarDemonstracao } from '../lib/demo';
+
+type Ordenacao = 'data_desc' | 'data_asc' | 'banco_asc' | 'banco_desc';
 
 export default function Pendentes() {
   const [arquivos, setArquivos] = useState<File[]>([]);
@@ -20,6 +22,15 @@ export default function Pendentes() {
   // agrupa por uma fronteira de ciclo e a segunda por outra. Padrao 1.
   const [cicloDia, setCicloDia] = useState<number>(1);
   const [expandedRascunhos, setExpandedRascunhos] = useState<Set<string>>(new Set());
+  /**
+   * Como a lista de rascunhos é exibida. Padrão `data_desc` porque é o que mais se parece
+   * com a ordem de chegada que a página sempre teve — quem já usa a tela não a encontra de
+   * cabeça para baixo.
+   *
+   * ⚠️ Isto é **só apresentação**. A fonte de verdade continua sendo `extractedData`, que é
+   * o que todos os handlers de aprovar/descartar/editar leem e escrevem.
+   */
+  const [ordenacao, setOrdenacao] = useState<Ordenacao>('data_desc');
   const [confirmModal, setConfirmModal] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void }>({ isOpen: false, title: '', message: '', onConfirm: () => { } });
   const [avisoEstorno, setAvisoEstorno] = useState<string | null>(null);
   /**
@@ -522,6 +533,50 @@ export default function Pendentes() {
     });
   };
 
+  /**
+   * A lista como ela aparece na tela.
+   *
+   * ⚠️ **Lista derivada, nunca estado reordenado.** `aprovarTransacao`, `descartarTransacao`,
+   * `aprovarTudo`, `reprovarTudo` e `handleUpdateField` fazem update otimista em
+   * `extractedData` — se a ordenação virasse `setExtractedData(ordenado)`, cada troca de
+   * ordem viraria uma escrita concorrente com esses handlers. Aqui só o `.map()` consome.
+   *
+   * ⭐ `data` é string `YYYY-MM-DD`, então `localeCompare` já dá ordem cronológica. Não usar
+   * `new Date(item.data)`: a string sem hora é interpretada como UTC e desloca o dia em
+   * fuso negativo, que é o nosso.
+   */
+  const rascunhosOrdenados = useMemo(() => {
+    const copia = [...extractedData];   // .sort() muta — nunca ordenar extractedData direto
+    type ComData = { data?: string | null };
+    const porData = (a: ComData, b: ComData) => (a.data || '').localeCompare(b.data || '');
+
+    switch (ordenacao) {
+      case 'data_asc':
+        return copia.sort(porData);
+      case 'banco_asc':
+      case 'banco_desc': {
+        const sinal = ordenacao === 'banco_asc' ? 1 : -1;
+        return copia.sort((a, b) => {
+          const ba = (a.banco || '').trim();
+          const bb = (b.banco || '').trim();
+          // Sem banco vai sempre para o fim, nos DOIS sentidos: importação de planilha
+          // grava `banco: null`, e esse bloco encabeçando a lista no Z-A esconderia
+          // justamente o que se quis ver ao pedir ordem por banco.
+          if (!ba && !bb) return porData(b, a);
+          if (!ba) return 1;
+          if (!bb) return -1;
+          // Banco é texto livre (o check constraint foi derrubado, e o enum de bancos só
+          // existe na edge function): `sensitivity: 'base'` mantém "Itaú"/"itau"/"ITAU" juntos.
+          const cmp = ba.localeCompare(bb, 'pt-BR', { sensitivity: 'base' });
+          return cmp !== 0 ? sinal * cmp : porData(b, a);   // empate: mais recente primeiro
+        });
+      }
+      case 'data_desc':
+      default:
+        return copia.sort((a, b) => porData(b, a));
+    }
+  }, [extractedData, ordenacao]);
+
   return (
     <div className="space-y-6">
       {confirmModal.isOpen && (
@@ -826,7 +881,20 @@ export default function Pendentes() {
               </h3>
               <span className="text-sm text-text-light">As edições são salvas automaticamente.</span>
             </div>
-            <div className="flex items-center gap-3 w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full sm:w-auto">
+              {/* Mesmo controle do seletor de ano do Dashboard Anual (glass-input). */}
+              <select
+                value={ordenacao}
+                onChange={(e) => setOrdenacao(e.target.value as Ordenacao)}
+                aria-label="Ordenar rascunhos"
+                title="Ordenar rascunhos"
+                className="glass-input cursor-pointer font-medium text-sm w-full sm:w-auto"
+              >
+                <option value="data_desc">Data ↓ (mais recente)</option>
+                <option value="data_asc">Data ↑ (mais antiga)</option>
+                <option value="banco_asc">Banco (A-Z)</option>
+                <option value="banco_desc">Banco (Z-A)</option>
+              </select>
               <button
                 onClick={aprovarTudo}
                 className="flex-1 sm:flex-none bg-primary text-white hover:bg-primary-hover px-4 py-2 rounded-xl transition-colors text-sm font-medium flex items-center justify-center gap-2 shadow-sm"
@@ -842,7 +910,7 @@ export default function Pendentes() {
             </div>
           </div>
 
-          {extractedData.map((item) => {
+          {rascunhosOrdenados.map((item) => {
             const isExpanded = expandedRascunhos.has(item.id);
             return (
               <div key={item.id} className="glass-panel flex flex-col border-l-4 border-l-primary/50 overflow-hidden">
