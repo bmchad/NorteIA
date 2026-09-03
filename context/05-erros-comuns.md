@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-30
+atualizado_em: 2026-09-03
 ---
 
 # Erros comuns — o que se acredita e é falso
@@ -21,6 +21,9 @@ atualizado_em: 2026-08-30
 | O comprometido é um número só | ⭐ São **três camadas de certeza** — contratado, recorrente, previsível — e somá-las esconde o que dá para cancelar | `04-glossario.md` |
 | ⭐ A "Taxa de poupança" do Dashboard divide pela renda | ⚠️ Divide por **todas as entradas** — reembolso e devolução entram no divisor e a taxa aparece melhor do que é. Decidido assim; a tooltip diz "de tudo que entrou" | `src/pages/Dashboard.tsx` |
 | Uma taxa de poupança negativa é um erro para travar em zero | ⛔ É o fato mais importante que o card tem a dar: você gastou mais do que entrou. "0%" diria outra coisa, e mais branda | `30-decisoes-e-licoes.md` D-027 |
+| ⭐⭐ `transactions.tipo = 'credito'` quer dizer que entrou dinheiro | ⛔ Quer dizer **cartão de crédito** — o instrumento, não a direção. Direção é o sinal de `valor`; renda é `categories.e_renda`. A coluna responde a *quando o dinheiro sai da conta* | `30-decisoes-e-licoes.md` D-061 |
+| ⭐ Uma cobrança recorrente de dia 20 pesa na conta no dia 20 | Só se for **débito em conta**. No cartão ela espera a fatura — e é por isso que `tipo` existe. Dia 21 é multa num caso e nada no outro | `30-decisoes-e-licoes.md` D-061 |
+| `memory.ciclo_dia` é o dia em que a fatura vence | ⚠️ É o **fechamento**, onde o ciclo corta. O vencimento vive em `vencimentos.dia`, por banco — mexer num muda o produto inteiro, no outro só a posição de um débito | `30-decisoes-e-licoes.md` D-063 |
 | Toda transação positiva é renda | ⚠️ Não. Estorno, reembolso e venda entram positivos e não são renda. `categories.e_renda` separa | `30-decisoes-e-licoes.md` D-025 |
 | ⭐ A IA não categoriza entrada | ⚠️ **Categoriza desde 30/08.** Antes o prompt mandava devolver `null` em todo positivo — e com isso o card Renda, que depende da categoria, ficava zerado | `30-decisoes-e-licoes.md` D-054 |
 | O histórico do Bernardo mede o produto | ⛔ É **horizontal**: uma amostra de um usuário mede o usuário. Decisão se justifica por argumento estrutural | `01-o-que-e-o-balanco-geral.md` |

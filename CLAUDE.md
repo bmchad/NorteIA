@@ -85,7 +85,8 @@ src/
   lib/ciclo.ts         ⭐ a regra de ciclo de fatura — dono único, usada por /meses e /dashboard
   lib/parcelas.ts      a conta de uma compra parcelada e a projeção por ciclo
   lib/fixos-propostos.ts  ⭐ a cascata de detecção. A ordem importa e quebra em silêncio
-  lib/compromissos.ts  a lista semente de tipos e a amortização por rótulo
+  lib/compromissos.ts  a lista semente de tipos, a amortização por rótulo e ⭐ `curvaDoCiclo`
+  lib/folga.ts         ⭐ a curva de folga do ciclo e a sugestão de data (/mercado-de-datas)
   lib/parcelas.ts      comprometido restante e projeção por ciclo — usada por /parcelas e /dashboard
   components/
     Layout.tsx         sidebar + navegação das telas autenticadas
@@ -112,13 +113,20 @@ npx supabase db dump --linked -f supabase-backup/supabase/schema.sql
 ```
 
 **Rotas:** `/` (landing pública) · `/login` · `/dashboard` · `/meses` · `/novos-registros` ·
-⭐ `/compromissos` (⚠️ `/fixos` e `/parcelas` redirecionam para cá) ·
+⭐ `/compromissos` (⚠️ `/fixos` e `/parcelas` redirecionam para cá) · ⭐ `/mercado-de-datas` ·
 `/fixos` · `/parcelas` · `/historico` · `/perfil`. Tudo exceto `/` e `/login` exige sessão e
 redireciona sem ela.
 
 ---
 
 ## Banco de dados
+
+⛔⛔ **Duas migrations estão no repositório e NÃO foram aplicadas** (2026-09-03):
+`20260903120000_transactions_tipo.sql` e `20260903130000_vencimentos.sql`. O `db push` daquela
+sessão devolveu **403 de privilégio**. Enquanto não rodarem, o envio de arquivos em
+`/novos-registros`, a seção de vencimentos do `/perfil` e o `/mercado-de-datas` **quebram** com erro
+do PostgREST — o front já está commitado. ⚠️ A Vercel publica no push, o banco não: aplicar vem
+**antes** do próximo deploy. → `context/20-pendencias-e-dividas.md` P39
 
 O dump completo está em `supabase-backup/supabase/schema.sql` (fora do git). ⭐ **Mudança nova de
 schema entra como migration** em `supabase/migrations/`, aplicada por `npx supabase db push`. RLS
@@ -134,12 +142,18 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
 | `compromissos` | ⭐ tipos que a IA reconhece **e** o compromisso detectado — 1:1, uma tabela só. **18 semeados no cadastro**, por `semear_conta` | `user_id` |
 | `compromisso_exemplos` | ⭐ até 10 transações por tipo, apontadas pelo usuário; vão ao prompt do agente 2. Teto imposto por **trigger**, `on delete cascade` na transação (D-035) | `user_id` |
 | `vocabulario` | regras (`nome contém X` → categoria) e notas para o prompt (D-030) | `user_id` |
+| `vencimentos` | ⭐ o dia em que a fatura de cada cartão vence, **um por banco**. Contraparte de `transactions.tipo = 'credito'`. ⚠️⚠️ Não confundir com `memory.ciclo_dia`: aquele é o FECHAMENTO, este é o VENCIMENTO | `user_id` |
 | `cores` | ⭐ paleta **global**, sem dono. RLS ligada: legível por todos, **gravável por ninguém** | — |
 | `leads` | contatos da landing; única escrita sem autenticação | — |
 
 **Colunas de `transactions` usadas no código:** `user_id`, `data`, `nome`, `apelido`, `valor`,
 `banco`, `mes_fatura`, `categoria_id`, `hora`, `parcela_atual`, `parcela_total`, `pendente`,
-`comentario`, `compromisso`, `compromisso_manual`, `created_at`.
+`comentario`, `compromisso`, `compromisso_manual`, `created_at`, ⭐ `tipo`.
+
+⚠️⚠️ **`tipo` (`credito`|`debito`) é o INSTRUMENTO de pagamento, não a direção do dinheiro.**
+"crédito" quer dizer **cartão de crédito** — a saída da conta acontece no vencimento da fatura —,
+nunca "entrou dinheiro". Quem escreve é o toggle do envio em `/novos-registros`; ⛔ o agente 1
+**não** preenche o campo, e não pode passar a preencher (dois escritores, D-034). → D-061
 
 ---
 
@@ -152,7 +166,10 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
    ciclo. ⚠️ **O padrão é 1 desde 30/08** (era 5), e o dono do número é o `DEFAULT` da coluna: a
    linha de `memory` nasce junto com a conta. → D-002, D-052
 3. **Toda query filtra por `user_id`.** Sem exceção nas tabelas de usuário.
-4. **`valor` é assinado:** positivo é entrada, negativo é saída. Não há coluna de tipo.
+4. **`valor` é assinado:** positivo é entrada, negativo é saída. ⚠️ **Correção de 2026-09-03:**
+   esta linha terminava com "não há coluna de tipo", e agora **há** — `transactions.tipo`. Mas ela
+   não contradiz a invariante: `tipo` é o instrumento (cartão ou conta), e a **direção continua
+   sendo o sinal de `valor`**. Quem ler `tipo = 'credito'` como entrada erra duas vezes. → D-061
 5. **A IA não calcula.** Ela extrai e classifica; toda soma e agrupamento é JavaScript. 🔶
 6. ⭐ **A regra de ciclo mora só em `src/lib/ciclo.ts`.** Nunca reimplemente localmente — foi assim
    que o Dashboard e o `/meses` passaram a discordar por um ano inteiro. → D-007
@@ -176,7 +193,11 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
     apelido e é só rótulo de exibição. Índice único em `(user_id, assinatura)`. → D-043
 14. ⛔ **Função de carga só lê.** `insert`/`update`/`upsert` dentro de um `carregar()` vira corrida
     sob `StrictMode`, que roda o efeito duas vezes. → L-008
-15. ⭐ **O que uma conta nova recebe é decidido no banco**, por `handle_new_user`: a linha de
+15. ⭐⭐ **`valor` diz quanto e para que lado; `tipo` diz QUANDO sai da conta.** Débito em conta sai
+    na própria `data`; cartão sai no vencimento da fatura daquele banco (`vencimentos`), somado
+    num débito só. ⛔ Tratar os dois como iguais põe uma fatura inteira no dia da compra. → D-061,
+    D-063
+16. ⭐ **O que uma conta nova recebe é decidido no banco**, por `handle_new_user`: a linha de
     `memory`, as 28 categorias e os 18 tipos de compromisso (`semear_conta`). ⛔ Nenhuma tela
     semeia nada — semear numa tela deixa o dado faltando para quem não a abre. → D-052, D-053
 

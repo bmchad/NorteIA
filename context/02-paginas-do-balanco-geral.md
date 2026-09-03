@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-30
+atualizado_em: 2026-09-03
 ---
 
 # As páginas do Balanço Geral
@@ -14,7 +14,7 @@ Rotas e proteção vivem em `src/App.tsx`; o menu lateral, em `src/components/La
 **Toda rota exceto `/` e `/login` exige sessão** e redireciona para `/login` sem ela.
 
 ⭐ **A entrada é `/compromissos`**, e a ordem do menu é a da pergunta que o produto responde
-(D-038): `Compromissos · Dashboard Anual · Balanços Mensais · Novos Registros · Histórico`. A
+(D-038): `Compromissos · Mercado de Datas · Dashboard Anual · Balanços Mensais · Novos Registros · Histórico`. A
 constante `ENTRADA` vive em `src/lib/rotas.ts` — ⚠️ **dois** lugares dependem dela, o redirect
 pós-login e o `redirectTo` do SSO.
 
@@ -99,12 +99,18 @@ parcelas.
 
 ## `/novos-registros` · Pendentes
 
-`src/pages/Pendentes.tsx` · escreve `transactions`, lê e semeia `categories`
+`src/pages/Pendentes.tsx` · escreve `transactions`, lê `categories` e `compromissos`
 
 ⭐ **Duas portas: Arquivo e Registro manual.** A extensão do arquivo escolhe o modo — print, PDF e
 planilha entram pelo mesmo lugar. ⚠️ **Um tipo por vez**: um envio carrega um `modo`, e o `modo`
 escolhe um prompt (D-046). Depois vem a revisão dos rascunhos. ⚠️ **Correção de 30/08: esta tela
 não semeia mais as categorias.** Elas nascem com a conta, no banco. → D-053
+
+⭐⭐ **Antes de escolher o arquivo, o envio diz de onde o dinheiro sai:** um toggle *Débito em conta*
+(padrão) / *Cartão de crédito*, que grava `transactions.tipo` em **todas** as linhas do lote. É por
+envio porque um extrato *é* a conta corrente e uma fatura *é* o cartão — o documento tem um
+instrumento só, e quem enviou sabe qual. ⛔ **O agente 1 não devolve este campo**, e não pode passar a
+devolver: seriam dois escritores para a mesma coluna. → D-061
 
 ⭐ **Na revisão, o rascunho tem cinco campos**, e o quinto é **Compromisso**, ao lado de Categoria.
 Escolher ali grava `compromisso_manual` junto: é declaração, não palpite, e nada automático a
@@ -180,6 +186,51 @@ recolhida no fim da aba Recorrente para desfazer. → L-006
 ⚠️ **`fixos` é consultativa.** Aceitar não lança transação: um fixo que se auto-lança duplica em
 silêncio quando o lançamento real chega pelo extrato.
 
+## ⭐ `/mercado-de-datas` · Mercado de Datas
+
+`src/pages/MercadoDeDatas.tsx` · lê `transactions`, `fixos`, `categories`, `vencimentos` e `memory`
+· cálculo em `src/lib/folga.ts`
+
+⭐⭐ **A pergunta desta tela não é "você gasta demais?".** É a outra: *dado que sobra dinheiro no mês,
+por que falta no dia 3?* A resposta quase sempre é a mesma — o salário cai no dia 8 e os débitos
+automáticos caem no dia 3. Ninguém precisa ganhar mais nem gastar menos: basta **uma data mudar**.
+→ D-062
+
+**O gráfico** é uma curva de folga por dia do ciclo, com o **zero** como fronteira. Sobre ela, um
+marcador por cobrança, no dia exato em que ela cai:
+
+| marcador | o quê |
+|---|---|
+| vermelho | débito em conta — o único que entra no mercado |
+| laranja | a fatura de um cartão, somada num débito só, no vencimento daquele banco → D-063 |
+| verde | a renda, como **degrau** no dia do salário |
+| faixa sombreada | a janela de déficit, do primeiro dia negativo até a folga voltar |
+
+⭐ **A curva e os marcadores dizem a mesma coisa duas vezes, de propósito:** o degrau *é* o débito, e
+o marcador é quem diz de quem ele é. Sem ele a pessoa vê uma queda e não sabe a que atribuí-la.
+
+⚠️ **O eixo mostra a DATA, não o índice do dia do ciclo.** Com `ciclo_dia = 10`, o dia 1 do ciclo é o
+dia 11 do mês — quem configurou "a fatura vence dia 10" e visse o marcador em "9" leria um erro que
+não existe. Calcula-se em dia de ciclo; exibe-se em data.
+
+**A sugestão** move **uma** cobrança de cada vez, escolhendo a **menor** que resolve e o **dia mais
+cedo** que funciona, e lista os outros dias que também serviriam — se o recebedor recusar o primeiro,
+a alternativa já está pronta. Quando nenhuma mudança sozinha fecha o buraco, a tela diz isso em vez
+de fingir que fecha, e oferece o maior alívio possível.
+
+⛔ **Só `tipo = 'debito'` é negociável**, e a tela explica por quê: débito em conta vira multa no dia
+seguinte, cobrança de cartão não vira nada — ela só espera a fatura. → D-061
+
+**Três estados em que a tela não desenha curva**, e em todos ela diz o que falta em vez de mostrar
+palpite: sem categoria marcada como renda, com menos de 3 ciclos fechados, e — parcialmente — cartão
+de banco sem vencimento configurado, caso em que o valor que ficou de fora aparece com link para o
+`/perfil`.
+
+🔶 **É demo até a metade.** A análise existe; o "mercado" — ofertar a data ao recebedor — não, e
+exigiria uma API de alteração de vencimento que ninguém expõe. O front sugere, e para aí.
+
+---
+
 ## `/historico` · Histórico
 
 `src/pages/Historico.tsx` · lê, edita e apaga `transactions`
@@ -200,10 +251,10 @@ automática lê o histórico confirmado, então cada correção entra no placar 
 
 ## `/perfil` · Perfil
 
-`src/pages/Perfil.tsx` · lê e escreve `categories`, `vocabulario`, `compromissos` e `memory`
+`src/pages/Perfil.tsx` · lê e escreve `categories`, `vocabulario`, `compromissos`, `memory` e `vencimentos`
 
 ⭐ **É o dono da configuração** (D-029): aqui se define **o que existe**; a tela de operação trabalha
-com **o que foi encontrado**. Quatro seções:
+com **o que foi encontrado**. Cinco seções:
 
 **Categorias** · duas listas lado a lado, **Renda** e **Gasto**, e mover entre elas é arrastar (com
 uma seta discreta como alternativa, porque arrastar não existe em tela de toque). O lado se escolhe
@@ -223,3 +274,9 @@ prompt do agente que classifica compromisso. ⛔ O teto é imposto por **trigger
 front. → D-035
 
 **Ciclos** · o `ciclo_dia`, o campo de maior alcance do sistema.
+
+**Vencimento das faturas** · o dia em que a fatura de cada banco vence, um por banco. ⚠️⚠️ **Não é
+o `ciclo_dia`:** aquele é o FECHAMENTO, e mexer nele muda a unidade de tempo do produto inteiro;
+este é o VENCIMENTO, e só muda a posição de um débito dentro do ciclo. ⭐ A lista de bancos sai das
+próprias transações, não de uma cópia do enum de `bancos.ts`. Campo vazio **apaga** a linha, e o
+cartão fica fora da curva do Mercado de Datas — chutar um dia seria um aviso falso. → D-063
