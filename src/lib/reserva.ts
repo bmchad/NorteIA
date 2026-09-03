@@ -43,6 +43,9 @@ const iso = (d: Date) =>
 /**
  * O dia `dia` dentro do ciclo `chave`, como data real.
  *
+ * ⭐ Exportada desde 2026-09-03 para o `folga.ts`: o vencimento da fatura precisa exatamente
+ * desta aritmética, e reescrevê-la lá seria a duplicação que a D-007 registra.
+ *
  * ⚠️⚠️ **A sutileza que esconde um erro de um mês.** Com `ciclo_dia = 5`, o ciclo de Janeiro
  * vai de 06/01 a 05/02. Um fixo de **dia 3 cai em fevereiro**; um de dia 10, em janeiro. É a
  * regra do `getCycleKey` invertida, e ignorá-la põe a cobrança no mês errado.
@@ -50,7 +53,7 @@ const iso = (d: Date) =>
  * ⚠️ Dia 31 em mês de 30 vira o último dia do mês, não o dia 1 do seguinte: `new Date` com
  * dia 31 em abril rolaria para 01/05 e mudaria de ciclo.
  */
-function dataNoCiclo(chave: string, dia: number, cicloDia: number): Date {
+export function dataNoCiclo(chave: string, dia: number, cicloDia: number): Date {
   const [ano, mes] = chave.split('-').map(Number);
   const abs = ano * 12 + (mes - 1) + (dia <= cicloDia ? 1 : 0);
   const anoAlvo = Math.floor(abs / 12);
@@ -62,13 +65,16 @@ function dataNoCiclo(chave: string, dia: number, cicloDia: number): Date {
 /**
  * Empurra a data para fora do fim de semana, no sentido que aquele fixo costuma escorregar.
  *
+ * ⭐ Exportada desde 2026-09-03 para o `folga.ts`: o vencimento da fatura escorrega do fim de
+ * semana pela mesma regra, e o banco costuma adiar.
+ *
  * ⭐ `ajusteDeDia` estava escrita, testada e **sem nenhum chamador** desde que foi criada — a
  * P26. É aqui que ela serve: o histórico do próprio fixo diz se o banco antecipa ou adia.
  *
  * 🔶 Só sábado e domingo. Feriado exigiria um calendário que o projeto não tem, e fingir
  * precisão seria pior que declarar o limite.
  */
-function foraDoFimDeSemana(d: Date, sentido: 'adiar' | 'antecipar'): Date {
+export function foraDoFimDeSemana(d: Date, sentido: 'adiar' | 'antecipar'): Date {
   const passo = sentido === 'adiar' ? 1 : -1;
   const ajustada = new Date(d);
   while (ajustada.getDay() === 0 || ajustada.getDay() === 6) {
