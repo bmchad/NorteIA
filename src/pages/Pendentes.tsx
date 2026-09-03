@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useMemo } from 'react';
 import { supabase } from '../lib/supabase';
-import { FileText, CheckCircle, XCircle, X, Image as ImageIcon, PlusCircle, ArrowLeft, ChevronDown, ChevronUp, Clock, Info, Download } from 'lucide-react';
+import { FileText, CheckCircle, XCircle, X, Image as ImageIcon, PlusCircle, ArrowLeft, ChevronDown, ChevronUp, Clock, Info, Download, CreditCard, Landmark } from 'lucide-react';
 import * as XLSX from 'xlsx';
 import ConfirmModal from '../components/ConfirmModal';
 import { grupoDoModo, modoDoArquivo, ROTULO_MODO } from '../lib/arquivos';
@@ -15,6 +15,23 @@ export default function Pendentes() {
   const [categories, setCategories] = useState<any[]>([]);
   const [tipos, setTipos] = useState<any[]>([]);
   const [instrucao, setInstrucao] = useState('');
+  /**
+   * O instrumento de pagamento do envio inteiro: cartão de crédito ou débito em conta.
+   *
+   * ⭐⭐ **Por envio, e isso é o desenho certo — não um atalho.** Um extrato *é* a conta
+   * corrente; uma fatura *é* o cartão. O documento inteiro tem um instrumento só, então
+   * classificar o lote de uma vez acerta todas as linhas, e quem enviou o arquivo sabe qual
+   * dos dois é.
+   *
+   * ⛔ **O agente 1 não devolve este campo, e não pode passar a devolver.** Seriam dois
+   * escritores para a mesma coluna, que é o defeito registrado na D-034 sobre `compromisso`:
+   * os dois respondem, o último a escrever vence, e a classificação muda sozinha entre
+   * importações. O prompt de extração, aliás, admite não saber distinguir — `ORIGEM` diz
+   * "print de extrato bancário **ou** fatura de cartão".
+   *
+   * ⚠️ Não é a direção do dinheiro. Essa continua sendo o sinal de `valor`.
+   */
+  const [tipoDoEnvio, setTipoDoEnvio] = useState<'credito' | 'debito'>('debito');
   const [activeMode, setActiveMode] = useState<'selection' | 'arquivo' | 'manual'>('selection');
   const [formManual, setFormManual] = useState({ nome: '', valor: '', data: '', categoria_id: '' });
   // ⚠️ Valor do PRIMEIRO render, antes de a consulta voltar -- nao e so um
@@ -247,9 +264,11 @@ export default function Pendentes() {
       );
     }
 
+    // ⭐ `tipo` entra aqui, no único ponto de escrita do lote, e vale para todas as linhas:
+    // o instrumento é do documento, não da transação. Ver `tipoDoEnvio`.
     const { error: erroInsert } = await supabase
       .from('transactions')
-      .insert(transacoes.map(t => ({ ...t, user_id: user.id })));
+      .insert(transacoes.map(t => ({ ...t, user_id: user.id, tipo: tipoDoEnvio })));
     if (erroInsert) throw erroInsert;
 
     await fetchPendentes();
@@ -331,6 +350,10 @@ export default function Pendentes() {
   const limparEnvio = () => {
     setArquivos([]);
     setInstrucao('');
+    // ⚠️ Volta ao padrão junto com o resto. Sem isto, quem acabou de importar uma fatura
+    // encontraria "Cartão de crédito" já marcado no próximo envio — e o extrato seguinte
+    // entraria inteiro como cartão, em silêncio.
+    setTipoDoEnvio('debito');
     setActiveMode('selection');
   };
 
@@ -342,6 +365,10 @@ export default function Pendentes() {
    *
    * ⚠️ `origem: 'manual'` tem de sobreviver: sem ele a linha cai no `DEFAULT 'extrato'` e
    * entra nas medições por origem como se tivesse vindo de um PDF de banco.
+   *
+   * ⭐ `tipo` está ausente **de propósito**, e é o caso oposto: o `DEFAULT 'debito'` da coluna
+   * já é o que se quer aqui. Quem digita uma linha à mão está registrando algo que saiu da
+   * conta; citar o campo seria repetir o default e criar um segundo lugar para mantê-lo.
    */
   const criarManual = async () => {
     const nome = formManual.nome.trim();
@@ -720,6 +747,39 @@ export default function Pendentes() {
             <p className="text-text-light text-sm mb-4 max-w-md">
               Print de extrato, fatura em PDF ou planilha. ⚠️ Um tipo por vez.
             </p>
+
+            {/* ⭐⭐ De onde este dinheiro sai — a pergunta que decide o dia em que a cobrança
+                pesa na conta. Fica ACIMA do seletor de arquivo, e não escondido em opções
+                avançadas, porque é uma escolha que afeta todas as linhas do lote em silêncio:
+                marcar errado põe uma fatura inteira no dia da compra. */}
+            <div className="w-full max-w-lg mb-4">
+              <p className="text-xs font-semibold text-text-light mb-2 text-left">
+                De onde este dinheiro sai?
+              </p>
+              <div className="flex gap-2">
+                {([
+                  { valor: 'debito', rotulo: 'Débito em conta', ajuda: 'Extrato. Sai na data da transação.', Icone: Landmark },
+                  { valor: 'credito', rotulo: 'Cartão de crédito', ajuda: 'Fatura. Sai no vencimento.', Icone: CreditCard },
+                ] as const).map(({ valor, rotulo, ajuda, Icone }) => (
+                  <button
+                    key={valor}
+                    type="button"
+                    onClick={() => setTipoDoEnvio(valor)}
+                    aria-pressed={tipoDoEnvio === valor}
+                    className={`flex-1 flex items-start gap-2 p-3 rounded-xl border text-left transition-all ${tipoDoEnvio === valor
+                      ? 'border-primary bg-primary/10 text-primary'
+                      : 'border-border bg-white/50 text-text-light hover:border-primary/40'
+                      }`}
+                  >
+                    <Icone size={18} className="mt-0.5 shrink-0" />
+                    <span className="flex flex-col">
+                      <span className="text-sm font-semibold">{rotulo}</span>
+                      <span className="text-xs opacity-80">{ajuda}</span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
 
             <textarea
               value={instrucao}
