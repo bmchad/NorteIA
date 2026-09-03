@@ -49,8 +49,8 @@ export default function Perfil() {
   const [cicloDia, setCicloDia] = useState<number>(1);
   const [isSavingCiclo, setIsSavingCiclo] = useState(false);
 
-  /** `{ banco, dia }` — o dia em que a fatura daquele cartão vence. */
-  const [vencimentos, setVencimentos] = useState<any[]>([]);
+  /** O dia em que a fatura de cada banco vence. */
+  const [vencimentos, setVencimentos] = useState<{ id: string; banco: string; dia: number }[]>([]);
   /**
    * Os bancos que aparecem nas transações do usuário, com quantas delas são de cartão.
    *
