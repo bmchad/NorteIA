@@ -199,10 +199,15 @@ automáticos caem no dia 3. Ninguém precisa ganhar mais nem gastar menos: basta
 **O gráfico** é uma curva de folga por dia do ciclo, com o **zero** como fronteira. Sobre ela, um
 marcador por cobrança, no dia exato em que ela cai:
 
+⭐ **Um marcador por DIA, não por cobrança.** Duas linhas de referência no mesmo `x` seriam duas
+linhas idênticas sobrepostas; dia com mais de uma cobrança mostra a contagem (`3 cobranças`), e os
+nomes completos ficam na lista abaixo do gráfico. O gráfico diz **quando** e **quanto**; a lista diz
+**o quê**.
+
 | marcador | o quê |
 |---|---|
 | vermelho | débito em conta — o único que entra no mercado |
-| laranja | a fatura de um cartão, somada num débito só, no vencimento daquele banco → D-063 |
+| laranja | a fatura de um banco: compras no cartão **e parcelas**, somadas num débito só, no vencimento → D-062, D-063 |
 | verde | a renda, como **degrau** no dia do salário |
 | faixa sombreada | a janela de déficit, do primeiro dia negativo até a folga voltar |
 
@@ -225,6 +230,10 @@ seguinte, cobrança de cartão não vira nada — ela só espera a fatura. → D
 palpite: sem categoria marcada como renda, com menos de 3 ciclos fechados, e — parcialmente — cartão
 de banco sem vencimento configurado, caso em que o valor que ficou de fora aparece com link para o
 `/perfil`.
+
+⭐ **A camada Contratado entra pela fatura**, não como evento próprio: parcelamento é coisa de
+cartão, e é no vencimento que o dinheiro sai. ⚠️ Vale mesmo quando a linha está marcada como
+`tipo = 'debito'` — o que é o caso de todo o histórico, anterior ao toggle. → D-062
 
 🔶 **É demo até a metade.** A análise existe; o "mercado" — ofertar a data ao recebedor — não, e
 exigiria uma API de alteração de vencimento que ninguém expõe. O front sugere, e para aí.
