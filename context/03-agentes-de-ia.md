@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-30
+atualizado_em: 2026-09-03
 ---
 
 # Os agentes de IA — a Edge Function `ai-agents`
@@ -155,7 +155,7 @@ O prompt pede **apenas** um array JSON, um objeto por transação:
 | `nome` | o texto **na íntegra** do extrato (`PGTO MERCADOLIVRE *OSASCO`) |
 | `apelido` | versão limpa e curta, deduzida do nome (`Mercado Livre`) |
 | `valor` | número; **positivo = entrada, negativo = saída** |
-| `banco` | enum de `BANCOS` — os 20 bancos, `Outros` ou `null`. Planilha sempre `null` |
+| `banco` | enum de `BANCOS` — os 20 bancos, `Outros` ou `null`. ⭐ **Conferido na volta** desde 03/09: `casarBanco` (`lib/normalizar.ts`) casa sem caixa nem acento e grava o valor canônico da lista; fora dela vira `null`. Antes era repasse puro → L-012. ⚠️ Na **planilha** é `null`, **exceto** se as instruções do usuário nomearem um banco da lista — a planilha em si nunca diz o banco |
 | `mes_fatura` | nome do mês em português, capitalizado, ou `null` |
 | `hora` | `HH:MM:SS`; padrão `12:00:00` |
 | `parcela_atual` / `parcela_total` | de `"3 de 10"` → `3` e `10`. ⚠️ Na planilha, **só** quando o padrão `N/M` está escrito na descrição (D-048) |
