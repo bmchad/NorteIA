@@ -191,11 +191,15 @@ export default function MercadoDeDatas() {
         </p>
       </header>
 
-      <PropostasDeData propostas={propostasDeData} salvando={salvando} onDecidir={decidir} />
-
       {resultado === null || !resultado.ok
         ? <SemCurva resultado={resultado} />
         : <ComCurva curva={resultado.curva} cicloDia={cicloDia} />}
+
+      {/* ⭐ No FIM da página, e não no topo. O que a tela promete é o diagnóstico do ciclo — a
+          curva, o que está em risco, o que cai. Isto é configuração: melhora o diagnóstico do mês
+          que vem, não responde nada sobre este. Pedir uma decisão antes de mostrar o resultado
+          inverte a ordem e transforma a tela numa fila de tarefas. */}
+      <PropostasDeData propostas={propostasDeData} salvando={salvando} onDecidir={decidir} />
     </div>
   );
 }
