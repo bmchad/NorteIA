@@ -310,7 +310,7 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
           os nomes completos estão na lista abaixo.
         </p>
 
-        <div className="h-80 w-full">
+        <div className="h-[26rem] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={dados} margin={{ top: 12, right: 12, bottom: 4, left: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={COR.grade} />
@@ -347,7 +347,7 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
                   strokeWidth={m.natureza === 'debito' ? 1 : 2}
                   strokeOpacity={m.jaAconteceu ? 0.35 : 0.85}
                   strokeDasharray={m.ajustada ? '4 3' : undefined}
-                  label={<RotuloVertical texto={m.rotulo} />}
+                  label={<RotuloDoMarcador texto={m.rotulo} aoFim={m.dia / curva.dias > 0.7} />}
                 />
               ))}
 
@@ -425,39 +425,60 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
 }
 
 /**
- * O rótulo vertical de um marcador, ancorado na BASE da área de plotagem.
+ * O rótulo de um marcador, na diagonal a −45°.
  *
- * ⚠️⚠️ **Foi aqui que os nomes saíam do gráfico.** A versão anterior usava o objeto
- * `label={{ ..., position: 'insideTopLeft', angle: -90 }}`: `rotate(-90)` faz o texto correr **para
- * cima** a partir da âncora, e `insideTopLeft` põe a âncora na borda superior — então ele subia para
- * fora da área e era cortado. O `angle` do Recharts não reposiciona a âncora para compensar.
+ * ⭐⭐ **A geometria, porque ela decide tudo aqui.** Em SVG o texto corre na direção `+x`; sob
+ * `rotate(-45)` essa direção vira `(0,707, −0,707)` — para a **direita e para cima**. Daí os dois
+ * quadrantes, com a mesma inclinação:
  *
- * ⭐ A correção não é trocar o sinal do ângulo: é ancorar embaixo e deixar o texto subir. `-90` é a
- * orientação que se lê inclinando a cabeça para a esquerda, a mesma de um rótulo de eixo Y — trocar
- * para `90` deixaria o texto de cabeça para baixo em relação ao que o olho espera.
+ * | onde | âncora | `textAnchor` | o texto ocupa |
+ * |---|---|---|---|
+ * | ciclo cedo/meio | pé do marcador | `start` | direita-acima, **começando** no marcador |
+ * | fim do ciclo | topo do marcador | `end` | esquerda-abaixo, **terminando** no marcador |
+ *
+ * ⚠️ **O segundo quadrante existe por causa da borda direita.** Um rótulo de ~120 px a 45° avança
+ * ~85 px na horizontal; do fim do ciclo em diante isso passa do limite da área. Virar o quadrante
+ * mantém a leitura idêntica — mesmo ângulo, mesmo sentido — e traz o texto para dentro.
+ *
+ * ⛔ **`aoFim` vem como prop, e não do `viewBox`.** Para uma `ReferenceLine` vertical o Recharts
+ * entrega `width: 0` (x1 === x2), então a largura da área de plotagem **não está** ali — não dá para
+ * decidir a virada aqui dentro. Quem sabe é o pai, por `dia / dias`.
+ *
+ * ⚠️⚠️ **Foi aqui que os nomes saíam do gráfico, e o histórico fica para não voltar.** A primeira
+ * versão usava o objeto `label={{ ..., position: 'insideTopLeft', angle: -90 }}`. `rotate(-90)` faz
+ * o texto correr para cima a partir da âncora, e `insideTopLeft` põe a âncora na borda superior:
+ * ele subia para fora da área e era cortado. ⛔ **O `angle` do Recharts não reposiciona a âncora
+ * para compensar** — é por isso que o rótulo é desenhado à mão aqui em vez de voltar para o objeto
+ * `label`, que parece mais simples e não dá controle sobre a âncora.
  *
  * ⚠️ `viewBox` chega do Recharts por `cloneElement`, e por isso é opcional na assinatura: o
  * componente nunca é montado à mão. Sem ele, não desenha — em vez de desenhar em (0,0).
  */
-function RotuloVertical(
-  { texto, viewBox }: { texto: string; viewBox?: { x?: number; y?: number; height?: number } },
+function RotuloDoMarcador(
+  { texto, aoFim, viewBox }: {
+    texto: string;
+    /** O marcador está no fim do ciclo? Decide o quadrante — ver o comentário acima. */
+    aoFim: boolean;
+    viewBox?: { x?: number; y?: number; height?: number };
+  },
 ) {
   if (!viewBox || viewBox.x == null || viewBox.y == null || viewBox.height == null) return null;
 
-  // Trunca porque o espaço é a altura do gráfico, não a largura do texto: um nome de extrato como
-  // "Debito automatico: \"0071845220196\"" atravessaria a curva inteira.
-  const curto = texto.length > 22 ? `${texto.slice(0, 21)}…` : texto;
-  const x = viewBox.x + 4;
-  const y = viewBox.y + viewBox.height - 6;
+  // Trunca porque a diagonal gasta largura, e é a largura que acaba primeiro: um nome de extrato
+  // como "Debito automatico: \"0071845220196\"" avançaria meia tela para a direita.
+  const curto = texto.length > 18 ? `${texto.slice(0, 17)}…` : texto;
+
+  // ⭐ Os dois quadrantes, com a MESMA inclinação — o que muda é onde o texto começa e onde termina.
+  const x = viewBox.x + (aoFim ? -4 : 4);
+  const y = aoFim ? viewBox.y + 14 : viewBox.y + viewBox.height - 8;
 
   return (
     <text
       x={x}
       y={y}
-      transform={`rotate(-90, ${x}, ${y})`}
-      textAnchor="start"
-      fontSize={10}
-      fill="currentColor"
+      transform={`rotate(-45, ${x}, ${y})`}
+      textAnchor={aoFim ? 'end' : 'start'}
+      fontSize={11}
       className="fill-text-light"
     >
       {curto}
