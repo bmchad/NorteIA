@@ -523,6 +523,37 @@ function folgaMinima(saldo: number[]): { dia: number; valor: number } {
   return { dia: i + 1, valor: saldo[i] };
 }
 
+/**
+ * As cobranças que caem enquanto a folga está negativa — as que podem não ser pagas.
+ *
+ * ⭐⭐ **É a lista que o usuário precisa ver, e não é a mesma coisa que "o que dá para mover".** Uma
+ * fatura de cartão dentro da janela está em risco igual a um débito automático: os dois disputam um
+ * dinheiro que não está lá. O que muda é só o que se pode *fazer* — e é `movivel` que diz isso,
+ * separadamente.
+ *
+ * ⚠️ **Cobrança que já saiu não entra.** Antes de hoje ela já foi tentada: ou passou, ou voltou. O
+ * risco é sobre o que ainda vai acontecer, e chamar de "em risco" o que já aconteceu faria a tela
+ * alarmar sobre passado — e o número nunca diminuiria com o tempo.
+ *
+ * ⛔ Renda fica de fora pelo motivo óbvio: ela entra, não sai. Na prática `natureza !== 'renda'` é
+ * redundante com o teste de `movivel` que a sugestão faz depois, mas aqui a lista é mais larga que a
+ * dos candidatos, então a condição precisa estar escrita.
+ *
+ * ⭐ **Dono único da regra "cai dentro da janela de déficit".** `sugestaoDeData` lê daqui em vez de
+ * repetir o intervalo. Duas cópias da mesma condição, escritas separadamente, foi exatamente o que
+ * deixou a parcela em `'debito'` cair fora de todos os conjuntos (D-062).
+ */
+export function cobrancasEmRisco(curva: CurvaDeFolga): EventoDatado[] {
+  const { deficit, eventos } = curva;
+  if (!deficit) return [];
+  return eventos.filter(e =>
+    e.natureza !== 'renda'
+    && !e.jaAconteceu
+    && e.dia >= deficit.inicio
+    && e.dia <= deficit.fim,
+  );
+}
+
 export interface Sugestao {
   /** A cobrança a mover. */
   evento: EventoDatado;
@@ -567,9 +598,10 @@ export function sugestaoDeData(curva: CurvaDeFolga, difusoAte?: (d: number) => n
     return saldoInicial + discreto - saldo[d - 1];
   });
 
-  const candidatos = eventos.filter(e =>
-    e.movivel && !e.jaAconteceu && e.dia >= deficit.inicio && e.dia <= deficit.fim,
-  );
+  // ⭐ Os candidatos são as cobranças em risco que dá para mover. Um predicado só para "cai dentro
+  // da janela", em `cobrancasEmRisco`, e aqui só o filtro do que é negociável — em vez de repetir a
+  // condição da janela, que é como o buraco da parcela nasceu (D-062).
+  const candidatos = cobrancasEmRisco(curva).filter(e => e.movivel);
   if (candidatos.length === 0) return null;
 
   // O menor primeiro: a menor cobrança que resolve é a negociação mais barata de conseguir.

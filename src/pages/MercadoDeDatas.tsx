@@ -7,7 +7,7 @@ import { CalendarClock, CreditCard, AlertTriangle, TrendingUp, Settings } from '
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import {
-  curvaDeFolga, sugestaoDeData,
+  cobrancasEmRisco, curvaDeFolga, sugestaoDeData,
   type CurvaDeFolga, type EventoDatado, type FixoDaFolga, type TransacaoDaFolga,
 } from '../lib/folga';
 import { detectarPropostas } from '../lib/fixos-propostos';
@@ -186,6 +186,10 @@ function SemCurva({ resultado }: { resultado: ReturnType<typeof curvaDeFolga> | 
 
 function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }) {
   const sugestao = useMemo(() => sugestaoDeData(curva), [curva]);
+  // ⭐ Vem de `folga.ts`, não é refiltrado aqui: "cai dentro da janela de déficit" é regra de
+  // domínio, e ela tem um dono só — o mesmo de onde a sugestão tira os candidatos.
+  const emRisco = useMemo(() => cobrancasEmRisco(curva), [curva]);
+  const totalEmRisco = emRisco.reduce((soma, e) => soma + e.valor, 0);
 
   /**
    * O eixo X mostra a **data**, não o índice do dia do ciclo.
@@ -371,7 +375,38 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
         </div>
       </div>
 
-      {/* ---------------------------------------------------------------- as cobranças */}
+      {/* ------------------------------------------------------- o que pode não ser pago */}
+      {curva.deficit && emRisco.length > 0 && (
+        <div className="glass-panel p-6 border-l-4 border-danger">
+          <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
+            <h3 className="text-lg font-bold text-danger flex items-center gap-2">
+              <AlertTriangle size={20} /> Em risco de não cair
+            </h3>
+            <span className="text-sm font-bold text-danger">{realExato(totalEmRisco)}</span>
+          </div>
+          {/* ⭐ A seção existe separada porque responde outra pergunta que a lista de baixo: lá é
+              "o que acontece neste ciclo", aqui é "o que pode não acontecer". Misturar as duas fazia
+              a informação mais urgente da tela ficar escondida no meio de dez linhas iguais. */}
+          <p className="text-xs text-text-light mb-4">
+            Estas cobranças caem entre os dias {rotuloDoDia(curva.deficit.inicio)} e{' '}
+            {rotuloDoDia(curva.deficit.fim)}, quando a folga está negativa — elas disputam um
+            dinheiro que ainda não está na conta.
+          </p>
+          <div className="flex flex-col">
+            {emRisco.map((e, i) => (
+              <LinhaDoEvento key={i} evento={e} rotulo={rotuloDoDia(e.dia)} destaque={sugestao?.evento === e} />
+            ))}
+          </div>
+          {/* ⚠️ Sem esta frase, uma fatura na lista parece um item negociável como os outros. */}
+          <p className="text-xs text-text-light mt-4">
+            {emRisco.some(e => e.movivel)
+              ? 'As marcadas como “pode mudar de data” são as que dá para negociar — as outras entram na conta, mas não no mercado.'
+              : 'Nenhuma delas é débito em conta, então não há data a negociar: este buraco não se resolve movendo cobrança.'}
+          </p>
+        </div>
+      )}
+
+      {/* ---------------------------------------------------------------- o ciclo inteiro */}
       <div className="glass-panel p-6">
         <h3 className="text-lg font-bold text-text mb-1">O que cai neste ciclo</h3>
         {/* ⚠️ Só débito em conta é negociável, e a tela precisa dizer por quê — senão a
