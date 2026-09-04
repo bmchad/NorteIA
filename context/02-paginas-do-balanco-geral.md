@@ -14,7 +14,7 @@ Rotas e proteção vivem em `src/App.tsx`; o menu lateral, em `src/components/La
 **Toda rota exceto `/` e `/login` exige sessão** e redireciona para `/login` sem ela.
 
 ⭐ **A entrada é `/compromissos`**, e a ordem do menu é a da pergunta que o produto responde
-(D-038): `Compromissos · Mercado de Datas · Dashboard Anual · Balanços Mensais · Novos Registros · Histórico`. A
+(D-038): `Compromissos · Dashboard Anual · Mercado de Datas · Balanços Mensais · Novos Registros · Histórico`. A
 constante `ENTRADA` vive em `src/lib/rotas.ts` — ⚠️ **dois** lugares dependem dela, o redirect
 pós-login e o `redirectTo` do SSO.
 

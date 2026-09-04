@@ -20,14 +20,15 @@ export default function Layout({ children }: LayoutProps) {
    * sai, o que sobra, como você gasta o que sobra. Compromissos primeiro porque é o número
    * que muda a decisão de hoje; histórico por último porque é consulta, não decisão.
    *
-   * ⭐ Mercado de Datas vem logo depois de Compromissos porque é a mesma pergunta virada de
-   * lado: lá se vê quanto do mês já tem dono, aqui se vê em que dia esse dono cobra — e é a
-   * ordem dos dias, não o total, que decide se falta dinheiro.
+   * ⭐ Mercado de Datas é a mesma pergunta de Compromissos virada de lado — lá se vê quanto do
+   * mês já tem dono, aqui em que dia esse dono cobra —, mas fica **abaixo** do Dashboard Anual:
+   * ele responde por um mês, e o Dashboard é o retrato do ano. Quem abre o produto quer o
+   * panorama antes do detalhe de datas.
    */
   const navItems = [
     { name: 'Compromissos', path: '/compromissos', icon: Layers },
-    { name: 'Mercado de Datas', path: '/mercado-de-datas', icon: CalendarClock },
     { name: 'Dashboard Anual', path: '/dashboard', icon: LayoutDashboard },
+    { name: 'Mercado de Datas', path: '/mercado-de-datas', icon: CalendarClock },
     { name: 'Balanços Mensais', path: '/meses', icon: Calendar },
     { name: 'Novos Registros', path: '/novos-registros', icon: Clock },
     { name: 'Histórico', path: '/historico', icon: History },
