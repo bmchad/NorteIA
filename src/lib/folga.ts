@@ -35,9 +35,9 @@
  * lado do alarme falso, então o `PISO_DE_DEFICIT` existe para não transformar ruído em aviso.
  */
 import { cicloDeHoje, diaNoCiclo, getCycleKey, isoLocal, limitesDoCiclo, passoDeCiclo } from './ciclo';
-import { curvaDoCiclo } from './compromissos';
+import { curvaDoCiclo, JANELA_DE_CICLOS } from './compromissos';
 import { centavos } from './dinheiro';
-import { lancamentosDoFixo, reivindicadasPorFixos } from './fixos-propostos';
+import { ajusteDeDia, assinaturaDe, lancamentosDoFixo, reivindicadasPorFixos } from './fixos-propostos';
 import { chaveDeBanco } from './banco';
 import { cobrancasDoCiclo, dataNoCiclo, foraDoFimDeSemana } from './reserva';
 
@@ -156,8 +156,28 @@ export interface EntradaDaFolga {
   categorias: { id: string; e_renda?: boolean | null }[];
   /** `{ banco, dia }` de `public.vencimentos`. */
   vencimentos: { banco: string; dia: number }[];
+  /**
+   * As cobranças de **valor variável** aceitas no mercado (`public.mercado_datas`, status `ativo`).
+   *
+   * ⭐ Conta de luz, água, internet: nome estável, dia estável, valor mudando. O painel de
+   * comprometido não as conhece — para ele continuam sendo Previsível, pelo rótulo. Aqui elas
+   * importam porque **a data é confiável mesmo quando o valor não é**, e é a data que esta curva usa.
+   *
+   * ⚠️ Só as `ativo`. Recusada é decisão de não participar, e trazê-la de volta desfaria a escolha.
+   */
+  mercadoDatas?: EntradaDoMercado[];
   cicloDia: number;
   hoje?: Date;
+}
+
+export interface EntradaDoMercado {
+  /** `assinaturaDe(nome cru, periodicidade)` — a identidade, **sem o valor**. */
+  assinatura: string;
+  /** O apelido, para o marcador do gráfico. */
+  nome: string;
+  /** Dia do MÊS, como `fixos.dia`. */
+  dia: number;
+  periodicidade_meses?: number | null;
 }
 
 /** A mediana de uma lista não vazia. Robusta ao 13º e ao mês de bônus, que a média não é. */
@@ -246,18 +266,55 @@ export function fontesDeRenda(
  * cartão não sai da conta no dia da compra — ele anda na fatura. Ele sai desta curva e entra,
  * somado, no marcador da fatura.
  */
+/**
+ * As transações que uma entrada do mercado explica.
+ *
+ * ⭐ Casa por `assinatura` — nome cru + periodicidade, **sem o valor** —, que é a mesma chave que
+ * `mesmoCompromisso` usa no ramo de assinatura. É o que permite o valor variar sem a cobrança
+ * perder a identidade.
+ *
+ * ⛔⛔ **Só reivindica o que iria para a curva difusa.** O `!naFatura(t)` não é zelo: uma cobrança
+ * de valor variável no CARTÃO já está somada no agregado da fatura, e reivindicá-la aqui a
+ * transformaria num segundo débito pelo mesmo dinheiro. É a invariante 11 (D-033), e este filtro é
+ * o que mantém os três conjuntos — difuso, fatura, mercado — disjuntos por construção.
+ */
+export function reivindicadasPeloMercado(
+  transacoes: TransacaoDaFolga[],
+  mercado: EntradaDoMercado[],
+): Map<string, TransacaoDaFolga[]> {
+  const porAssinatura = new Map<string, TransacaoDaFolga[]>();
+  for (const e of mercado) {
+    const p = Math.max(1, Number(e.periodicidade_meses) || 1);
+    const suas = transacoes.filter(t =>
+      !naFatura(t)
+      && Number(t.valor) < 0
+      && assinaturaDe(String(t.nome ?? ''), p) === e.assinatura,
+    );
+    if (suas.length > 0) porAssinatura.set(e.assinatura, suas);
+  }
+  return porAssinatura;
+}
+
 export function transacoesDifusas(
   transacoes: TransacaoDaFolga[],
   fixosAtivos: FixoDaFolga[],
+  mercado: EntradaDoMercado[] = [],
 ): TransacaoDaFolga[] {
   const reivindicadas = reivindicadasPorFixos(fixosAtivos, transacoes);
+  // ⛔ O quinto degrau, e o mais recente: uma cobrança de valor variável aceita no mercado virou
+  // evento datado, então o dinheiro dela não pode continuar dentro da curva média. Sem esta linha
+  // o mesmo gasto derruba o saldo duas vezes.
+  const doMercado = new Set(
+    [...reivindicadasPeloMercado(transacoes, mercado).values()].flat().map(t => t.id),
+  );
   // ⛔ `!naFatura(t)` é o complemento exato do predicado da fatura, e é assim que os dois conjuntos
   // ficam disjuntos por construção em vez de por coincidência. Escrever as condições à mão nos dois
   // lugares foi o que deixou a parcela em `'debito'` cair fora dos dois.
   return transacoes.filter(t =>
     !naFatura(t)
     && Number(t.valor) < 0
-    && !reivindicadas.has(t.id),
+    && !reivindicadas.has(t.id)
+    && !doMercado.has(t.id),
   );
 }
 
@@ -301,6 +358,7 @@ export function curvaDeFolga({
   fixosAtivos,
   categorias,
   vencimentos,
+  mercadoDatas = [],
   cicloDia,
   hoje = new Date(),
 }: EntradaDaFolga): ResultadoDaFolga {
@@ -316,7 +374,7 @@ export function curvaDeFolga({
   // ---------------------------------------------------------------------------------------
   // A componente difusa
   // ---------------------------------------------------------------------------------------
-  const difusas = transacoesDifusas(aprovadas, fixosAtivos);
+  const difusas = transacoesDifusas(aprovadas, fixosAtivos, mercadoDatas);
   const curvaDifusa = curvaDoCiclo(difusas, cicloDia, hoje);
   if (!curvaDifusa) {
     // Sem três ciclos fechados não se afirma qual é o "seu normal". Contar quantos existem é
@@ -425,6 +483,47 @@ export function curvaDeFolga({
       movivel: false,
       ajustada: isoLocal(ajustada) !== isoLocal(nominal),
       jaAconteceu: dia < diaDeHoje,
+    });
+  }
+
+  // 4. As cobranças de valor variável aceitas no mercado.
+  //
+  // ⭐⭐ **A razão de existirem separadas dos fixos:** aqui o valor é média, não compromisso. Uma
+  // conta de luz não promete R$ 240 no dia 11 — ela promete *alguma coisa* no dia 11, e é a data
+  // que a curva usa. O painel de comprometido não as conhece de propósito: para ele continuam
+  // sendo Previsível, pelo rótulo, e nenhum número dele muda.
+  const doMercado = reivindicadasPeloMercado(aprovadas, mercadoDatas);
+  for (const entrada of mercadoDatas) {
+    const ocorrencias = doMercado.get(entrada.assinatura);
+    // ⛔ Sem histórico não se afirma nada — o mesmo princípio de `cobrancasDoCiclo`. Uma entrada
+    // cuja cobrança sumiu não deve continuar derrubando a curva.
+    if (!ocorrencias || ocorrencias.length === 0) continue;
+
+    // ⭐ Média das últimas ocorrências, como na detecção: tarifa de um ano atrás não diz nada
+    // sobre a de agora. → JANELA_DE_CICLOS em compromissos.ts
+    const recentes = [...ocorrencias]
+      .sort((a, b) => String(a.data).localeCompare(String(b.data)))
+      .slice(-JANELA_DE_CICLOS);
+    const media = recentes.reduce((soma, t) => soma + centavos(t.valor), 0) / recentes.length;
+
+    const nominal = dataNoCiclo(cicloAtual, entrada.dia, cicloDia);
+    // O histórico da própria cobrança diz para que lado o banco escorrega — mesma regra do fixo.
+    const ajustada = foraDoFimDeSemana(nominal, ajusteDeDia(ocorrencias));
+    const dia = diaNoCiclo(isoLocal(ajustada), null, cicloDia);
+    const caiuNesteCiclo = ocorrencias.some(
+      t => getCycleKey(t.data, t.mes_fatura, cicloDia) === cicloAtual,
+    );
+
+    eventos.push({
+      rotulo: entrada.nome,
+      dia,
+      valor: Math.round(media) / 100,
+      natureza: 'debito',
+      // ⭐ Móvel: é débito em conta, e é justamente o caso que o mercado existe para resolver —
+      // conta de consumo com data negociável.
+      movivel: true,
+      ajustada: isoLocal(ajustada) !== isoLocal(nominal),
+      jaAconteceu: caiuNesteCiclo,
     });
   }
 

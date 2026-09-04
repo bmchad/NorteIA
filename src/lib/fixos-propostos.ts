@@ -14,8 +14,15 @@
  *
  * ⚠️ Parcelas ficam de fora de tudo: o comprometido delas já é contado por
  * `src/lib/parcelas.ts`, e contá-lo de novo como fixo seria dupla contagem.
+ *
+ * ⭐⭐ **Há uma quinta detecção neste arquivo, e ela NÃO é degrau da cascata:**
+ * `detectarPropostasDeData` — nome estável, dia ±1, **valor variável** (a conta de luz). Ela existe
+ * para o Mercado de Datas, onde o que importa é a data, e **não reivindica transação nenhuma**: lê
+ * as mesmas linhas em paralelo e não mexe no comprometido. ⛔ Promovê-la a degrau da cascata tiraria
+ * dinheiro da camada Previsível, que é onde essas transações são contadas hoje.
  */
 import { getCycleKey } from './ciclo';
+import { JANELA_DE_CICLOS } from './compromissos';
 import { mesmoValor } from './dinheiro';
 
 /**
@@ -48,6 +55,16 @@ export const PISO_AUTO = 3;
 
 /** Tolerância de dia: débito automático cai em dia útil e escorrega. */
 const TOLERANCIA_DIA = 2;
+
+/**
+ * Tolerância de dia da detecção por **nome**, para o Mercado de Datas.
+ *
+ * ⚠️ **Um, e não os dois de `TOLERANCIA_DIA`.** Aquela acompanha um valor exato, que já é uma
+ * evidência forte por si — pode se permitir ser frouxa no dia. Esta é a única regra que não exige
+ * valor nenhum, então o dia é metade do sinal que ela tem: afrouxar aqui é aceitar qualquer coisa
+ * que aconteça "mais ou menos naquela época do mês".
+ */
+const TOLERANCIA_DIA_NOME = 1;
 
 export type Natureza = 'criar' | 'corrigir' | 'encerrar';
 
@@ -351,6 +368,165 @@ function detectarPorValorEDia(transacoes: any[], cicloDia: number) {
     });
   }
   return propostas;
+}
+
+
+/**
+ * Uma cobrança de **valor variável** proposta para o Mercado de Datas.
+ *
+ * ⚠️ Não é `PropostaDeFixo`, e o tipo separado é de propósito: ela não vira gasto fixo, não entra
+ * no comprometido e não tem `natureza` — só existe `criar`, porque correção e encerramento não
+ * fazem sentido para algo cujo valor muda por definição.
+ */
+/**
+ * Os campos de `transactions` que a detecção por nome lê.
+ *
+ * ⭐ Estrutural, e não o `any[]` que o resto deste módulo usa. Escrever o contrato deixa visível que
+ * ela depende de `origem` — a coluna que separa a era planilha, e o corte que impede a regra de
+ * transformar rótulo de categoria em cobrança. `any[]` continua atribuível, então nada muda para
+ * quem chama.
+ */
+export interface TransacaoDaData {
+  id: string;
+  data: string;
+  mes_fatura?: string | null;
+  valor: unknown;
+  pendente?: boolean | null;
+  nome?: string | null;
+  apelido?: string | null;
+  origem?: string | null;
+  parcela_total?: number | null;
+}
+
+export interface PropostaDeData {
+  /** `assinaturaDe(nome cru, periodicidade)` — a identidade, **sem o valor**. */
+  assinatura: string;
+  /** O apelido, para exibir. */
+  nome: string;
+  /** Dia do MÊS em que costuma cair, como `fixos.dia`. */
+  dia: number;
+  /** A **média** das últimas ocorrências, não o valor de nenhuma delas. */
+  valorMedio: number;
+  periodicidade_meses: number;
+  /** As transações que sustentam a proposta, da mais antiga para a mais nova. */
+  evidencia: TransacaoDaData[];
+}
+
+/**
+ * Cobranças de nome estável, dia estável e **valor variável** — a conta de luz.
+ *
+ * ⭐⭐ **Por que ela não é uma regra da cascata, e não pode virar uma.** A cascata de
+ * `detectarPropostas` existe para impedir dupla contagem no **comprometido**: cada regra reivindica
+ * transações e as tira das camadas seguintes. Esta detecção **não reivindica nada** — ela lê as
+ * mesmas transações em paralelo e não muda o painel. Transformá-la em degrau da cascata tiraria
+ * dinheiro da camada Previsível, que é onde essas transações são contadas hoje, e mudaria um número
+ * que a decisão de produto manda não mexer.
+ *
+ * ⚠️⚠️ **Nada disto é aceito sozinho.** As outras regras têm `PISO_AUTO`; esta não tem equivalente,
+ * e a medição diz por quê: o filtro pega a conta de internet (CV de 5%) e pega junto o posto de
+ * gasolina (CV de 13% a 23%). Nenhum teto de dispersão separa os dois — 10% barraria os postos e
+ * barraria também uma Enel sazonal, que é o caso de uso. A diferença entre "conta que eu devo" e
+ * "compra que eu escolho" não está nos números, então quem decide é a pessoa.
+ *
+ * Os quatro cortes, e o que cada um evita:
+ *
+ * 1. **Nome cru idêntico** — o mesmo agrupamento da 1.b, sem o valor na chave.
+ * 2. **Dia dentro de ±1** do típico (`TOLERANCIA_DIA_NOME`).
+ * 3. ⛔ **No máximo uma ocorrência por ciclo.** É o corte que impede o supermercado de virar
+ *    cobrança de data fixa, e ⚠️ **`periodicidadeDe` NÃO protege disso**: ela deduplica por chave
+ *    de ciclo antes de medir os saltos, então cinco compras no mesmo mês são lidas como um ciclo só
+ *    e a cadência sai "mensal". Medido na base: este corte levou 43 grupos candidatos para 28.
+ * 4. ⛔ **`origem <> 'planilha'`.** Até 2026-04 o histórico veio de planilhas que guardavam só a
+ *    categoria: o `nome` daquelas linhas é o rótulo ("Supermercado"), há uma por categoria por mês,
+ *    e todas caem no mesmo dia porque o prompt preenche dia faltante com o `ciclo_dia`. Elas passam
+ *    nos três cortes acima com folga. ⭐ **Esta é a primeira regra que dispararia nelas, porque é a
+ *    primeira que abre mão do valor** — a 1.b e a 1.a nunca disparam ali, já que o total da
+ *    categoria muda todo mês. Medido: sem este corte, **os 10 candidatos da base são todos
+ *    planilha**, e nenhum é conta de consumo. → migration 20260828120000
+ *
+ * ⚠️ O filtro fica **só aqui**, e não em `elegivel`: mexer lá mudaria a 1.b e a 1.a, que não têm o
+ * problema.
+ *
+ * @param fixos       para não propor o que já é gasto fixo ativo
+ * @param decididos   as assinaturas já aceitas ou recusadas no mercado, que não voltam a aparecer
+ */
+export function detectarPropostasDeData(
+  transacoes: TransacaoDaData[],
+  fixos: { status?: string | null; assinatura?: string | null }[],
+  decididos: { assinatura: string }[],
+  cicloDia: number,
+): PropostaDeData[] {
+  const jaDecidido = new Set(decididos.map(d => d.assinatura));
+  // ⭐ Fixo ativo casa por `assinatura`, que é nome + periodicidade sem valor — a mesma chave desta
+  // detecção. É o dedup que substitui a FK que a ideia original previa: sem ele, uma Enel cadastrada
+  // à mão em `fixos` reapareceria aqui como proposta.
+  const doFixo = new Set(
+    fixos.filter(f => f.status === 'ativo' && f.assinatura).map(f => f.assinatura as string),
+  );
+
+  const grupos = new Map<string, TransacaoDaData[]>();
+  for (const t of transacoes) {
+    if (!elegivel(t) || t.origem === 'planilha') continue;
+    const nome = String(t.nome ?? '');
+    if (!nome) continue;
+    const lista = grupos.get(nome) ?? [];
+    lista.push(t);
+    grupos.set(nome, lista);
+  }
+
+  const propostas: PropostaDeData[] = [];
+
+  for (const [nomeCru, lista] of grupos) {
+    if (lista.length < PISO) continue;
+
+    // ⛔ Uma por ciclo. Ver o corte 3 acima.
+    const ciclos = new Set(lista.map(t => getCycleKey(t.data, t.mes_fatura, cicloDia)));
+    if (ciclos.size !== lista.length) continue;
+
+    // ⭐ Valor variando é o que define este grupo: se todos são iguais, a 1.b já o pegou, e propor
+    // aqui seria oferecer duas vezes a mesma cobrança em duas telas.
+    const valores = new Set(lista.map(t => abs(t).toFixed(2)));
+    if (valores.size < 2) continue;
+
+    // ⚠️⚠️ **A referência é a MEDIANA dos dias, não a moda — e a diferença rejeitava o caso real.**
+    // `diaTipico` devolve a moda, e numa distribuição plana (dias 10, 11, 12 duas vezes cada) a moda
+    // cai no primeiro da ordenação: o 10. Testar ±1 a partir dele exclui o dia 12, e o grupo é
+    // recusado. Foi exatamente o que aconteceu com `INTERNET FIBRA 300MB` da base, que oscila entre
+    // 10 e 12. A mediana está sempre dentro da janela e não depende de qual dia repetiu mais.
+    const ordenados = lista.map(diaDe).sort((a, b) => a - b);
+    const dia = ordenados[Math.floor(ordenados.length / 2)];
+
+    // ⭐ "±1" é uma janela de TRÊS dias — o dia e seus vizinhos —, então a amplitude observada tem
+    // de caber em `2 × TOLERANCIA_DIA_NOME`. Medir a distância de cada ocorrência à referência daria
+    // o mesmo resultado, mas esconderia que o que importa é a largura do grupo.
+    if (ordenados[ordenados.length - 1] - ordenados[0] > 2 * TOLERANCIA_DIA_NOME) continue;
+
+    const periodicidade = periodicidadeDe(lista, cicloDia);
+    if (periodicidade === null) continue;
+
+    const base = lista[0];
+    const assinatura = assinaturaDe(nomeCru, periodicidade);
+    if (jaDecidido.has(assinatura) || doFixo.has(assinatura)) continue;
+
+    // ⭐ Média das últimas `JANELA_DE_CICLOS` ocorrências, e não de todas: é a mesma razão escrita
+    // na constante em `compromissos.ts` -- "hábito de um ano atrás não é o normal de hoje". Uma
+    // conta de luz de 2024 não diz nada sobre a tarifa de agora.
+    const recentes = [...lista]
+      .sort((a, b) => String(a.data).localeCompare(String(b.data)))
+      .slice(-JANELA_DE_CICLOS);
+    const valorMedio = recentes.reduce((soma, t) => soma + abs(t), 0) / recentes.length;
+
+    propostas.push({
+      assinatura,
+      nome: base.apelido || nomeCru,
+      dia,
+      valorMedio: Math.round(valorMedio * 100) / 100,
+      periodicidade_meses: periodicidade,
+      evidencia: recentes,
+    });
+  }
+
+  return propostas.sort((a, b) => b.valorMedio - a.valorMedio);
 }
 
 /**

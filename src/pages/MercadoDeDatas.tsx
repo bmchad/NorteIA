@@ -3,14 +3,14 @@ import {
   ComposedChart, Line, XAxis, YAxis, CartesianGrid, Tooltip,
   ReferenceLine, ReferenceArea, ResponsiveContainer,
 } from 'recharts';
-import { CalendarClock, CreditCard, AlertTriangle, TrendingUp, Settings } from 'lucide-react';
+import { CalendarClock, CreditCard, AlertTriangle, TrendingUp, Settings, Check, X, Gauge } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import {
   cobrancasEmRisco, curvaDeFolga, sugestaoDeData,
-  type CurvaDeFolga, type EventoDatado, type FixoDaFolga, type TransacaoDaFolga,
+  type CurvaDeFolga, type EntradaDoMercado, type EventoDatado, type FixoDaFolga, type TransacaoDaFolga,
 } from '../lib/folga';
-import { detectarPropostas } from '../lib/fixos-propostos';
+import { detectarPropostas, detectarPropostasDeData, type PropostaDeData } from '../lib/fixos-propostos';
 import { MINIMO_DE_CICLOS_DE_BASE } from '../lib/compromissos';
 import { cicloDeHoje, limitesDoCiclo } from '../lib/ciclo';
 
@@ -52,6 +52,17 @@ export default function MercadoDeDatas() {
   const [fixos, setFixos] = useState<(FixoDaFolga & { status?: string | null })[]>([]);
   const [categorias, setCategorias] = useState<{ id: string; e_renda?: boolean | null }[]>([]);
   const [vencimentos, setVencimentos] = useState<{ banco: string; dia: number }[]>([]);
+  /**
+   * As decisões de `public.mercado_datas` — aceitas **e** recusadas.
+   *
+   * ⚠️ Carrega as duas: a recusada não vira evento na curva, mas precisa estar aqui para a
+   * detecção não repropor o que já foi dispensado. Sem isso a decisão dura até o próximo F5, que
+   * é a mesma armadilha que `fixos.status` documenta.
+   */
+  const [decisoes, setDecisoes] = useState<
+    { id: string; assinatura: string; nome: string; dia: number; periodicidade_meses: number; status: string }[]
+  >([]);
+  const [salvando, setSalvando] = useState<string | null>(null);
   // ⚠️ Valor do PRIMEIRO render, antes de a consulta voltar -- nao e so um placeholder: com um
   // numero diferente do que esta no banco, a primeira pintura agrupa por uma fronteira de
   // ciclo e a segunda por outra. Padrao 1.
@@ -65,7 +76,7 @@ export default function MercadoDeDatas() {
     try {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) return;
-      const [mem, tx, fx, cat, ven] = await Promise.all([
+      const [mem, tx, fx, cat, ven, mdd] = await Promise.all([
         supabase.from('memory').select('ciclo_dia').maybeSingle(),
         // ⛔ O `order` não é cosmético: a detecção de fixos ancora no primeiro elemento do
         // array, e sem ordem definida a assinatura muda entre carregamentos. → D-060
@@ -73,12 +84,14 @@ export default function MercadoDeDatas() {
         supabase.from('fixos').select('*'),
         supabase.from('categories').select('id, e_renda'),
         supabase.from('vencimentos').select('banco, dia'),
+        supabase.from('mercado_datas').select('id, assinatura, nome, dia, periodicidade_meses, status'),
       ]);
       setCicloDia(mem.data?.ciclo_dia ?? 1);
       setTransacoes(tx.data ?? []);
       setFixos(fx.data ?? []);
       setCategorias(cat.data ?? []);
       setVencimentos(ven.data ?? []);
+      setDecisoes(mdd.data ?? []);
     } catch (err) {
       console.error('Erro ao carregar o mercado de datas:', err);
     } finally {
@@ -91,6 +104,12 @@ export default function MercadoDeDatas() {
    * encerramento não entra. Sem este filtro, uma cobrança que parou de existir continuaria
    * derrubando a curva, e a tela ofereceria negociar a data de algo que ninguém cobra mais.
    */
+  /** Só as `ativo` viram evento na curva. Recusada é decisão de não participar. */
+  const aceitas = useMemo<EntradaDoMercado[]>(
+    () => decisoes.filter(d => d.status === 'ativo'),
+    [decisoes],
+  );
+
   const resultado = useMemo(() => {
     if (carregando) return null;
     const ativos = fixos.filter(f => f.status === 'ativo');
@@ -104,9 +123,51 @@ export default function MercadoDeDatas() {
       fixosAtivos: ativos.filter(f => !encerrados.has(f.id)),
       categorias,
       vencimentos,
+      mercadoDatas: aceitas,
       cicloDia,
     });
-  }, [carregando, transacoes, fixos, categorias, vencimentos, cicloDia]);
+  }, [carregando, transacoes, fixos, categorias, vencimentos, aceitas, cicloDia]);
+
+  /**
+   * As cobranças de valor variável que ainda não foram decididas.
+   *
+   * ⚠️ Passa `decisoes` inteiro — aceitas **e** recusadas —, porque o que a detecção precisa saber
+   * é "já decidi sobre isto", não "aceitei". Filtrar só as aceitas faria a recusada reaparecer em
+   * toda carga.
+   */
+  const propostasDeData = useMemo(
+    () => (carregando ? [] : detectarPropostasDeData(transacoes, fixos, decisoes, cicloDia)),
+    [carregando, transacoes, fixos, decisoes, cicloDia],
+  );
+
+  /**
+   * Aceita ou recusa uma proposta de data.
+   *
+   * ⛔ **Recusar grava uma linha, não apaga nada.** Sem o registro da recusa a detecção repropõe na
+   * carga seguinte, e a decisão dura até o próximo F5 — é a mesma armadilha que o comentário de
+   * `dispensada` em `fixos-propostos.ts` documenta para os gastos fixos.
+   */
+  const decidir = async (p: PropostaDeData, status: 'ativo' | 'recusado') => {
+    setSalvando(p.assinatura);
+    try {
+      const user = (await supabase.auth.getUser()).data.user;
+      if (!user) return;
+      const { error } = await supabase.from('mercado_datas').upsert({
+        user_id: user.id,
+        assinatura: p.assinatura,
+        nome: p.nome,
+        dia: p.dia,
+        periodicidade_meses: p.periodicidade_meses,
+        status,
+      }, { onConflict: 'user_id,assinatura' });
+      if (error) throw error;
+      await carregar();
+    } catch (err) {
+      console.error('Erro ao decidir proposta de data:', err);
+    } finally {
+      setSalvando(null);
+    }
+  };
 
   if (carregando) {
     return (
@@ -130,9 +191,98 @@ export default function MercadoDeDatas() {
         </p>
       </header>
 
+      <PropostasDeData propostas={propostasDeData} salvando={salvando} onDecidir={decidir} />
+
       {resultado === null || !resultado.ok
         ? <SemCurva resultado={resultado} />
         : <ComCurva curva={resultado.curva} cicloDia={cicloDia} />}
+    </div>
+  );
+}
+
+/**
+ * As cobranças de **valor variável** que o produto reconheceu e ainda não foram decididas.
+ *
+ * ⭐⭐ **Por que elas aparecem aqui e não em `/compromissos`.** Uma conta de consumo não promete um
+ * valor — promete uma *data*. Para o painel de comprometido isso a torna um mau gasto fixo: afirmar
+ * "R$ 240 por mês" é afirmar um número que ninguém mediu. Para esta tela é o contrário, porque aqui
+ * o que se usa é a data. Aceitar não muda nenhum número do comprometido: aquelas transações
+ * continuam contadas como Previsível, pelo rótulo.
+ *
+ * ⛔⛔ **Nada disto é aceito sozinho, e a medição explica por quê.** O filtro (nome idêntico, dia
+ * ±1, uma vez por ciclo, valor variando) pega a conta de internet — variação de 5% — e pega junto o
+ * posto de gasolina, com 13% a 23%. Nenhum teto de dispersão separa os dois: 10% barraria os postos
+ * e barraria também uma Enel sazonal, que é o caso de uso. A diferença entre "conta que eu devo" e
+ * "compra que eu escolho" não está nos números — então quem decide é a pessoa.
+ */
+function PropostasDeData(
+  { propostas, salvando, onDecidir }: {
+    propostas: PropostaDeData[];
+    salvando: string | null;
+    onDecidir: (p: PropostaDeData, status: 'ativo' | 'recusado') => void;
+  },
+) {
+  if (propostas.length === 0) return null;
+
+  return (
+    <div className="glass-panel p-6 border-l-4 border-primary">
+      <h3 className="text-lg font-bold text-text flex items-center gap-2 mb-1">
+        <Gauge size={20} className="text-primary" />
+        {propostas.length === 1 ? 'Uma cobrança de valor variável' : `${propostas.length} cobranças de valor variável`}
+      </h3>
+      <p className="text-xs text-text-light mb-4">
+        Caem sempre no mesmo dia, mas o valor muda todo mês — conta de luz, água, internet. A
+        <strong> data</strong> é confiável mesmo quando o valor não é, e é a data que esta tela usa.
+        Aceitar não muda nenhum número do seu comprometido.
+      </p>
+
+      <div className="flex flex-col">
+        {propostas.map(p => (
+          <div key={p.assinatura} className="flex items-center gap-3 py-3 border-b border-border last:border-b-0">
+            <span className="w-10 text-sm font-bold text-text-light text-right shrink-0">{p.dia}</span>
+            <span className="flex-1 min-w-0">
+              <span className="text-sm font-semibold text-text block truncate">{p.nome}</span>
+              <span className="text-xs text-text-light">
+                {p.evidencia.length} cobranças
+                {(p.periodicidade_meses ?? 1) > 1 && ` · a cada ${p.periodicidade_meses} meses`}
+                {' · '}
+                {/* ⚠️ A faixa observada, e não só a média: é o que deixa você julgar se aquilo é
+                    conta de consumo ou compra sua. A média sozinha esconde a dispersão, que é
+                    justamente o sinal que separa os dois. */}
+                {realExato(Math.min(...p.evidencia.map(t => Math.abs(Number(t.valor)))))}
+                {' a '}
+                {realExato(Math.max(...p.evidencia.map(t => Math.abs(Number(t.valor)))))}
+              </span>
+            </span>
+            <span className="text-right shrink-0">
+              <span className="text-sm font-bold text-text block">{realExato(p.valorMedio)}</span>
+              <span className="text-[10px] text-text-light">média</span>
+            </span>
+            <div className="flex items-center gap-1 shrink-0">
+              {salvando === p.assinatura ? (
+                <div className="w-5 h-5 border-2 border-primary border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <>
+                  <button
+                    onClick={() => onDecidir(p, 'ativo')}
+                    title="Contar esta cobrança na curva"
+                    className="p-2 rounded-lg text-primary hover:bg-primary/10 transition-colors"
+                  >
+                    <Check size={18} />
+                  </button>
+                  <button
+                    onClick={() => onDecidir(p, 'recusado')}
+                    title="Não é uma cobrança com data fixa"
+                    className="p-2 rounded-lg text-text-light hover:bg-danger/10 hover:text-danger transition-colors"
+                  >
+                    <X size={18} />
+                  </button>
+                </>
+              )}
+            </div>
+          </div>
+        ))}
+      </div>
     </div>
   );
 }
