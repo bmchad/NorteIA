@@ -139,7 +139,7 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
 | `categories` | categorias do usuário (nome + cor + `e_renda`); ⭐ **28 semeadas no cadastro**, por `semear_conta`, duas já marcadas como renda. Único em `(user_id, nome)` | `user_id` |
 | `fixos` | despesas recorrentes (nome, valor, dia) — **hoje desligadas dos balanços**. ⚠️ Guarda três coisas: ativos, recusas e encerrados, com `DEFAULT 'ativo'` | `user_id` |
 | `memory` | ⚠️ não é memória de IA: guarda `ciclo_dia` e as Notas do Dashboard, 1 linha por usuário | `user_id` |
-| `compromissos` | ⭐ tipos que a IA reconhece **e** o compromisso detectado — 1:1, uma tabela só. **18 semeados no cadastro**, por `semear_conta` | `user_id` |
+| `compromissos` | ⭐ tipos que a IA reconhece **e** o compromisso detectado — 1:1, uma tabela só. **17 semeados no cadastro**, por `semear_conta` (eram 18; `delivery` saiu em 04/09 → D-064) | `user_id` |
 | `compromisso_exemplos` | ⭐ até 10 transações por tipo, apontadas pelo usuário; vão ao prompt do agente 2. Teto imposto por **trigger**, `on delete cascade` na transação (D-035) | `user_id` |
 | `vocabulario` | regras (`nome contém X` → categoria) e notas para o prompt (D-030) | `user_id` |
 | `vencimentos` | ⭐ o dia em que a fatura de cada cartão vence, **um por banco**. Contraparte de `transactions.tipo = 'credito'`. ⚠️⚠️ Não confundir com `memory.ciclo_dia`: aquele é o FECHAMENTO, este é o VENCIMENTO | `user_id` |
@@ -198,7 +198,7 @@ nunca "entrou dinheiro". Quem escreve é o toggle do envio em `/novos-registros`
     num débito só. ⛔ Tratar os dois como iguais põe uma fatura inteira no dia da compra. → D-061,
     D-063
 16. ⭐ **O que uma conta nova recebe é decidido no banco**, por `handle_new_user`: a linha de
-    `memory`, as 28 categorias e os 18 tipos de compromisso (`semear_conta`). ⛔ Nenhuma tela
+    `memory`, as 28 categorias e os 17 tipos de compromisso (`semear_conta`). ⛔ Nenhuma tela
     semeia nada — semear numa tela deixa o dado faltando para quem não a abre. → D-052, D-053
 
 ---

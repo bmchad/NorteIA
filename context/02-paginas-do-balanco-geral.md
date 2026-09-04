@@ -272,7 +272,7 @@ na criação. ⚠️ Só as de renda entram no divisor de "% da renda" do Dashbo
 **Vocabulário** · o que só o usuário sabe. **Regras** (`nome contém X` → categoria) rodam no código,
 sem token; **notas** vão ao prompt. → D-030
 
-**Compromissos** · os tipos que a IA reconhece, ⭐ **semeados no cadastro** (no banco, não aqui —
+**Compromissos** · os tipos que a IA reconhece, ⭐ **semeados no cadastro** (17 deles, no banco e não aqui —
 D-053) e editáveis. Cada um tem
 uma periodicidade em **texto livre** — pista para a IA, nenhum código a interpreta — e um valor, que
 ⚠️ **entra na camada Previsível do painel**. Teto de 25.
