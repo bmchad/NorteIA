@@ -38,6 +38,7 @@ import { cicloDeHoje, diaNoCiclo, getCycleKey, isoLocal, limitesDoCiclo, passoDe
 import { curvaDoCiclo } from './compromissos';
 import { centavos } from './dinheiro';
 import { lancamentosDoFixo, reivindicadasPorFixos } from './fixos-propostos';
+import { chaveDeBanco } from './banco';
 import { cobrancasDoCiclo, dataNoCiclo, foraDoFimDeSemana } from './reserva';
 
 /**
@@ -357,19 +358,26 @@ export function curvaDeFolga({
 
   // 3. As faturas. A que fecha no fim do ciclo N−1 é debitada DURANTE o ciclo N.
   const cicloAnterior = passoDeCiclo(cicloAtual, -1);
-  const porBanco = new Map<string, number>();
+  // ⚠️⚠️ **Agrupado por `chaveDeBanco`, nunca pelo texto cru.** O servidor canoniza o que a IA
+  // devolve desde 2026-09-03, mas isso só vale para importações futuras — o histórico anterior e o
+  // campo de texto livre da revisão continuam podendo trazer "Itaú", "Itau" e "ITAÚ" na mesma
+  // conta. Agrupados crus, viram três cartões: um configurado e dois fora da curva, em silêncio.
+  // O rótulo exibido continua sendo o texto original; ninguém quer ver "itau" na tela.
+  const porBanco = new Map<string, { rotulo: string; total: number }>();
   let semBanco = 0;
   for (const t of aprovadas) {
     if (t.tipo !== 'credito' || Number(t.valor) >= 0) continue;
     if (getCycleKey(t.data, t.mes_fatura, cicloDia) !== cicloAnterior) continue;
-    const banco = String(t.banco ?? '').trim();
-    if (!banco) { semBanco += centavos(t.valor); continue; }
-    porBanco.set(banco, (porBanco.get(banco) ?? 0) + centavos(t.valor));
+    const k = chaveDeBanco(t.banco);
+    if (!k) { semBanco += centavos(t.valor); continue; }
+    const atual = porBanco.get(k) ?? { rotulo: String(t.banco).trim(), total: 0 };
+    atual.total += centavos(t.valor);
+    porBanco.set(k, atual);
   }
 
   const cartoesSemVencimento: { banco: string; valor: number }[] = [];
-  for (const [banco, total] of porBanco) {
-    const config = vencimentos.find(v => v.banco === banco);
+  for (const [k, { rotulo: banco, total }] of porBanco) {
+    const config = vencimentos.find(v => chaveDeBanco(v.banco) === k);
     // ⛔ Sem vencimento não se chuta um dia. O cartão fica de fora e a tela pede a
     // configuração — chutar produziria um aviso falso, pior que aviso nenhum.
     if (!config) { cartoesSemVencimento.push({ banco, valor: total / 100 }); continue; }

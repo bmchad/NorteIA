@@ -5,6 +5,7 @@ import { TETO_EXEMPLOS, TETO_TIPOS_ATIVOS } from '../lib/compromissos';
 import ConfirmModal from '../components/ConfirmModal';
 import ExemplosDoCompromisso from '../components/ExemplosDoCompromisso';
 import SeletorDeTransacoes, { type TransacaoEscolhida } from '../components/SeletorDeTransacoes';
+import { chaveDeBanco } from '../lib/banco';
 
 export default function Perfil() {
   const [categories, setCategories] = useState<any[]>([]);
@@ -126,23 +127,31 @@ export default function Perfil() {
       const { data, error } = await supabase
         .from('transactions')
         .select('banco, tipo')
-        .not('banco', 'is', null);
+        .not('banco', 'is', null)
+        .order('data');
       if (error) throw error;
 
       // A contagem de lançamentos no cartão não filtra a lista, só ordena e rotula: um banco
       // sem nenhuma linha de cartão ainda pode ganhar vencimento agora, antes da primeira
       // fatura entrar. O contrário — esconder o banco até a fatura chegar — deixaria a tela
       // vazia justamente para quem está configurando o produto pela primeira vez.
-      const porBanco = new Map<string, number>();
+      // ⚠️⚠️ **Agrupa por `chaveDeBanco`, não pelo texto cru.** "Itaú", "Itau" e "ITAÚ" na mesma
+      // conta apareceriam como três linhas para configurar, e configurar uma deixaria as outras
+      // duas fora da curva do Mercado de Datas sem nenhum sintoma. O servidor canoniza o que a IA
+      // devolve, mas não alcança o histórico antigo nem o campo de texto livre da revisão.
+      const porBanco = new Map<string, { nome: string; noCartao: number }>();
       for (const t of data ?? []) {
-        const nome = String(t.banco).trim();
-        if (!nome) continue;
-        porBanco.set(nome, (porBanco.get(nome) ?? 0) + (t.tipo === 'credito' ? 1 : 0));
+        const k = chaveDeBanco(t.banco);
+        if (!k) continue;
+        // O rótulo é o primeiro que aparecer, e a consulta vem ordenada — então é estável entre
+        // carregamentos, em vez de mudar conforme o Postgres devolver.
+        const atual = porBanco.get(k) ?? { nome: String(t.banco).trim(), noCartao: 0 };
+        if (t.tipo === 'credito') atual.noCartao += 1;
+        porBanco.set(k, atual);
       }
 
       setBancos(
-        [...porBanco.entries()]
-          .map(([nome, noCartao]) => ({ nome, noCartao }))
+        [...porBanco.values()]
           .sort((a, b) => b.noCartao - a.noCartao || a.nome.localeCompare(b.nome, 'pt-BR')),
       );
     } catch (err) {
@@ -157,6 +166,12 @@ export default function Perfil() {
    * de Datas deixa aquele cartão fora da curva e diz isso na tela — que é o comportamento
    * certo, pelo mesmo princípio do `reserva.ts`: chutar um dia produziria um aviso falso,
    * pior que aviso nenhum.
+   *
+   * ⚠️⚠️ **Apaga por CHAVE e depois insere, em vez de dar `upsert` no texto.** O índice único é
+   * sobre o `banco` cru, então um `upsert` de "Itaú" ao lado de uma linha antiga "Itau" criaria
+   * uma **segunda** linha em vez de atualizar a primeira — e aí duas linhas passariam a competir
+   * pela mesma chave, com o `find` do consumidor escolhendo a que viesse antes. Apagar todas as
+   * grafias equivalentes antes de inserir também limpa a duplicata que já estiver lá.
    */
   const handleSaveVencimento = async (banco: string, valor: string) => {
     setSalvandoVencimento(banco);
@@ -164,15 +179,17 @@ export default function Perfil() {
       const user = (await supabase.auth.getUser()).data.user;
       if (!user) return;
 
-      if (valor.trim() === '') {
-        await supabase.from('vencimentos').delete().eq('user_id', user.id).eq('banco', banco);
-      } else {
+      const k = chaveDeBanco(banco);
+      const equivalentes = vencimentos.filter(v => chaveDeBanco(v.banco) === k).map(v => v.banco);
+      if (equivalentes.length > 0) {
+        await supabase.from('vencimentos').delete().eq('user_id', user.id).in('banco', equivalentes);
+      }
+
+      if (valor.trim() !== '') {
         // A mesma faixa do `CHECK` da coluna e do `ciclo_dia`: dia 29-31 não existe em todo
         // mês, e um vencimento que some em fevereiro é um bug silencioso.
         const dia = Math.max(1, Math.min(28, Number(valor)));
-        await supabase
-          .from('vencimentos')
-          .upsert({ user_id: user.id, banco, dia }, { onConflict: 'user_id,banco' });
+        await supabase.from('vencimentos').insert({ user_id: user.id, banco, dia });
       }
       await fetchVencimentos();
     } catch (err) {
@@ -1229,7 +1246,7 @@ export default function Perfil() {
         ) : (
           <div className="flex flex-col gap-2">
             {bancos.map(({ nome, noCartao }) => {
-              const atual = vencimentos.find(v => v.banco === nome);
+              const atual = vencimentos.find(v => chaveDeBanco(v.banco) === chaveDeBanco(nome));
               return (
                 <div key={nome} className="flex items-center gap-3 py-2 border-b border-border last:border-b-0">
                   <span className="flex-1 min-w-0">
