@@ -129,8 +129,10 @@ const centavos = (n: number) => Math.round(n * 100) / 100;
 /** O que cada bloco do arquivo existe para provar. Documentação, não código. */
 export const ROTEIRO: string[] = [
   'Salário mensal — alimenta Renda e "o que sobra"',
-  'Netflix, Spotify e academia — aceite automático (3+ ocorrências)',
-  '⭐ Seis cobranças de nome variável — Spotify, Smart Fit, Claro TV, seguro, odonto e a',
+  'Academia em seis ciclos — aceite automático (3+ ocorrências)',
+  '⭐ Enel — nome fixo, dia ±1, valor variável: nenhuma regra de gasto fixo a pega, e ela',
+  '   aparece como PROPOSTA no Mercado de Datas, onde o que vale é a data',
+  '⭐ Cinco cobranças de nome variável — Smart Fit, Claro TV, seguro, odonto e a',
   '   conta de R$ 94,90: nenhuma é pega por nome, todas pela regra valor + dia',
   'Dias que escorregam ±1 — a tolerância, a moda e o ajuste de fim de semana',
   'Curso de inglês em 2 meses — proposta, não aceite automático',
@@ -238,10 +240,26 @@ function montarLinhas(hoje: Date): Linha[] {
    * aspas) e **nenhum padrão `N/M`** — um `ref 08/2026` vira "parcela 8 de 202" e a cobrança
    * sai da camada Recorrente para virar um parcelamento inventado.
    */
-  const SPOTIFY = [
-    'SPOTIFY BR', 'PAG*SPOTIFY', 'SPOTIFY.COM 2214', 'SPOTIFY BRASIL LTDA',
-    'SPOTIFYP2214BR', 'PAGAMENTO SPOTIFY', 'SPOTIFY *PREMIUM',
-  ];
+  /**
+   * ⭐⭐ A conta de consumo: nome fixo, dia ±1, **valor diferente todo mês**.
+   *
+   * É o caso que nenhuma das duas regras de gasto fixo pega, e é de propósito: a `nome + valor`
+   * vê seis cobranças de um centavo cada uma e não atinge o piso; a `valor + dia` também não,
+   * porque a chave dela começa no valor. Ela sobra para a detecção de **proposta de data**, que
+   * abre mão do valor e olha só nome e dia — e é o Mercado de Datas que a consome.
+   *
+   * ⛔⛔ **Os seis valores têm de ser DISTINTOS, e não é estilo.** Dois iguais dariam à regra
+   * `nome + valor` um grupo com duas ocorrências, e a detecção de data descarta o grupo quando
+   * alguma combinação `(nome, valor)` já atinge o piso — porque aí não é conta de consumo, é
+   * assinatura que mudou de preço. É justamente o que a `INTERNET FIBRA` demonstra, logo abaixo,
+   * e as duas coisas não podem se confundir.
+   *
+   * ⚠️ Na casa dos R$ 80, com média de R$ 82,06 — o suficiente para variar de verdade sem
+   * encostar em nenhum outro valor do arquivo, que é o que faria a regra `valor + dia` agrupar
+   * a Enel com outra cobrança.
+   */
+  const ENEL = [-74.18, -82.63, -91.35, -77.49, -86.02, -80.71];
+
   const SMART_FIT = [
     'SMART FIT ACADEMIA', 'SMARTFIT *MENSALIDADE', 'PAG*SMART FIT', 'SMART FIT SP 0412',
     'ACADEMIA SMART FIT', 'SMARTFIT BR', 'SMART FIT *PLANO',
@@ -270,16 +288,23 @@ function montarLinhas(hoje: Date): Linha[] {
     // 1 · Renda. Sem ela, "o que sobra" não tem divisor e o card Renda fica vazio.
     adiciona(diaUtil(k, 5), 'SALARIO EMPRESA XYZ', 2400);
 
-    // 2 · Três assinaturas em todos os seis meses: 3+ ocorrências entram sozinhas.
-    //     ⭐ Só a Netflix tem nome estável, e é de propósito: ela é reivindicada pela regra
-    //     `nome + valor`, enquanto Spotify e Smart Fit — de nome variável — caem na regra
-    //     `valor + dia`. A demonstração precisa das DUAS funcionando lado a lado.
-    //     ⚠️ Para a Netflix o dia oscila e o agrupamento não sente, porque aquela regra
-    //     ignora o dia. Para as outras duas o dia é metade da chave, e é por isso que a
-    //     amplitude da oscilação não pode passar de 2.
-    adiciona(diaUtil(k, 15), 'NETFLIX.COM', -44.9);
-    adiciona(diaUtil(k, 8), SPOTIFY[k % SPOTIFY.length], -21.9);
+    // 2 · A academia em todos os seis meses: 3+ ocorrências entram sozinhas. O nome dela varia,
+    //     então quem a pega é a regra `valor + dia` — e o dia é metade dessa chave, que é por que
+    //     a amplitude da oscilação não pode passar de 2.
+    //
+    //     ⚠️⚠️ **Netflix e Spotify saíram em 04/09, e o arquivo perdeu uma demonstração.** A
+    //     Netflix era o único exemplo LIMPO da regra `nome + valor`: uma assinatura de valor
+    //     exato, aceita sozinha. Aquela regra continua exercitada — pela `INTERNET FIBRA` do
+    //     bloco 4, que forma dois grupos de três (99 e 109) —, mas só pelo caminho da
+    //     **correção**. Se alguém precisar do caso simples de volta, é uma linha: nome estável e
+    //     valor idêntico nos seis ciclos.
     adiciona(diaUtil(k, 10), SMART_FIT[k % SMART_FIT.length], -99.9);
+
+    // 3 · ⭐ A conta de luz: nome fixo, dia 11 ±1, valor sempre diferente. Ver `ENEL`.
+    //     ⚠️ `diaUtil(k, 11)` dá os dias 11, 12, 10, 11, 12, 11 — amplitude 2, que é o limite da
+    //     tolerância da detecção de data (±1 em torno da mediana). Mexer no dia típico é seguro;
+    //     mexer na `OSCILACAO` tiraria a Enel da regra.
+    adiciona(diaUtil(k, 11), 'ENEL DISTRIBUICAO SP', ENEL[k % ENEL.length]);
 
     // 4 · O mesmo nome com dois valores: nos três primeiros meses 99, nos três últimos 109.
     //     É o que gera a proposta de **correção** depois que o fixo já existe.
@@ -295,8 +320,21 @@ function montarLinhas(hoje: Date): Linha[] {
     }
 
     // 8 · Combustível: segundo tipo previsível, pelo mesmo motivo.
+    //
+    // ⭐⭐ **Duas vezes por ciclo em cada posto, e isso passou a importar em 04/09.** Era uma, e
+    // uma abastecida por mês sempre no mesmo dia não é realista — quem dirige enche o tanque mais
+    // de uma vez. Pior: naquele formato o combustível passava em TODOS os cortes da detecção de
+    // proposta de data (nome fixo, uma por ciclo, dia estável, valor variando) e aparecia como
+    // cobrança de data no Mercado de Datas — contradizendo este próprio bloco, que existe para
+    // demonstrar a camada **Previsível**.
+    //
+    // ⛔ É o corte "no máximo uma ocorrência por ciclo" que o segundo abastecimento exercita, e
+    // ele é o que separa gasto disperso de conta a pagar. Voltar a uma linha por ciclo aqui
+    // reintroduz o falso positivo.
     adiciona(diaUtil(k, 9), 'POSTO IPIRANGA AUTO', -r(150, 280));
+    adiciona(diaUtil(k, 19), 'POSTO IPIRANGA AUTO', -r(150, 280));
     adiciona(diaUtil(k, 23), 'SHELL SELECT 0413', -r(150, 280));
+    adiciona(diaUtil(k, 6), 'SHELL SELECT 0413', -r(150, 280));
 
     // 9 · Delivery: volume. Sem ele o extrato parece sintético.
     for (let i = 0; i < 2; i++) {
@@ -395,10 +433,9 @@ function montarLinhas(hoje: Date): Linha[] {
   };
 
   agora(5, 'SALARIO EMPRESA XYZ', 2400);
-  agora(8, SPOTIFY[MESES % SPOTIFY.length], -21.9);
   agora(10, SMART_FIT[MESES % SMART_FIT.length], -99.9);
+  agora(11, 'ENEL DISTRIBUICAO SP', -84.37);
   agora(12, 'INTERNET FIBRA 300MB', -109);
-  agora(15, 'NETFLIX.COM', -44.9);
   // ⭐ A conta caótica também cai neste ciclo, e com o sétimo nome. Ela aparece em "já caiu"
   //   com um nome que não diz nada — que é exatamente a tese: o produto a reconheceu assim.
   agora(10, 'Deb aut CLARO NET FIXO', -94.9);

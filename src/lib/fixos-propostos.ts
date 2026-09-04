@@ -66,6 +66,20 @@ const TOLERANCIA_DIA = 2;
  */
 const TOLERANCIA_DIA_NOME = 1;
 
+/**
+ * Ocorrências mínimas para uma **proposta de data** (a conta de valor variável).
+ *
+ * ⭐⭐ **Três, e o argumento é o do `PISO` invertido.** Lá está escrito: *"Dois, e não três como o
+ * resto do produto. Aqui o sinal é mais forte: nome igual, valor igual e dia próximo repetindo é
+ * assinatura"*. Esta regra **abre mão do valor** — sobram nome e dia —, então o sinal é mais
+ * fraco, e ela volta para o três que a memória de categoria e o compromisso previsível usam.
+ *
+ * ⚠️ Medido na planilha de demonstração: com dois, `CINEMARK BR` — que é linha de **ruído**,
+ * sorteada — caía em dois ciclos vizinhos e virava proposta. Duas idas ao cinema em dias
+ * parecidos não são uma conta a pagar, e é o tipo de falso positivo que ensina a ignorar a tela.
+ */
+const PISO_DATA = 3;
+
 export type Natureza = 'criar' | 'corrigir' | 'encerrar';
 
 export interface PropostaDeFixo {
@@ -444,6 +458,12 @@ export interface PropostaDeData {
  *    categoria muda todo mês. Medido: sem este corte, **os 10 candidatos da base são todos
  *    planilha**, e nenhum é conta de consumo. → migration 20260828120000
  *
+ *    ⚠️⚠️ **O filtro alcança só o backfill histórico, não todo import de planilha** — conferido em
+ *    04/09. Nada seta `origem` num import de arquivo: planilha, imagem e PDF caem no
+ *    `DEFAULT 'extrato'` da coluna, e só `criarManual` declara o seu. Na base, `origem = 'planilha'`
+ *    existe apenas até 2026-04-28. Consequência: uma planilha **nova** de rótulos de categoria
+ *    passaria por aqui. Os outros três cortes é que a barrariam — e é bom que sejam três.
+ *
  * ⚠️ O filtro fica **só aqui**, e não em `elegivel`: mexer lá mudaria a 1.b e a 1.a, que não têm o
  * problema.
  *
@@ -477,16 +497,29 @@ export function detectarPropostasDeData(
   const propostas: PropostaDeData[] = [];
 
   for (const [nomeCru, lista] of grupos) {
-    if (lista.length < PISO) continue;
+    if (lista.length < PISO_DATA) continue;
 
     // ⛔ Uma por ciclo. Ver o corte 3 acima.
     const ciclos = new Set(lista.map(t => getCycleKey(t.data, t.mes_fatura, cicloDia)));
     if (ciclos.size !== lista.length) continue;
 
-    // ⭐ Valor variando é o que define este grupo: se todos são iguais, a 1.b já o pegou, e propor
-    // aqui seria oferecer duas vezes a mesma cobrança em duas telas.
-    const valores = new Set(lista.map(t => abs(t).toFixed(2)));
-    if (valores.size < 2) continue;
+    // ⭐⭐ **Valor variando é o que define este grupo, e "variando" é mais forte que "não todos
+    // iguais".** Conta de consumo tem um valor diferente por mês; assinatura que **mudou de preço**
+    // tem dois patamares, cada um repetido. As duas passam num teste de "há mais de um valor", e
+    // são coisas diferentes: a segunda é da regra 1.b, que a pega como dois grupos.
+    //
+    // ⛔ Então o corte é: se **alguma** combinação `(nome, valor)` dentro do grupo já tem `PISO`
+    // ocorrências, a 1.b explica aquilo e este grupo não é conta de consumo. Sem isto,
+    // `INTERNET FIBRA 300MB` da planilha de exemplo — 99 nos três primeiros ciclos, 109 nos três
+    // últimos — apareceria como proposta de data **além** de virar gasto fixo, e a mesma cobrança
+    // seria oferecida em duas telas.
+    const porValor = new Map<string, number>();
+    for (const t of lista) {
+      const v = abs(t).toFixed(2);
+      porValor.set(v, (porValor.get(v) ?? 0) + 1);
+    }
+    if (porValor.size < 2) continue;
+    if ([...porValor.values()].some(n => n >= PISO)) continue;
 
     // ⚠️⚠️ **A referência é a MEDIANA dos dias, não a moda — e a diferença rejeitava o caso real.**
     // `diaTipico` devolve a moda, e numa distribuição plana (dias 10, 11, 12 duas vezes cada) a moda
