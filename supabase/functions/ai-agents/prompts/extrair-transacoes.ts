@@ -25,9 +25,28 @@ const ORIGEM: Record<Modo, string> = {
   pdf: 'o documento PDF fornecido, que é um extrato bancário ou fatura',
 };
 
-/** O campo `banco`: dedutível na imagem e no PDF, inexistente na planilha. */
+/**
+ * O campo `banco`: deduzido do documento na imagem e no PDF, **declarado pelo usuário** na planilha.
+ *
+ * ⭐⭐ **Esta função é o dono ÚNICO da regra de `banco`, e é por isso que ela ficou grande.** Até
+ * 2026-09-03 a regra estava dita em dois lugares — aqui ("Sempre retorne null para planilhas") e na
+ * regra 5 de `regrasDaPlanilha` ("DEVE ser null em TODAS as linhas") — e as duas juntas produziam um
+ * conflito sem resposta: as `INSTRUÇÕES ADICIONAIS DO USUÁRIO` são concatenadas **depois** das duas,
+ * então quem escrevesse "banco itau" e mandasse uma planilha tinha duas proibições categóricas
+ * contra uma instrução mais recente, **sem nenhuma precedência declarada**. A recência puxava para
+ * um lado, a ênfase para o outro, e o resultado variava por modelo e pela forma da frase.
+ *
+ * ⛔ A regra 5 foi removida em vez de corrigida. Duas frases sobre o mesmo campo é como o conflito
+ * nasceu; mantê-las alinhadas só adia a próxima divergência.
+ *
+ * ⚠️ **A planilha não traz o banco em lugar nenhum** — um CSV exportado é uma tabela de lançamentos,
+ * sem cabeçalho de instituição. Então aqui não há o que deduzir, e a única fonte possível é o
+ * usuário dizer. O que mudou não foi a capacidade do modelo: foi passar a aceitar a declaração.
+ */
 function campoBanco(modo: Modo): string {
-  if (modo === 'planilha') return '- "banco": Sempre retorne null para planilhas.';
+  if (modo === 'planilha') {
+    return `- "banco": Retorne null, EXCETO se as INSTRUÇÕES ADICIONAIS DO USUÁRIO no fim desta mensagem nomearem um banco. Nesse caso, use em TODAS as linhas o valor EXATO correspondente desta lista: [ ${listaDeBancos()} ]. Se o banco nomeado pelo usuário não estiver nesta lista, retorne null. A planilha em si nunca diz o banco: não tente deduzi-lo do conteúdo.`;
+  }
   const onde = modo === 'imagem' ? 'pela interface do print' : 'pelo documento';
   return `- "banco": Nome do banco deduzido ${onde}. DEVE obrigatoriamente ser um destes valores exatos: [ ${listaDeBancos()} ], ou null se não for possível deduzir.`;
 }
@@ -84,6 +103,14 @@ function campoCategoria(modo: Modo, categorias: string): string {
 /**
  * A planilha é a única origem que costuma vir incompleta — linha sem nome, sem dia, às
  * vezes só com o ano. Sem estas regras a IA descarta linha demais ou inventa data.
+ *
+ * ⛔ **`banco` NÃO mora aqui, e não pode voltar.** Havia uma regra 5 dizendo "o campo banco DEVE ser
+ * null em TODAS as linhas da planilha", e ela era metade de um conflito: `campoBanco` dizia o mesmo
+ * de outro jeito, e as duas juntas contradiziam a instrução do usuário sem declarar precedência. O
+ * dono único da regra de `banco` é `campoBanco` — leia o comentário de lá antes de mexer.
+ *
+ * ⚠️ As regras foram renumeradas quando a antiga 5 saiu: a 6 virou 5 e a 7 virou 6. Referência a
+ * "regra N" em documento antigo pode apontar para a regra errada.
  */
 function regrasDaPlanilha(cicloDia: number): string {
   const dia = String(cicloDia).padStart(2, '0');
@@ -94,9 +121,8 @@ function regrasDaPlanilha(cicloDia: number): string {
    - Faltando o dia (só mês e ano), padronize o DIA como ${cicloDia}. Ex: Maio/2026 vira "2026-05-${dia}".
    - Faltando também o mês (só o ano), use Janeiro e o mesmo dia. Ex: 2026 vira "2026-01-${dia}".
    - Não havendo informação nenhuma de data na linha, use a data de hoje.
-5. O campo "banco" DEVE ser null em TODAS as linhas da planilha.
-6. Os campos de parcela SÓ podem ser preenchidos quando o padrão N/M estiver ESCRITO na descrição da linha. NUNCA os infira do valor, do estabelecimento, nem do fato de a mesma linha se repetir em meses diferentes: uma assinatura mensal não é um parcelamento.
-7. Quando a linha tiver parcela, retorne "mes_fatura" como null. A data de uma linha parcelada é tratada como a data da COMPRA, e o sistema desloca cada parcela para o mês em que ela é cobrada.`;
+5. Os campos de parcela SÓ podem ser preenchidos quando o padrão N/M estiver ESCRITO na descrição da linha. NUNCA os infira do valor, do estabelecimento, nem do fato de a mesma linha se repetir em meses diferentes: uma assinatura mensal não é um parcelamento.
+6. Quando a linha tiver parcela, retorne "mes_fatura" como null. A data de uma linha parcelada é tratada como a data da COMPRA, e o sistema desloca cada parcela para o mês em que ela é cobrada.`;
 }
 
 export interface Contexto {

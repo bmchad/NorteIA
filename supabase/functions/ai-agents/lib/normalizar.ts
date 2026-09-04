@@ -8,6 +8,7 @@
  * categoria. Nao confundir com normalizacao de NOME, que foi deliberadamente descartada:
  * o agrupamento da memoria usa o `nome` cru. Ver context/30-decisoes-e-licoes.md D-013.
  */
+import { BANCOS } from './bancos.ts';
 
 /** Uma transacao como a IA a devolve, antes de qualquer tratamento. */
 export interface TransacaoBruta {
@@ -73,6 +74,44 @@ function casarCategoria(sugerida: string | null | undefined, categorias: Categor
 }
 
 /**
+ * Minusculas, sem acento e sem espaco nas pontas. "Itaú " e "ITAU" dao a mesma chave.
+ *
+ * ⚠️ A faixa vai como escape (`\u0300-\u036f`), e nao com os caracteres combinantes
+ * literais: eles sao invisiveis no editor, e uma copia que os perca deixa a funcao com cara de
+ * correta enquanto para de tirar acento.
+ */
+const chave = (s: string) =>
+  s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().trim();
+
+/**
+ * Casa a resposta da IA com um banco real da lista, e devolve o valor CANONICO dela.
+ *
+ * ⭐⭐ **Contraparte que faltava.** O prompt manda "DEVE obrigatoriamente ser um destes valores
+ * exatos" e passa `listaDeBancos()` -- mas isso e instrucao, nao validacao, e ate 2026-09-03 nada
+ * conferia a volta: a linha era `banco: t.banco ?? null`, repasse puro. O Postgres tambem nao
+ * confere, porque a `chk_banco` foi derrubada de proposito (D-011). `casarCategoria`, dez linhas
+ * acima, ja fazia exatamente isto para `categoria_sugerida`; `banco` era o unico campo com lista
+ * fechada e sem quem a checasse.
+ *
+ * ⭐ Devolver o valor **canonico** e o ponto, nao so aceitar ou recusar: "Itau" e "ITAÚ" viram
+ * `Itaú`, um so. Quem consome casa `vencimentos.banco` com `transactions.banco` por igualdade, e
+ * duas grafias do mesmo banco partiriam a fatura em dois.
+ *
+ * ⚠️ Ficou MAIS necessario com a mudanca do modo planilha, nao menos: ali se pede ao modelo que
+ * mapeie o texto livre do usuario para a lista, que e justamente onde ele erra.
+ *
+ * ⛔ Fora da lista vira `null`, nao o texto cru. E o que o proprio prompt ja manda quando nao da
+ * para deduzir, e guardar um nome inventado seria pior que guardar nada: ele apareceria no /perfil
+ * como um banco a configurar.
+ */
+function casarBanco(sugerido: string | null | undefined): string | null {
+  if (!sugerido) return null;
+  const alvo = chave(sugerido);
+  if (!alvo) return null;
+  return BANCOS.find((b) => chave(b) === alvo) ?? null;
+}
+
+/**
  * Aplica as duas regras e descarta o que nao serve.
  *
  * Uma transacao sem data, sem nome ou sem valor e ignorada por inteiro. O prompt ja pede
@@ -99,7 +138,7 @@ export function normalizar(
       nome: t.nome,
       apelido: t.apelido ?? null,
       valor: Number(t.valor),
-      banco: t.banco ?? null,
+      banco: casarBanco(t.banco),
       mes_fatura: t.mes_fatura ?? null,
       categoria_id: categoriaId,
       hora: t.hora ?? '12:00:00',
