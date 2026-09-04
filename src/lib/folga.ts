@@ -132,9 +132,9 @@ export interface CurvaDeFolga {
   folgaMinima: { dia: number; valor: number };
   /** Quantos ciclos fechados sustentam a curva de gasto difuso. */
   ciclosDeBase: number;
-  /** Cartões com lançamento no ciclo anterior e sem vencimento configurado no `/perfil`. */
+  /** Bancos com lançamento de fatura no ciclo anterior e sem vencimento configurado no `/perfil`. */
   cartoesSemVencimento: { banco: string; valor: number }[];
-  /** Quanto de cartão ficou de fora por não ter banco identificado. */
+  /** Quanto de fatura (cartão **e parcela**) ficou de fora por não ter banco identificado. */
   semBanco: number;
 }
 
@@ -251,12 +251,39 @@ export function transacoesDifusas(
   fixosAtivos: FixoDaFolga[],
 ): TransacaoDaFolga[] {
   const reivindicadas = reivindicadasPorFixos(fixosAtivos, transacoes);
+  // ⛔ `!naFatura(t)` é o complemento exato do predicado da fatura, e é assim que os dois conjuntos
+  // ficam disjuntos por construção em vez de por coincidência. Escrever as condições à mão nos dois
+  // lugares foi o que deixou a parcela em `'debito'` cair fora dos dois.
   return transacoes.filter(t =>
-    t.tipo !== 'credito'
+    !naFatura(t)
     && Number(t.valor) < 0
-    && !t.parcela_total
     && !reivindicadas.has(t.id),
   );
+}
+
+/**
+ * A transação anda na fatura em vez de sair da conta na data dela?
+ *
+ * ⭐⭐ **`parcela_total` basta, sozinho — e isso é deliberado.** Parcelamento é coisa de cartão por
+ * natureza: não se parcela um débito em conta. Uma linha com `parcela_total` preenchido *é* uma
+ * compra de cartão, tenha ela `tipo = 'credito'` ou não.
+ *
+ * ⚠️ E não tem, na prática. As 85 parcelas do histórico estão todas em `'debito'`, mas isso não é
+ * declaração — é o `DEFAULT` da coluna, que nasceu depois delas. Exigir `tipo = 'credito'` aqui
+ * deixaria de fora **toda** a camada Contratado, que é a mais *certa* do comprometido: dívida com
+ * valor e data de fim conhecidos.
+ *
+ * ⛔ **É este predicado que fecha um vazamento**, não que abre um. Até 2026-09-03 a parcela em
+ * `'debito'` não era contada por ninguém: `transacoesDifusas` a exclui pelo `!parcela_total`,
+ * `elegivel` (`fixos-propostos.ts`) também, e a fatura só olhava `'credito'`. Ela sumia da curva
+ * inteira, sem sintoma.
+ *
+ * ⛔⛔ **Espelho exato do que `transacoesDifusas` recusa**, e tem de continuar sendo. Os dois
+ * conjuntos precisam ser disjuntos (invariante 11, D-033): se uma linha entrar na curva média **e**
+ * na fatura, o mesmo dinheiro derruba o saldo duas vezes. Mexeu num, mexa no outro.
+ */
+function naFatura(t: TransacaoDaFolga): boolean {
+  return t.tipo === 'credito' || !!t.parcela_total;
 }
 
 /** O instrumento de um fixo sai das transações que o originaram — `fixos` não tem a coluna. */
@@ -366,7 +393,7 @@ export function curvaDeFolga({
   const porBanco = new Map<string, { rotulo: string; total: number }>();
   let semBanco = 0;
   for (const t of aprovadas) {
-    if (t.tipo !== 'credito' || Number(t.valor) >= 0) continue;
+    if (!naFatura(t) || Number(t.valor) >= 0) continue;
     if (getCycleKey(t.data, t.mes_fatura, cicloDia) !== cicloAnterior) continue;
     const k = chaveDeBanco(t.banco);
     if (!k) { semBanco += centavos(t.valor); continue; }

@@ -206,9 +206,37 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
   }, [cicloDia]);
 
   const dados = curva.saldo.map((valor, i) => ({ dia: i + 1, rotulo: rotuloDoDia(i + 1), saldo: valor }));
-  const debitos = curva.eventos.filter(e => e.natureza === 'debito');
-  const faturas = curva.eventos.filter(e => e.natureza === 'fatura');
-  const rendas = curva.eventos.filter(e => e.natureza === 'renda');
+
+  /**
+   * Um marcador por DIA, não por cobrança.
+   *
+   * ⛔ **Duas `ReferenceLine` no mesmo `x` são duas linhas idênticas, uma sobre a outra** — o
+   * agrupamento seria necessário mesmo que o rótulo estivesse certo. Três débitos no dia 3 desenhavam
+   * três linhas e três textos empilhados, e o resultado era um borrão.
+   *
+   * ⭐ Quando o dia tem mais de uma, o rótulo vira a contagem: os nomes completos vivem na lista
+   * "O que cai neste ciclo", logo abaixo. O gráfico mostra **quando** e **quanto**; a lista mostra
+   * **o quê**. Tentar ser as duas coisas foi o que estourou a área de plotagem.
+   */
+  const marcadores = useMemo(() => {
+    const porDia = new Map<number, EventoDatado[]>();
+    for (const e of curva.eventos) porDia.set(e.dia, [...(porDia.get(e.dia) ?? []), e]);
+
+    return [...porDia.entries()].map(([dia, eventos]) => {
+      // A natureza dominante decide a cor. Renda primeiro porque um dia que recebe salário é, para
+      // quem olha, o dia do salário — mesmo que uma conta caia junto.
+      const natureza = eventos.some(e => e.natureza === 'renda') ? 'renda'
+        : eventos.some(e => e.natureza === 'fatura') ? 'fatura' : 'debito';
+      return {
+        dia,
+        natureza,
+        rotulo: eventos.length === 1 ? eventos[0].rotulo : `${eventos.length} cobranças`,
+        // Só tracejado quando TODAS escorregaram; senão o tracejado mentiria sobre as outras.
+        ajustada: eventos.every(e => e.ajustada),
+        jaAconteceu: eventos.every(e => e.jaAconteceu),
+      };
+    });
+  }, [curva.eventos]);
 
   return (
     <>
@@ -277,13 +305,14 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
           </span>
         </div>
         <p className="text-xs text-text-light mb-4">
-          Média de {curva.ciclosDeBase} ciclos fechados. Os marcadores são as cobranças que caem
-          em cada dia — cada degrau da curva é uma delas.
+          Média de {curva.ciclosDeBase} ciclos fechados. Cada marcador é um dia em que algo cai —
+          e cada degrau da curva é isso acontecendo. Dia com mais de uma cobrança mostra a contagem;
+          os nomes completos estão na lista abaixo.
         </p>
 
         <div className="h-80 w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={dados} margin={{ top: 8, right: 8, bottom: 4, left: 8 }}>
+            <ComposedChart data={dados} margin={{ top: 12, right: 12, bottom: 4, left: 8 }}>
               <CartesianGrid strokeDasharray="3 3" stroke={COR.grade} />
               <XAxis dataKey="rotulo" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => real(Number(v))} width={70} />
@@ -307,41 +336,18 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
                 />
               )}
 
-              {/* ⭐ Um marcador por débito automático, no dia EXATO em que ele cai — já com o
-                  ajuste de fim de semana, que é onde o dinheiro sai de verdade. É o elemento
-                  que torna o degrau legível: sem ele a pessoa vê uma queda e não sabe de quem
-                  é. */}
-              {debitos.map((e, i) => (
+              {/* ⭐ Um marcador por dia em que algo cai — no dia EXATO, já com o ajuste de fim de
+                  semana, que é onde o dinheiro sai de verdade. É o elemento que torna o degrau
+                  legível: sem ele a pessoa vê uma queda e não sabe de quem é. */}
+              {marcadores.map(m => (
                 <ReferenceLine
-                  key={`d${i}`}
-                  x={dados[e.dia - 1]?.rotulo}
-                  stroke={COR.perigo}
-                  strokeOpacity={e.jaAconteceu ? 0.35 : 0.75}
-                  strokeDasharray={e.ajustada ? '4 3' : undefined}
-                  label={{ value: e.rotulo, position: 'insideTopLeft', fontSize: 10, angle: -90, offset: 8 }}
-                />
-              ))}
-
-              {/* A fatura: um marcador só por banco, o maior de todos. */}
-              {faturas.map((e, i) => (
-                <ReferenceLine
-                  key={`f${i}`}
-                  x={dados[e.dia - 1]?.rotulo}
-                  stroke={COR.marca()}
-                  strokeWidth={2}
-                  strokeDasharray={e.ajustada ? '4 3' : undefined}
-                  label={{ value: e.rotulo, position: 'insideTopLeft', fontSize: 10, angle: -90, offset: 8 }}
-                />
-              ))}
-
-              {/* A renda, como degrau — é o dia em que ela entra que faz o buraco existir. */}
-              {rendas.map((e, i) => (
-                <ReferenceLine
-                  key={`r${i}`}
-                  x={dados[e.dia - 1]?.rotulo}
-                  stroke={COR.renda}
-                  strokeWidth={2}
-                  label={{ value: e.rotulo, position: 'insideTopLeft', fontSize: 10, angle: -90, offset: 8 }}
+                  key={`m${m.dia}`}
+                  x={dados[m.dia - 1]?.rotulo}
+                  stroke={m.natureza === 'renda' ? COR.renda : m.natureza === 'fatura' ? COR.marca() : COR.perigo}
+                  strokeWidth={m.natureza === 'debito' ? 1 : 2}
+                  strokeOpacity={m.jaAconteceu ? 0.35 : 0.85}
+                  strokeDasharray={m.ajustada ? '4 3' : undefined}
+                  label={<RotuloVertical texto={m.rotulo} />}
                 />
               ))}
 
@@ -385,17 +391,21 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
       {(curva.cartoesSemVencimento.length > 0 || curva.semBanco > 0) && (
         <div className="glass-panel p-6 border-l-4 border-amber-500">
           <h3 className="text-base font-bold text-text flex items-center gap-2 mb-2">
-            <CreditCard size={18} /> Cartão que ficou fora da curva
+            <CreditCard size={18} /> Fatura que ficou fora da curva
           </h3>
+          {/* ⚠️ "Fatura", e não "cartão": desde 03/09 a parcela anda aqui também, e ela costuma vir
+              marcada como débito no histórico — quem lesse "cartão" não reconheceria a própria
+              parcela no número. */}
           {curva.cartoesSemVencimento.map(c => (
             <p key={c.banco} className="text-sm text-text-light">
-              <strong>{c.banco}</strong>: {realExato(c.valor)} sem dia de vencimento configurado.
+              <strong>{c.banco}</strong>: {realExato(c.valor)} em compras e parcelas de cartão, sem
+              dia de vencimento configurado.
             </p>
           ))}
           {curva.semBanco > 0 && (
             <p className="text-sm text-text-light">
-              {realExato(curva.semBanco)} em lançamentos de cartão sem banco identificado —
-              planilha não traz o banco, e print nem sempre deixa deduzir.
+              {realExato(curva.semBanco)} em compras e parcelas de cartão <strong>sem banco
+              identificado</strong> — planilha não traz o banco, e print nem sempre deixa deduzir.
             </p>
           )}
           {/* ⛔ Chutar um vencimento produziria um aviso falso, pior que aviso nenhum. */}
@@ -411,6 +421,47 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
         </div>
       )}
     </>
+  );
+}
+
+/**
+ * O rótulo vertical de um marcador, ancorado na BASE da área de plotagem.
+ *
+ * ⚠️⚠️ **Foi aqui que os nomes saíam do gráfico.** A versão anterior usava o objeto
+ * `label={{ ..., position: 'insideTopLeft', angle: -90 }}`: `rotate(-90)` faz o texto correr **para
+ * cima** a partir da âncora, e `insideTopLeft` põe a âncora na borda superior — então ele subia para
+ * fora da área e era cortado. O `angle` do Recharts não reposiciona a âncora para compensar.
+ *
+ * ⭐ A correção não é trocar o sinal do ângulo: é ancorar embaixo e deixar o texto subir. `-90` é a
+ * orientação que se lê inclinando a cabeça para a esquerda, a mesma de um rótulo de eixo Y — trocar
+ * para `90` deixaria o texto de cabeça para baixo em relação ao que o olho espera.
+ *
+ * ⚠️ `viewBox` chega do Recharts por `cloneElement`, e por isso é opcional na assinatura: o
+ * componente nunca é montado à mão. Sem ele, não desenha — em vez de desenhar em (0,0).
+ */
+function RotuloVertical(
+  { texto, viewBox }: { texto: string; viewBox?: { x?: number; y?: number; height?: number } },
+) {
+  if (!viewBox || viewBox.x == null || viewBox.y == null || viewBox.height == null) return null;
+
+  // Trunca porque o espaço é a altura do gráfico, não a largura do texto: um nome de extrato como
+  // "Debito automatico: \"0071845220196\"" atravessaria a curva inteira.
+  const curto = texto.length > 22 ? `${texto.slice(0, 21)}…` : texto;
+  const x = viewBox.x + 4;
+  const y = viewBox.y + viewBox.height - 6;
+
+  return (
+    <text
+      x={x}
+      y={y}
+      transform={`rotate(-90, ${x}, ${y})`}
+      textAnchor="start"
+      fontSize={10}
+      fill="currentColor"
+      className="fill-text-light"
+    >
+      {curto}
+    </text>
   );
 }
 
