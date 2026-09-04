@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter, ArrowLeftRight, Layers, BookOpen, CreditCard } from 'lucide-react';
+import { PlusCircle, Edit2, Trash2, Check, X, AlertCircle, Search, ListFilter, ArrowLeftRight, Layers, BookOpen, CreditCard, Tags, CalendarRange } from 'lucide-react';
 import { TETO_EXEMPLOS, TETO_TIPOS_ATIVOS } from '../lib/compromissos';
 import ConfirmModal from '../components/ConfirmModal';
 import ExemplosDoCompromisso from '../components/ExemplosDoCompromisso';
@@ -582,7 +582,9 @@ export default function Perfil() {
 
       <div className="glass-panel p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-border pb-4 gap-4">
-          <h3 className="text-xl font-bold text-text">Suas Categorias</h3>
+          <h3 className="text-xl font-bold text-text flex items-center gap-2">
+            <Tags size={22} className="text-primary" /> Suas categorias
+          </h3>
 
           <div className="flex items-center gap-2">
             <div className={`flex items-center gap-1 rounded-xl transition-all duration-300 ${isSearchExpanded ? 'bg-white/60 p-1.5 px-3 border border-border/50' : ''}`}>
@@ -1207,7 +1209,9 @@ export default function Perfil() {
 
       {/* Seus Ciclos */}
       <div className="glass-panel p-6">
-        <h3 className="text-xl font-bold text-text mb-2">Seus ciclos</h3>
+        <h3 className="text-xl font-bold text-text mb-2 flex items-center gap-2">
+          <CalendarRange size={22} className="text-primary" /> Seus ciclos
+        </h3>
         <p className="text-sm text-text-light mb-4">Selecione onde seu mês começa! Exemplo, se seu mês começa no dia 5, seus balanços serão do dia 5 do mês atual até dia 5 do próximo.</p>
         <div className="flex items-center gap-3">
           <span className="text-sm font-semibold text-text">Dia de início:</span>
@@ -1226,7 +1230,7 @@ export default function Perfil() {
       {/* Vencimento das faturas */}
       <div className="glass-panel p-6">
         <h3 className="text-xl font-bold text-text mb-2 flex items-center gap-2">
-          <CreditCard size={20} className="text-primary" /> Vencimento das faturas
+          <CreditCard size={22} className="text-primary" /> Vencimento das faturas
         </h3>
         {/* ⚠️⚠️ Vencimento não é fechamento, e a distinção decide o que se pode mexer.
             `ciclo_dia` é onde o ciclo CORTA: mexer nele muda o /meses, o Dashboard e as
