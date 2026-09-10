@@ -203,7 +203,7 @@ export default function Meses() {
         />
       )}
       <header>
-        <h2 className="text-3xl font-bold text-primary flex items-center gap-3">
+        <h2 className="text-3xl font-bold text-text flex items-center gap-3">
           <CalendarIcon size={32} className="text-primary" /> Balanços Mensais
         </h2>
         <p className="text-text-light mt-1">Transações agrupadas do dia {cicloDia} ao dia {cicloDia} do mês seguinte.</p>
@@ -234,7 +234,7 @@ export default function Meses() {
             const categoriesMap: Record<string, { totalSpent: number; totalReceived: number; cor: string }> = {};
             cycleTransactions.forEach(t => {
               const catName = t.categories?.nome || 'Sem categoria';
-              const catCor = t.categories?.cor || '#64748b'; // default slate color
+              const catCor = t.categories?.cor || '#849A76'; // sálvia 500: o fallback de categoria sem cor
               if (!categoriesMap[catName]) {
                 categoriesMap[catName] = { totalSpent: 0, totalReceived: 0, cor: catCor };
               }
@@ -258,10 +258,10 @@ export default function Meses() {
               <div key={key} className="glass-panel overflow-hidden transition-all duration-300">
                 <button
                   onClick={() => toggleMonth(key)}
-                  className="w-full p-4 flex items-center justify-between bg-white/40 hover:bg-white/60 transition-colors"
+                  className="w-full p-4 flex items-center justify-between bg-superficie hover:bg-superficie-forte transition-colors"
                 >
                   <div className="flex items-center gap-3">
-                    {isExpanded ? <ChevronDown size={20} className="text-primary" /> : <ChevronRight size={20} className="text-text-light" />}
+                    {isExpanded ? <ChevronDown size={20} className="text-text" /> : <ChevronRight size={20} className="text-text-light" />}
                     <h3 className="text-lg font-bold text-text">{cycleName}</h3>
                     <span className="text-xs bg-primary/10 text-azul px-2 py-1 rounded-full font-medium">
                       {cycleTransactions.length} itens
@@ -270,14 +270,14 @@ export default function Meses() {
                   <div className="flex items-center gap-2 text-sm font-bold">
                     <div className="w-[110px] flex justify-end">
                       {entradas > 0 && (
-                        <span className="bg-[#10b981]/10 text-[#10b981] px-2 py-1 rounded-lg border border-[#10b981]/20 w-full text-center whitespace-nowrap">
+                        <span className="bg-azul/10 text-azul px-2 py-1 rounded-lg border border-azul/20 w-full text-center whitespace-nowrap">
                           +R$ {entradas.toFixed(2).replace('.', ',')}
                         </span>
                       )}
                     </div>
                     <div className="w-[110px] flex justify-end">
                       {saidas > 0 && (
-                        <span className="bg-black/5 text-black px-2 py-1 rounded-lg border border-black/10 w-full text-center whitespace-nowrap">
+                        <span className="bg-text/5 text-text px-2 py-1 rounded-lg border border-text/10 w-full text-center whitespace-nowrap">
                           -R$ {saidas.toFixed(2).replace('.', ',')}
                         </span>
                       )}
@@ -291,22 +291,22 @@ export default function Meses() {
                 </button>
 
                 {isExpanded && (
-                  <div className="p-4 border-t border-border bg-white/20">
+                  <div className="p-4 border-t border-border bg-superficie">
                     {/* Resumo por Categoria - Dois Dashboards */}
                     {(despesasCategories.length > 0 || receitasCategories.length > 0) && (
                       <>
                         {/* Toggle de Visualização */}
                         <div className="flex justify-start mb-4">
-                          <div className="flex bg-white/40 p-1 rounded-lg border border-border/40">
+                          <div className="flex bg-text/5 p-1 rounded-lg border border-border">
                             <button
                               onClick={(e) => { e.stopPropagation(); setDashboardType('pie'); }}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${dashboardType === 'pie' ? 'bg-white shadow-sm text-primary' : 'text-text-light hover:text-text'}`}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${dashboardType === 'pie' ? 'bg-surface shadow-sm text-text' : 'text-text-light hover:text-text'}`}
                             >
                               <PieChartIcon size={14} /> Pizza
                             </button>
                             <button
                               onClick={(e) => { e.stopPropagation(); setDashboardType('bar'); }}
-                              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${dashboardType === 'bar' ? 'bg-white shadow-sm text-primary' : 'text-text-light hover:text-text'}`}
+                              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-bold rounded-md transition-all ${dashboardType === 'bar' ? 'bg-surface shadow-sm text-text' : 'text-text-light hover:text-text'}`}
                             >
                               <BarChart3 size={14} /> Barras
                             </button>
@@ -352,7 +352,7 @@ export default function Meses() {
                             {/* Dashboard de Receitas (Barras) */}
                             {receitasCategories.length > 0 && (
                               <div className="flex flex-col gap-3">
-                                <h4 className="text-xs font-bold text-[#10b981] uppercase tracking-wider border-b border-[#10b981]/20 pb-2">
+                                <h4 className="text-xs font-bold text-azul uppercase tracking-wider border-b border-azul/20 pb-2">
                                   Receitas por Categoria (Total: R$ {entradas.toFixed(2).replace('.', ',')})
                                 </h4>
                                 <div className="flex flex-col gap-2">
@@ -421,7 +421,7 @@ export default function Meses() {
                             {/* Dashboard de Receitas (Pizza) */}
                             {receitasCategories.length > 0 && (
                               <div className="flex flex-col gap-3 w-full max-w-[600px]">
-                                <h4 className="text-sm font-bold text-[#10b981] uppercase tracking-wider border-b border-[#10b981]/20 pb-2 text-center">
+                                <h4 className="text-sm font-bold text-azul uppercase tracking-wider border-b border-azul/20 pb-2 text-center">
                                   Receitas por Categoria (Total: R$ {entradas.toFixed(2).replace('.', ',')})
                                 </h4>
                                 <div className="h-[350px] w-full mt-2">
@@ -468,7 +468,7 @@ export default function Meses() {
                             <th className="pb-2 font-medium w-[35%]">
                               <div className="flex items-center gap-1">
                                 <span>Apelido</span>
-                                <button onClick={() => setIsApelidoFilterOpen(!isApelidoFilterOpen)} className={`p-1 rounded hover:md-black/5 transition-colors ${filterApelido ? 'text-primary' : ''}`} title="Buscar Apelido">
+                                <button onClick={() => setIsApelidoFilterOpen(!isApelidoFilterOpen)} className={`p-1 rounded hover:bg-text/5 transition-colors ${filterApelido ? 'text-text' : ''}`} title="Buscar Apelido">
                                   <Search size={14} />
                                 </button>
                                 {isApelidoFilterOpen && (
@@ -493,7 +493,7 @@ export default function Meses() {
                             <th className="pb-2 font-medium w-[20%] text-center">
                               <div className="flex items-center justify-center gap-1">
                                 <span>Categoria</span>
-                                <button onClick={() => setIsCategoriaFilterOpen(!isCategoriaFilterOpen)} className={`p-1 rounded hover:bg-black/5 transition-colors ${filterCategoria ? 'text-primary' : ''}`} title="Filtrar Categoria">
+                                <button onClick={() => setIsCategoriaFilterOpen(!isCategoriaFilterOpen)} className={`p-1 rounded hover:bg-text/5 transition-colors ${filterCategoria ? 'text-text' : ''}`} title="Filtrar Categoria">
                                   <ListFilter size={14} />
                                 </button>
                                 {isCategoriaFilterOpen && (
@@ -539,7 +539,7 @@ export default function Meses() {
                             if (filtered.length === 0) {
                               return (
                                 <tr>
-                                  <td colSpan={5} className="py-8 text-center text-text-light text-sm bg-white/10 rounded-xl">
+                                  <td colSpan={5} className="py-8 text-center text-text-light text-sm bg-text/[0.03] rounded-xl">
                                     Nenhuma transação corresponde aos filtros atuais.
                                   </td>
                                 </tr>
@@ -552,18 +552,18 @@ export default function Meses() {
 
                               if (isEditing) {
                                 return (
-                                  <tr key={t.id} className="border-b border-border/50 bg-primary/5">
+                                  <tr key={t.id} className="border-b border-border bg-primary/5">
                                     <td className="py-2 px-1">
                                       <input
                                         type="date"
                                         value={editForm.data}
                                         onChange={e => setEditForm({ ...editForm, data: e.target.value })}
-                                        className="glass-input w-full p-1 text-sm bg-white mb-1"
+                                        className="glass-input w-full p-1 text-sm mb-1"
                                       />
                                       <select
                                         value={editForm.mes_fatura || ''}
                                         onChange={e => setEditForm({ ...editForm, mes_fatura: e.target.value || null })}
-                                        className="glass-input w-full p-1 text-xs bg-white text-text-light"
+                                        className="glass-input w-full p-1 text-xs text-text-light"
                                         title="Balanço (Mês da Fatura)"
                                       >
                                         <option value="">Ciclo do dia {cicloDia}</option>
@@ -577,7 +577,7 @@ export default function Meses() {
                                         type="text"
                                         value={editForm.apelido}
                                         onChange={e => setEditForm({ ...editForm, apelido: e.target.value })}
-                                        className="glass-input w-full p-1 text-sm bg-white"
+                                        className="glass-input w-full p-1 text-sm"
                                       />
                                       <input
                                         type="text"
@@ -585,7 +585,7 @@ export default function Meses() {
                                         onChange={e => setEditForm({ ...editForm, comentario: e.target.value })}
                                         placeholder="Comentário..."
                                         title="Comentário livre sobre esta transação"
-                                        className="glass-input w-full p-1 mt-1 text-xs bg-white text-text-light"
+                                        className="glass-input w-full p-1 mt-1 text-xs text-text-light"
                                       />
                                       {t.nome && t.nome !== 'Nova Transação' && t.nome !== 'Nova transação' && (
                                         <div className="mt-1 text-[10px] text-text-light/70 break-words whitespace-normal" title={t.nome}>
@@ -597,7 +597,7 @@ export default function Meses() {
                                       <select
                                         value={editForm.categoria_id}
                                         onChange={e => setEditForm({ ...editForm, categoria_id: e.target.value })}
-                                        className="glass-input w-full p-1 text-sm bg-white appearance-none text-center"
+                                        className="glass-input w-full p-1 text-sm appearance-none text-center"
                                       >
                                         <option value="">Selecione...</option>
                                         {categories.map(c => (
@@ -611,7 +611,7 @@ export default function Meses() {
                                         step="0.01"
                                         value={editForm.valor}
                                         onChange={e => setEditForm({ ...editForm, valor: e.target.value })}
-                                        className="glass-input w-full p-1 text-lg font-extrabold text-center bg-white"
+                                        className="glass-input w-full p-1 text-lg font-extrabold text-center"
                                       />
                                       <div className="flex items-center justify-center gap-1 mt-1">
                                         <span className="text-[10px] text-text-light font-semibold">Parc:</span>
@@ -621,7 +621,7 @@ export default function Meses() {
                                           pattern="[0-9]*"
                                           value={editForm.parcela_atual}
                                           onChange={e => setEditForm({ ...editForm, parcela_atual: e.target.value })}
-                                          className="glass-input w-10 px-1 py-0.5 text-[11px] text-center bg-white font-medium"
+                                          className="glass-input w-10 px-1 py-0.5 text-[11px] text-center font-medium"
                                         />
                                         <span className="text-[10px] text-text-light font-bold">/</span>
                                         <input
@@ -630,7 +630,7 @@ export default function Meses() {
                                           pattern="[0-9]*"
                                           value={editForm.parcela_total}
                                           onChange={e => setEditForm({ ...editForm, parcela_total: e.target.value })}
-                                          className="glass-input w-10 px-1 py-0.5 text-[11px] text-center bg-white font-medium"
+                                          className="glass-input w-10 px-1 py-0.5 text-[11px] text-center font-medium"
                                         />
                                       </div>
                                     </td>
@@ -638,7 +638,7 @@ export default function Meses() {
                                       <div className="flex items-center justify-center gap-2">
                                         <button
                                           onClick={() => saveEditing(t.id)}
-                                          className="text-primary hover:text-primary-hover p-1"
+                                          className="text-text hover:text-text-hover p-1"
                                           title="Salvar"
                                         >
                                           <CheckCircle size={18} />
@@ -658,7 +658,7 @@ export default function Meses() {
 
                               // View Mode
                               return (
-                                <tr key={t.id} className="border-b border-border/50 hover:bg-white/40 transition-colors">
+                                <tr key={t.id} className="border-b border-border hover:bg-text/5 transition-colors">
                                   <td className="py-3 text-sm">
                                     <div>
                                       {t.data.split('-')[2]} de <span className="text-azul font-semibold">{MESES[parseInt(t.data.split('-')[1]) - 1]}</span>
@@ -679,7 +679,7 @@ export default function Meses() {
                                       )}
                                   </td>
                                   <td className="py-3 text-sm text-center">
-                                    <span className="bg-background px-3 py-1.5 rounded-md border border-border">
+                                    <span className="bg-superficie px-3 py-1.5 rounded-md border border-border">
                                       {t.categories?.nome || 'Sem categoria'}
                                     </span>
                                   </td>
@@ -695,7 +695,7 @@ export default function Meses() {
                                     <div className="flex items-center justify-center gap-1">
                                       <button
                                         onClick={() => startEditing(t)}
-                                        className="text-text-light hover:text-primary transition-colors p-1"
+                                        className="text-text-light hover:text-text hover:underline transition-colors p-1"
                                         title="Editar"
                                       >
                                         <Edit2 size={16} />

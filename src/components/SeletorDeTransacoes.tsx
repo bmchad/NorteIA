@@ -102,9 +102,9 @@ export default function SeletorDeTransacoes({ selecionadas, teto, categorias, on
       onClick={() => aoClicar?.()}
       disabled={!aoClicar}
       title={marcada ? 'Clique para tirar dos exemplos' : undefined}
-      className={`w-full flex items-center justify-between gap-2 text-xs py-1.5 px-2 border-b border-border/40 last:border-0 transition-colors ${
+      className={`w-full flex items-center justify-between gap-2 text-xs py-1.5 px-2 border-b border-border last:border-0 transition-colors ${
         marcada
-          ? 'bg-primary/10 text-primary hover:bg-danger/10 hover:text-danger'
+          ? 'bg-primary text-white hover:bg-danger/10 hover:text-danger'
           : aoClicar ? 'hover:bg-primary/10' : 'opacity-40 cursor-not-allowed'
       }`}
     >
@@ -128,7 +128,7 @@ export default function SeletorDeTransacoes({ selecionadas, teto, categorias, on
         value={busca}
         onChange={e => { setBusca(e.target.value); setLimite(PAGINA); }}
         placeholder="Filtrar por nome..."
-        className="glass-input p-2 text-sm bg-white w-full"
+        className="glass-input p-2 text-sm w-full"
       />
 
       {/* ⚠️ Trocar ordem ou categoria recomeça a janela: senão "as 300 já carregadas"
@@ -137,7 +137,7 @@ export default function SeletorDeTransacoes({ selecionadas, teto, categorias, on
         <select
           value={ordem}
           onChange={e => { setOrdem(e.target.value as keyof typeof ORDEM); setLimite(PAGINA); }}
-          className="glass-input p-2 text-xs bg-white flex-1 cursor-pointer"
+          className="glass-input p-2 text-xs flex-1 cursor-pointer"
           title="Ordenar"
         >
           <option value="recentes">Mais recentes</option>
@@ -148,7 +148,7 @@ export default function SeletorDeTransacoes({ selecionadas, teto, categorias, on
         <select
           value={categoria}
           onChange={e => { setCategoria(e.target.value); setLimite(PAGINA); }}
-          className="glass-input p-2 text-xs bg-white flex-1 cursor-pointer"
+          className="glass-input p-2 text-xs flex-1 cursor-pointer"
           title="Filtrar por categoria"
         >
           <option value="">Todas as categorias</option>
@@ -163,7 +163,7 @@ export default function SeletorDeTransacoes({ selecionadas, teto, categorias, on
           e desmarcar só funcionava em um deles.
           ⚠️ As escolhidas vêm de fora, não do catálogo: uma transação de 2024 pode não estar
           na janela carregada, e sumiria da tela se dependesse dela. */}
-      <div className="mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-white/40">
+      <div className="mt-1 max-h-64 overflow-y-auto rounded-lg border border-border bg-superficie">
         {carregando && catalogo.length === 0 && selecionadas.length === 0 ? (
           <div className="p-3 text-center text-xs text-text-light">Carregando...</div>
         ) : selecionadas.length === 0 && resto.length === 0 ? (
@@ -176,7 +176,7 @@ export default function SeletorDeTransacoes({ selecionadas, teto, categorias, on
               <button
                 onClick={() => setLimite(n => n + PAGINA)}
                 disabled={carregando}
-                className="w-full py-2 text-xs font-medium text-primary hover:bg-primary/10 transition-colors disabled:opacity-50"
+                className="w-full py-2 text-xs font-medium text-text hover:bg-primary/10 transition-colors disabled:opacity-50"
               >
                 {carregando ? 'Carregando...' : 'Buscar +'}
               </button>

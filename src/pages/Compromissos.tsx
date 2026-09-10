@@ -529,7 +529,7 @@ export default function Compromissos() {
       )}
 
       <header>
-        <h2 className="text-3xl font-bold text-primary flex items-center gap-3">
+        <h2 className="text-3xl font-bold text-text flex items-center gap-3">
           <Layers size={32} className="text-primary" /> Compromissos
         </h2>
         <p className="text-text-light mt-1">
@@ -538,8 +538,10 @@ export default function Compromissos() {
       </header>
 
       {/* ⭐ A resposta da tela, sozinha na própria caixa. Dividir a linha com o rótulo à
-          esquerda e o número à direita fazia dele mais um item de cabeçalho. */}
-      <div className="glass-panel p-8 text-center">
+          esquerda e o número à direita fazia dele mais um item de cabeçalho.
+          ⭐ E é por ser A resposta que ele leva `painel-estrutural` (2px floresta) — o fio que
+          a paleta reserva para o cartão herói. Os outros ~60 painéis ficam no divisor. */}
+      <div className="glass-panel painel-estrutural p-8 text-center">
         <span className="text-text-light text-sm uppercase font-bold tracking-wider">
           Comprometido por mês
         </span>
@@ -549,8 +551,8 @@ export default function Compromissos() {
             telas terem virado uma. Para assinatura não dá para dizer nada: pode durar
             para sempre. */}
         {alivio && (
-          <div className="mt-4 inline-flex items-start gap-2 text-sm bg-[#10b981]/5 rounded-xl p-3 text-left">
-            <TrendingDown size={16} className="text-[#10b981] shrink-0 mt-0.5" />
+          <div className="mt-4 inline-flex items-start gap-2 text-sm bg-azul/5 rounded-xl p-3 text-left">
+            <TrendingDown size={16} className="text-azul shrink-0 mt-0.5" />
             <span className="text-text-light">
               A partir de <strong className="text-text">{alivio.rotulo}</strong>, cai para{' '}
               <strong className="text-text">{brl(alivio.valor)}</strong> — são{' '}
@@ -580,7 +582,7 @@ export default function Compromissos() {
             titulo="Recorrente"
             valor={brl(recorrente)}
             nota="Dia e valor previsíveis. Dá para cancelar"
-            cor="text-azul"
+            cor="text-danger"
             icone={Anchor}
             ativo={aba === 'recorrente'}
             onClick={() => setAba('recorrente')}
@@ -590,7 +592,7 @@ export default function Compromissos() {
             titulo="Previsível"
             valor={brl(previsivel)}
             nota="Mercado, combustível. Você vai gastar"
-            cor="text-[#10b981]"
+            cor="text-danger"
             icone={ShoppingCart}
             ativo={aba === 'previsivel'}
             onClick={() => setAba('previsivel')}
@@ -633,7 +635,7 @@ export default function Compromissos() {
           {reserva.pendentes.length > 0 && (
             <div className="glass-panel p-5 border-l-4 border-primary">
               <div className="flex items-start gap-3">
-                <div className="bg-primary/10 text-primary p-2 rounded-lg shrink-0">
+                <div className="bg-primary text-white p-2 rounded-lg shrink-0">
                   <PiggyBank size={20} />
                 </div>
                 <div className="min-w-0">
@@ -662,7 +664,7 @@ export default function Compromissos() {
                  para quem não quer esperar. */
               <div className="glass-panel p-8 text-center text-text-light">
                 Nada por aqui ainda — seus gastos fixos são importados{' '}
-                <strong className="text-primary">automaticamente</strong>.
+                <strong className="text-text">automaticamente</strong>.
               </div>
             ) : (
               ativosOrdenados.map(f => (
@@ -688,19 +690,19 @@ export default function Compromissos() {
                   value={novo.nome}
                   onChange={e => setNovo({ ...novo, nome: e.target.value })}
                   placeholder="Nome exato do extrato (ex: NETFLIX.COM)"
-                  className="glass-input p-2 text-sm bg-white flex-1 min-w-[200px]"
+                  className="glass-input p-2 text-sm flex-1 min-w-[200px]"
                 />
                 <input
                   value={novo.valor}
                   onChange={e => setNovo({ ...novo, valor: e.target.value })}
                   placeholder="Valor" inputMode="decimal"
-                  className="glass-input p-2 text-sm bg-white w-28"
+                  className="glass-input p-2 text-sm w-28"
                 />
                 <input
                   value={novo.dia}
                   onChange={e => setNovo({ ...novo, dia: e.target.value })}
                   placeholder="Dia (opcional)" type="number" min={1} max={31}
-                  className="glass-input p-2 text-sm bg-white w-32"
+                  className="glass-input p-2 text-sm w-32"
                   title="Opcional: 'gasto uns R$ 300 no mercado' é cadastro legítimo"
                 />
                 <button
@@ -729,7 +731,7 @@ export default function Compromissos() {
                 <button
                   onClick={aceitarTodas}
                   disabled={aceitandoTudo}
-                  className="flex items-center gap-1.5 text-xs font-medium text-primary hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
+                  className="flex items-center gap-1.5 text-xs font-medium text-text hover:bg-primary/10 px-3 py-1.5 rounded-lg transition-colors disabled:opacity-50"
                 >
                   <CheckCheck size={14} />
                   {aceitandoTudo
@@ -779,7 +781,7 @@ export default function Compromissos() {
                         </div>
                         <button
                           onClick={() => desfazerRecusa(f.id)}
-                          className="flex items-center gap-1 text-xs text-primary hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors shrink-0"
+                          className="flex items-center gap-1 text-xs text-text hover:bg-primary/10 px-2 py-1 rounded-lg transition-colors shrink-0"
                           title="A proposta volta a aparecer"
                         >
                           <Undo2 size={14} /> Desfazer
@@ -803,7 +805,7 @@ export default function Compromissos() {
             <h3 className="font-bold text-text">Previsíveis</h3>
             <button
               onClick={() => navigate('/perfil')}
-              className="glass-input flex items-center gap-2 px-4 py-2 text-sm font-medium hover:text-primary transition-colors"
+              className="glass-input flex items-center gap-2 px-4 py-2 text-sm font-medium hover:text-text hover:underline transition-colors"
             >
               <Settings2 size={16} /> Editar lista de compromissos
             </button>
@@ -811,7 +813,7 @@ export default function Compromissos() {
           {detectados.length === 0 ? (
             <div className="glass-panel p-8 text-center text-text-light">
               Nada por aqui ainda — importe mais extratos e a IA reconhece seus gastos
-              previsíveis <strong className="text-primary">automaticamente</strong>.
+              previsíveis <strong className="text-text">automaticamente</strong>.
             </div>
           ) : (
             detectados.map(c => (
@@ -859,7 +861,7 @@ export default function Compromissos() {
                       {brl(c.valorFixado!)}.{' '}
                       <button
                         onClick={() => fixarValor(c.slug, c.amortizadoObservado, c.transacoes)}
-                        className="text-primary font-medium underline"
+                        className="text-text font-medium underline"
                       >
                         Atualizar
                       </button>
@@ -872,7 +874,7 @@ export default function Compromissos() {
                     {c.valorFixado == null && (
                       <button
                         onClick={() => fixarValor(c.slug, c.amortizadoObservado, c.transacoes)}
-                        className="text-xs text-primary font-medium mb-2"
+                        className="text-xs text-text font-medium mb-2"
                       >
                         Fixar {brl(c.amortizadoObservado)}/mês
                       </button>
@@ -902,7 +904,7 @@ export default function Compromissos() {
                         value={buscaTransacao}
                         onChange={e => setBuscaTransacao(e.target.value)}
                         placeholder="Buscar transação para acrescentar..."
-                        className="glass-input w-full p-2 text-xs bg-white"
+                        className="glass-input w-full p-2 text-xs"
                       />
                       {buscaTransacao.trim().length >= 2 && (
                         <div className="mt-1 max-h-40 overflow-y-auto space-y-0.5">
@@ -986,7 +988,7 @@ export default function Compromissos() {
                   <CreditCard size={20} className="text-primary" /> Em andamento
                 </h3>
                 {emAndamento.length === 0 ? (
-                  <div className="glass-panel p-8 text-center text-text-light bg-white/20">
+                  <div className="glass-panel p-8 text-center text-text-light bg-superficie">
                     Nenhuma compra parcelada em andamento.
                   </div>
                 ) : (
@@ -1009,7 +1011,7 @@ export default function Compromissos() {
               {concluidas.length > 0 && (
                 <section>
                   <h3 className="text-xl font-bold text-text mb-4 flex items-center gap-2">
-                    <Check size={20} className="text-[#10b981]" /> Quitadas
+                    <Check size={20} className="text-azul" /> Quitadas
                   </h3>
                   <Colunas
                     itens={concluidas}
@@ -1047,8 +1049,8 @@ function CardCamada({ titulo, valor, nota, cor, icone: Icone, ativo, onClick }: 
       onClick={onClick}
       className={`text-left rounded-xl p-4 transition-all ${
         ativo
-          ? 'bg-white ring-2 ring-primary shadow-md'
-          : 'bg-white/50 hover:bg-white/80'
+          ? 'bg-surface ring-2 ring-primary shadow-md'
+          : 'bg-superficie hover:bg-superficie-forte'
       }`}
     >
       <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-text-light tracking-wider">
@@ -1087,7 +1089,7 @@ function Lancamentos({ itens, brl, rotulo }: {
   }
   return (
     <>
-      <button onClick={() => setAberto(v => !v)} className="text-[11px] text-primary mt-1">
+      <button onClick={() => setAberto(v => !v)} className="text-[11px] text-text mt-1">
         {aberto ? 'ocultar' : 'ver'} {rotulo ?? 'os'} {itens.length} lançamentos
       </button>
       {aberto && (
@@ -1132,7 +1134,7 @@ function Ritmo({ ritmo, brl }: { ritmo: RitmoDoCiclo | null; brl: (v: number) =>
   const { diferenca, emLinha, diaDoCiclo, diasDoCiclo, gastoAtual, referencia, ciclosDeBase } = ritmo;
   const acima = diferenca > 0;
   const Icone = emLinha ? Minus : acima ? TrendingUp : TrendingDown;
-  const cor = emLinha ? 'text-text-light' : acima ? 'text-danger' : 'text-[#10b981]';
+  const cor = emLinha ? 'text-text-light' : acima ? 'text-danger' : 'text-azul';
 
   /**
    * ⭐⭐ **Quanto ainda dá para corrigir** — e não em que dia do ciclo estamos.
@@ -1203,7 +1205,7 @@ function LinhaDeCobranca({ c, brl }: { c: Cobranca; brl: (v: number) => string }
             lista inteira se lê de cima a baixo como um calendário do ciclo. */}
         <span className="shrink-0 w-11 rounded-lg bg-primary/10 py-1 text-center leading-none">
           <span className="block text-[9px] font-semibold uppercase tracking-wide text-primary/70">dia</span>
-          <span className="block text-base font-bold text-primary">{String(dia).padStart(2, '0')}</span>
+          <span className="block text-base font-bold text-text">{String(dia).padStart(2, '0')}</span>
         </span>
         <span className="flex items-baseline gap-2 min-w-0">
           <span className="text-text truncate">{c.fixo.nome}</span>
@@ -1238,7 +1240,7 @@ function FixoAtivo({ f, brl, lancamentos, estado, encerramento, onExcluir, onEnc
             {estado
               ? (estado.jaCaiu
                 ? <span className="text-text-light/70">já caiu neste ciclo</span>
-                : <span className="text-primary font-bold">cai dia {Number(estado.data.split('-')[2])}</span>)
+                : <span className="text-text font-bold">cai dia {Number(estado.data.split('-')[2])}</span>)
               : (f.dia ? `dia ${f.dia}` : 'sem dia')}
             {(f.periodicidade_meses ?? 1) > 1 && ` · a cada ${f.periodicidade_meses} meses`}
             {f.origem === 'manual' && ' · cadastrado por você'}
@@ -1314,7 +1316,7 @@ function Proposta({ p, brl, onAceitar, onRecusar }: {
           <Lancamentos itens={p.evidencia} brl={brl} />
         </div>
         <div className="flex gap-1 shrink-0">
-          <button onClick={onAceitar} className="p-2 text-primary hover:bg-primary/10 rounded-lg" title="Aceitar">
+          <button onClick={onAceitar} className="p-2 text-text hover:bg-primary/10 rounded-lg" title="Aceitar">
             <Check size={18} />
           </button>
           <button onClick={onRecusar} className="p-2 text-text-light hover:text-danger hover:bg-danger/10 rounded-lg" title="Recusar">
@@ -1390,14 +1392,14 @@ function CardParcelas({ grupo, brl, aberto, onAlternar, onExcluir }: {
     <div
       className={`glass-panel p-6 flex flex-col gap-4 relative overflow-hidden group/card border-t-4 transition-all duration-300 ${
         c.concluida
-          ? 'border-t-[#10b981] hover:border-t-[#059669] bg-[#10b981]/[0.01]'
+          ? 'border-t-azul hover:border-t-azul-forte bg-azul/[0.01]'
           : 'border-t-transparent hover:border-t-primary'
       }`}
     >
       <div className="absolute top-0 right-0 p-4 opacity-0 group-hover/card:opacity-100 transition-opacity">
         <button
           onClick={onExcluir}
-          className="text-text-light hover:text-danger p-2 bg-white rounded-full shadow-md transition-all"
+          className="text-text-light hover:text-danger p-2 bg-surface rounded-full shadow-md transition-all"
           title="Excluir a compra inteira"
         >
           <Trash2 size={16} />
@@ -1406,7 +1408,7 @@ function CardParcelas({ grupo, brl, aberto, onAlternar, onExcluir }: {
 
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <ListChecks size={14} className={c.concluida ? 'text-[#10b981]' : 'text-primary'} />
+          <ListChecks size={14} className={c.concluida ? 'text-azul' : 'text-primary'} />
           <span className="text-[10px] text-text-light font-bold uppercase tracking-wider">
             Última entrada: {base.data}
           </span>
@@ -1418,7 +1420,7 @@ function CardParcelas({ grupo, brl, aberto, onAlternar, onExcluir }: {
           </div>
         )}
         {base.banco && (
-          <div className={`text-sm mt-1 font-medium ${c.concluida ? 'text-[#10b981]' : 'text-azul'}`}>
+          <div className={"text-sm mt-1 font-medium text-azul"}>
             {base.banco}
           </div>
         )}
@@ -1432,7 +1434,7 @@ function CardParcelas({ grupo, brl, aberto, onAlternar, onExcluir }: {
           </div>
           <div className="text-right">
             <span className="text-xs text-text-light uppercase block">Progresso</span>
-            <span className={`font-bold text-lg ${c.concluida ? 'text-[#10b981]' : 'text-text'}`}>
+            <span className={`font-bold text-lg ${c.concluida ? 'text-azul' : 'text-text'}`}>
               {c.pagas} de {c.totalParcelas}
             </span>
           </div>
@@ -1440,7 +1442,7 @@ function CardParcelas({ grupo, brl, aberto, onAlternar, onExcluir }: {
 
         <div className="w-full bg-border rounded-full h-2.5 overflow-hidden">
           <div
-            className={`h-2.5 rounded-full transition-all duration-500 ease-out ${c.concluida ? 'bg-[#10b981]' : 'bg-primary/70'}`}
+            className={`h-2.5 rounded-full transition-all duration-500 ease-out ${c.concluida ? 'bg-azul' : 'bg-primary/70'}`}
             style={{ width: `${pct}%` }}
           />
         </div>
@@ -1448,7 +1450,7 @@ function CardParcelas({ grupo, brl, aberto, onAlternar, onExcluir }: {
         <div className="mt-3 flex flex-col gap-1">
           <div className="text-xs text-text-light flex justify-between">
             <span>Valor pago:</span>
-            <span className={`font-medium ${c.concluida ? 'text-[#10b981]' : 'text-azul'}`}>
+            <span className={"font-medium text-azul"}>
               {brl(c.valorPago)}
             </span>
           </div>
@@ -1466,8 +1468,8 @@ function CardParcelas({ grupo, brl, aberto, onAlternar, onExcluir }: {
 
         <button
           onClick={onAlternar}
-          className={`mt-4 w-full flex items-center justify-center gap-1 text-xs font-bold transition-colors py-2 border-t border-border/50 ${
-            c.concluida ? 'text-[#10b981] hover:text-[#059669]' : 'text-primary hover:text-primary-hover'
+          className={`mt-4 w-full flex items-center justify-center gap-1 text-xs font-bold transition-colors py-2 border-t border-border ${
+            c.concluida ? 'text-azul hover:text-azul-forte' : 'text-text hover:text-text-hover'
           }`}
         >
           {aberto
@@ -1477,18 +1479,18 @@ function CardParcelas({ grupo, brl, aberto, onAlternar, onExcluir }: {
 
         {aberto && (
           <div className={`mt-2 flex flex-col gap-2 p-3 rounded-lg border ${
-            c.concluida ? 'bg-[#10b981]/5 border-[#10b981]/10' : 'bg-primary/5 border-primary/10'
+            c.concluida ? 'bg-azul/5 border-azul/10' : 'bg-primary/5 border-primary/10'
           }`}>
             <h4 className="text-[10px] font-bold text-text-light uppercase tracking-wider mb-1">
               Histórico de pagamentos
             </h4>
             {grupo.map((t: any) => (
-              <div key={t.id} className="flex justify-between items-center text-xs border-b border-border/30 pb-1 last:border-0 last:pb-0">
+              <div key={t.id} className="flex justify-between items-center text-xs border-b border-border pb-1 last:border-0 last:pb-0">
                 <div>
                   <span className="font-medium text-text">{t.data}</span>
                   <span className="text-[10px] text-text-light ml-2">({t.nome})</span>
                 </div>
-                <span className={`font-bold ${c.concluida ? 'text-[#10b981]' : 'text-azul'}`}>
+                <span className={"font-bold text-azul"}>
                   {brl(Math.abs(Number(t.valor)))}
                 </span>
               </div>

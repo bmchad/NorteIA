@@ -1,13 +1,41 @@
 <!doctype html>
-<html lang="en">
+<!-- ⚠️ O `background` inline e o `theme-color` abaixo são a SEGUNDA duplicação legítima da
+     paleta fora de src/index.css (a primeira era o #FF6200 do favicon, que saiu com o desenho
+     novo), e existem pelo mesmo motivo: nem o `<html>` antes do CSS carregar nem a barra do
+     navegador móvel enxergam uma variável CSS.
+     ⭐ Enquanto a tela era branca isto não custava nada — branco é o default do navegador.
+     Com a tela sálvia, a ausência é um flash branco no primeiro paint e uma faixa branca na
+     barra do Chrome no Android, que parecem bug.
+     ⛔ Mudou `--fundo` em src/index.css? Estas duas linhas mudam junto, à mão. -->
+<html lang="pt-BR" style="background:#9BB08D">
   <head>
     <meta charset="UTF-8" />
-    <!-- ⚠️ O `?v=` não é enfeite: o navegador guarda favicon num cache próprio, que um
-         Ctrl+F5 na página NÃO invalida. Sem versão na URL, quem já abriu o site continua
-         vendo o ícone antigo por tempo indeterminado. Trocou o desenho? Suba o número. -->
-    <link rel="icon" type="image/svg+xml" href="/favicon.svg?v=2" />
+    <meta name="theme-color" content="#9BB08D" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NorteIA</title>
+    <meta name="description" content="Descubra quanto do seu dinheiro já tem dono. O que sobra é o que você decide." />
+
+    <!-- ⚠️ O `?v=` não é enfeite: o navegador guarda favicon num cache próprio, que um
+         Ctrl+F5 na página NÃO invalida. Sem versão na URL, quem já abriu o site continua
+         vendo o ícone antigo por tempo indeterminado. Trocou o desenho? Suba o número.
+         ⭐ `v=3` porque o ícone deixou de ser o ladrilho laranja e virou a rosa dos ventos. -->
+    <link rel="icon" type="image/png" href="/favicon.png?v=3" />
+
+    <!-- ⚠️ O apple-touch-icon é o ÚNICO ativo de marca que NÃO pode ser transparente: o iOS
+         compõe o ícone da tela inicial sobre PRETO, e a rosa dos ventos verde-escura sumiria
+         nas próprias bordas. Por isso ele tem o fundo sálvia embutido. -->
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png?v=3" />
+
+    <!-- ⭐ Prévia ao compartilhar link (WhatsApp, LinkedIn, Slack). Antes não havia nenhuma:
+         o link aparecia como texto pelado.
+         ⚠️ `og:image` exige URL ABSOLUTA — scraper não resolve caminho relativo. Trocou de
+         domínio? Estas duas linhas mudam junto, e não há como derivá-las em tempo de build. -->
+    <meta property="og:type" content="website" />
+    <meta property="og:title" content="NorteIA" />
+    <meta property="og:description" content="Descubra quanto do seu dinheiro já tem dono. O que sobra é o que você decide." />
+    <meta property="og:image" content="https://balanco-geral-beta.vercel.app/og-image.png?v=3" />
+    <meta property="og:url" content="https://balanco-geral-beta.vercel.app/" />
+    <meta name="twitter:card" content="summary_large_image" />
   </head>
   <body>
     <div id="root"></div>

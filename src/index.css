@@ -7,32 +7,155 @@
 /**
  * ⭐⭐ O único lugar do projeto onde uma cor de tema é escrita.
  *
- * Os tokens do Tailwind (`primary`, `text`, `azul`...) apontam para estas variáveis, então
- * trocar a marca é editar duas linhas aqui — e não caçar 254 usos espalhados por 12 telas.
+ * Os tokens do Tailwind (`primary`, `text`, `azul`, `background`, `surface`, `border`...)
+ * apontam para estas variáveis, então trocar a paleta é editar este bloco — e não caçar
+ * centenas de usos espalhados por 12 telas.
  *
  * ⚠️ Canais separados por espaço e sem `#`: é o formato que o Tailwind precisa para aplicar
  * opacidade. Trocar por hex quebra `bg-primary/10` em silêncio, sem erro de build.
+ *
+ * ⭐ A paleta é sálvia/floresta/laranja, de `context_color_palet/paleta-norteia.html`.
+ * Os pares de contraste estão medidos lá; os que importam aqui:
+ *   floresta sobre papel   10,62:1     floresta sobre sálvia   4,82:1
+ *   papel sobre floresta   10,62:1     texto-suave sobre papel 7,51:1
+ *   azul sobre papel        3,86:1  (AA só para texto grande — ver o aviso em --azul)
+ *   laranja sobre papel     2,83:1  ⛔ nunca como texto; sobre sálvia é 1,28:1
  */
 :root {
-  --marca: 255 98 0;          /* #FF6200 — laranja Itaú */
-  --marca-forte: 214 82 0;    /* #D65200 — hover, e texto pequeno onde o claro não contrasta */
-  --azul: 2 132 199;          /* #0284c7 — o azul de marca, mais forte */
-  --azul-claro: 14 165 233;   /* #0ea5e9 — o azul que era a cor principal */
-  --texto: 30 41 59;          /* corpo, fora da plataforma */
-  --texto-suave: 100 116 139;
+  /* ── Ação ─────────────────────────────────────────────────────────────── */
+  /**
+   * ⛔⛔ O laranja NÃO É COR DE TEXTO dentro de um cartão. Sobre `--papel` (sálvia 500) ele
+   * dá 1,02:1 — invisível —, e não há tom que resolva: o mais escuro que ainda lê como
+   * laranja (#A83F00) dá 2,03:1, e o primeiro que passa (#5C2200) já é marrom.
+   * ⭐ Ele sobrevive PREENCHIDO: `bg-primary` com texto branco, o anel de foco, o
+   * `ring-2 ring-primary`, os trilhos `border-l-4` e as barras de progresso. É a regra da
+   * paleta ("o laranja só aparece preenchido") com a segunda metade indisponível.
+   */
+  --marca: 255 98 0;          /* #FF6200 — inalterado, por decisão. Ver P43. */
+  --marca-forte: 214 82 0;    /* #D65200 — hover, e o laranja onde ele precisa ser texto */
+  --marca-clara: 245 164 105; /* #F5A469 — laranja 300. O laranja quando o fundo é escuro:
+                                 sobre floresta ele dá 5,57:1, contra 3,75:1 do #FF6200. */
+
+  /* ── Estrutura ────────────────────────────────────────────────────────── */
+  --fundo: 155 176 141;       /* #9BB08D — sálvia 400. A tela. */
+
+  /**
+   * ⭐⭐ O CARTÃO é sálvia 500, e o CAMPO continua claro. A separação é o que sustenta a
+   * mudança inteira.
+   *
+   * ⚠️ `#849A76` fica numa faixa de luminância onde nem texto escuro nem texto claro
+   * contrastam bem — papel sobre ele dá 2,89:1, tão ruim quanto o escuro. É decisão de
+   * produto, tomada com os números na mesa. Consequências, todas medidas:
+   *   corpo floresta 900   4,92:1 ✓    vermelho e azul tiveram de virar quase-pretos
+   *   ⛔ laranja como TEXTO é 1,02:1 e NENHUM tom resolve — ver o aviso em --marca
+   *   ⚠️ o tom secundário de texto deixou de existir: a hierarquia passou a ser peso/tamanho
+   *
+   * ⭐ Se um dia isto não convencer na tela, `--papel` volta para `251 248 242` e desfaz
+   * tudo. Nenhum dos tokens de texto retunados regride sobre papel.
+   */
+  --papel: 132 154 118;       /* #849A76 — sálvia 500. O CARTÃO. */
+  --papel-campo: 251 248 242; /* #FBF8F2 — o antigo papel, agora só do CAMPO. Sobre o cartão
+                                 sálvia, um campo claro dá 10,62:1 ao texto digitado e ainda
+                                 comunica sozinho "aqui dá para escrever". */
+
+  /**
+   * ⭐ A superfície ANINHADA: o sub-card dentro do cartão de papel, o trilho de um toggle,
+   * a aba não selecionada. É o degrau que existe ENTRE o papel e a tela.
+   * ⚠️ Medido: sálvia 50 (#F1F4EE) contra papel dá 1,05:1 — invisível, não serve. Sálvia 100
+   * dá 1,18:1, e com o fio de sálvia 200 em volta o bloco finalmente se lê.
+   */
+  --superficie: 226 232 221;       /* #E2E8DD — sálvia 100 */
+  --superficie-forte: 201 213 194; /* #C9D5C2 — sálvia 200, o hover dela */
+
+  /* ── Fios ─────────────────────────────────────────────────────────────── */
+  /**
+   * ⭐⭐ Os dois fios fazem trabalhos OPOSTOS, e é por isso que têm tintas opostas.
+   *
+   * `--moldura` DESENHA: é a aresta do cartão, o contorno que diz onde um bloco começa.
+   * `--fio` SEPARA: é a linha entre um item e o próximo, dentro de um bloco que já existe.
+   *
+   * ⛔ Não unifique os dois. Floresta repetido a cada `<tr>` transforma `/historico` e
+   * `/meses` num livro-razão — são as telas com mais linhas do produto, e elas desenham um
+   * fio por transação. E o caminho inverso é pior: o fio claro como aresta foi o que se
+   * tentou primeiro, e a 1,44:1 sobre o papel ele não desenha nada, só insinua.
+   *
+   * ⭐ Contra a TELA sálvia, o floresta é o único fio que existe: 4,82:1, contra 1,53:1 do
+   * `--fio` e 1,31:1 da sálvia 500. É também o que a regra 04 da paleta prescreve.
+   */
+  --moldura: 20 67 42;        /* #14432A — floresta 800. A ARESTA: 10,62:1 sobre o papel. */
+  --fio: 201 213 194;         /* #C9D5C2 — sálvia 200. O DIVISOR: 1,44:1, um sussurro. */
+  --campo: 67 86 61;          /* #43563D — sálvia 800. Um campo tem de parecer um campo. */
+
+  /**
+   * ⚠️ `--moldura` tem o mesmo valor de `--texto` aqui, e mesmo assim é token próprio: o
+   * `--texto` vira floresta 900 dentro de `.tema-plataforma`, e usar `border-text` na aresta
+   * daria ao cartão uma moldura diferente na landing e no produto, sem ninguém ter pedido.
+   */
+
+  /* ── Realce ───────────────────────────────────────────────────────────── */
+  --realce: 132 154 118;      /* #849A76 — sálvia 500. A superfície de HOVER sobre a barra
+                                 sálvia: um passo mais fundo que ela (1,31:1), o suficiente
+                                 para mudar a tinta sem o item virar um bloco. */
+
+  /* ── Texto ────────────────────────────────────────────────────────────── */
+  /**
+   * ⚠️ Floresta 900, não 800, e agora nas DUAS superfícies. Sobre o cartão sálvia o 800 dá
+   * 3,68:1 e reprova; o 900 dá 4,92:1. Era isto que a `.tema-plataforma` fazia só no produto,
+   * e passou a valer em toda parte — ver o bloco dela abaixo.
+   */
+  --texto: 13 44 28;          /* #0D2C1C — floresta 900 */
+  /**
+   * ⚠️ Era `67 86 61` (#43563D), que sobre o cartão sálvia dá 2,60:1 e reprova.
+   * ⛔ E este é o token que mais perdeu: a 4,72:1 contra os 4,92:1 do corpo, a diferença de
+   * TOM entre texto principal e secundário é imperceptível. A hierarquia passou a vir de
+   * peso e tamanho — os rótulos já são `text-xs uppercase tracking-wider`, e é isso que os
+   * carrega agora. Não adianta clarear para recuperar a distinção: clarear derruba o
+   * contraste, que é o problema original.
+   */
+  --texto-suave: 26 46 32;    /* #1A2E20 — 4,72:1 sobre o cartão sálvia */
+
+  /* ── Sinal ────────────────────────────────────────────────────────────── */
+  /**
+   * ⭐ `--azul` é o VALOR POSITIVO, sempre em par com `danger`. Nunca foi o azul da marca,
+   * e desde a paleta sálvia ele absorveu também o antigo `#10b981` de "renda/quitado":
+   * num sistema onde o fundo e o texto são verdes, verde deixa de significar "positivo".
+   * ⚠️ 3,86:1 sobre papel — AA para texto grande (3:1), que é o caso de todos os números
+   * (`text-2xl`/`text-3xl font-bold`). Se um rótulo miúdo ficar fraco, o passo seguinte na
+   * mesma matiz é `3 105 161` (#0369a1, 5,60:1).
+   */
+  /**
+   * ⚠️ Era `2 132 199` (#0284c7), que sobre o cartão sálvia dá 1,34:1 — sumia. O azul de
+   * valor positivo teve de descer para um marinho quase preto. Ele continua sendo a única
+   * matiz fria do sistema, e é só isso que ainda o distingue do corpo do texto.
+   */
+  --azul: 8 47 73;            /* #082F49 — 4,54:1 sobre o cartão */
+  --azul-forte: 6 34 54;      /* #062236 — hover, um passo mais escuro. Opacidade não serve:
+                                 sobre o cartão sálvia ela CLAREIA, que é o sentido errado. */
+  /**
+   * ⚠️ Eram `153 27 27` (#991b1b) e `127 29 29` (#7f1d1d) — 2,72:1 e 3,28:1 sobre o cartão
+   * sálvia. Escurecidos para passar, e o custo é que a esta altura o vermelho lê mais como
+   * marrom do que como alarme. É o preço da cor de cartão, não uma escolha de tom.
+   */
+  --perigo: 69 12 12;         /* #450C0C — 5,24:1 sobre o cartão */
+  --perigo-forte: 59 10 10;   /* #3B0A0A — 5,56:1 */
+
+  /* ── Sombra ───────────────────────────────────────────────────────────── */
+  --sombra: 13 44 28;         /* #0D2C1C — floresta 900, consumida só pelo boxShadow */
 }
 
 /**
- * ⭐ Dentro da plataforma o corpo do texto é azul; fora, neutro escuro.
+ * ⚠️ `.tema-plataforma` NÃO TEM MAIS CONTEÚDO, e isso é deliberado — não é sobra.
  *
- * A classe vive no wrapper do `Layout`, que envolve todas as telas autenticadas e nenhuma
- * das públicas. É o que faz "azul só na plataforma" ser uma regra em vez de uma lista de
- * exceções: tela nova nasce certa por estar dentro do Layout.
+ * Ela existiu para dar ao produto um texto mais escuro que o da vitrine (primeiro azul, depois
+ * floresta 900). Desde que o cartão virou sálvia 500, floresta 800 reprova em contraste também
+ * na landing, então `--texto` teve de virar 900 no `:root` e o escopo ficou sem diferença
+ * nenhuma para carregar.
+ *
+ * ⭐ A classe continua no wrapper do `Layout` de propósito: é a costura pronta para o dia em
+ * que o produto voltar a precisar divergir da vitrine, e `MercadoDeDatas.daVariavel` a usa
+ * como âncora para ler as variáveis do escopo certo. Enquanto estiver vazia, ela não custa
+ * nada — mas se continuar vazia por muito tempo, some junto com o wrapper.
  */
-.tema-plataforma {
-  --texto: 12 74 110;         /* sky-900 */
-  --texto-suave: 3 105 161;   /* sky-700 */
-}
 
 @layer base {
   body {
@@ -40,12 +163,68 @@
   }
 }
 
-@layer utilities {
+/**
+ * ⛔⛔ ESTAS CLASSES MORAM EM `components`, NÃO EM `utilities`. Não mova.
+ *
+ * O Tailwind emite `base → components → utilities`, e dentro de uma camada quem vence, em
+ * especificidade igual, é quem sai por último. Enquanto a `.glass-panel` viveu em `utilities`
+ * ela saía DEPOIS de `.border-primary` e `.border-l-4` e **anulava em silêncio todo `border-*`
+ * escrito no `className`** de quem também a usasse:
+ *
+ *   `glass-panel … border-l-4 border-primary`  → renderizava 1px floresta, sem trilho laranja
+ *   `glass-panel … border-t-4 border-t-azul`   → renderizava 1px floresta, sem trilho de topo
+ *   `glass-panel … border-2  border-primary`   → renderizava 1px floresta, sem moldura laranja
+ *
+ * ⚠️ Nada quebrava, nada avisava: o cartão ficava com a aresta padrão e ninguém notava que a
+ * outra regra existia. A D-067 chegou a documentar como existente uma moldura laranja que
+ * nunca renderizou. Em `components`, o utilitário escrito à mão volta a vencer — que é
+ * exatamente o que se espera de uma classe de componente.
+ *
+ * ⚠️ `.painel-estrutural` precisa continuar DEPOIS da `.glass-panel` aqui dentro: é ela que
+ * sobrescreve a aresta do cartão herói, e isso depende da ordem no arquivo.
+ */
+@layer components {
+  /**
+   * ⭐ O painel é PAPEL, não branco: `bg-surface/90` aponta para --papel (#FBF8F2).
+   *
+   * ⚠️ O alpha não é enfeite — `backdrop-blur-md` sem transparência não borra nada e ainda
+   *    custa composição de GPU em 53 painéis. Opacificar aqui apaga o vidro sem tirar o custo.
+   * ⚠️ 90% e não os 70% de antes: o fundo agora TEM cor. A 70% sobre sálvia o papel puxa para
+   *    #DEE2D4, um bege-esverdeado que já não lê como papel. A 90% dá #F1F1E8, com o floresta
+   *    a 9,91:1.
+   * ⭐ A aresta é `border-moldura` (floresta, 10,62:1). O cartão SE SEPARA sozinho do fundo
+   *    por valor (papel contra sálvia é 2,20:1) — a moldura não está aqui para separar, está
+   *    para DESENHAR. Foi por confundir as duas coisas que a primeira versão usou o fio
+   *    divisor (#C9D5C2) e ficou com um halo pálido de 1,44:1 em volta de 52 cartões.
+   * ⚠️ A sombra fica, por decisão. Na paleta o fio floresta é o único dispositivo porque lá
+   *    não há sombra nem canto arredondado; aqui os três convivem.
+   */
   .glass-panel {
-    @apply bg-white/70 backdrop-blur-md border border-white/40 shadow-glass rounded-2xl;
+    @apply bg-surface/90 backdrop-blur-md border border-moldura shadow-glass rounded-2xl;
   }
 
+  /**
+   * ⭐ Contorno em `border-campo` (#43563D, 7,51:1 sobre papel) e não no fio de divisor: é a
+   *    mudança que mais muda o feel dos formulários. O contorno de antes (#e2e8f0) estava em
+   *    1,23:1 — ele não delimitava o campo, insinuava.
+   * ⭐⭐ `bg-campo`, NÃO `bg-surface`: o campo não acompanha o cartão. Desde que o cartão virou
+   *    sálvia 500, um campo que o seguisse deixaria o texto digitado em 4,92:1 — e nas tabelas
+   *    de edição inline de /historico e /meses isso são dezenas de células. Claro, ele dá
+   *    10,62:1 e comunica sozinho que dá para escrever.
+   * ⭐ O anel de foco laranja já era exatamente o "foco 2px laranja" da paleta. Zero edição.
+   */
   .glass-input {
-    @apply bg-white/50 border border-border rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all;
+    @apply bg-campo-fundo border border-campo/60 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all;
+  }
+
+  /**
+   * ⭐ A moldura estrutural da paleta: 2px de floresta, e ela é OPT-IN.
+   *
+   * ⛔ Não aplique em todo cartão. Há ~60 painéis no produto; 2px de floresta em todos vira
+   * formulário de imposto de renda. A paleta usa este fio no cartão que É a resposta da tela —
+   * o número de "Comprometido por mês", o card de login. No resto, o divisor basta.
+   */
+  .painel-estrutural {
+    @apply border-2 border-text;
   }
 }

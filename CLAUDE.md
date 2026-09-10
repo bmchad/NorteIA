@@ -90,6 +90,7 @@ src/
   lib/parcelas.ts      comprometido restante e projeção por ciclo — usada por /parcelas e /dashboard
   components/
     Layout.tsx         sidebar + navegação das telas autenticadas
+    Marca.tsx          ⭐ o wordmark "NorteIA" com o N e o IA em laranja — dono único
     ConfirmModal.tsx   confirmação de ações destrutivas
   pages/               uma por rota — ver context/02-paginas-do-balanco-geral.md
 supabase/              versionado
@@ -192,6 +193,16 @@ nunca "entrou dinheiro". Quem escreve é o toggle do envio em `/novos-registros`
     contagem infla o total, e o total é a tese do produto. → D-033
 12. ⭐ **A cor de tema mora em `src/index.css`**, como variável CSS. O `tailwind.config.js` só aponta
     para ela. Nunca escreva um hex de marca num componente. → D-037
+    ⭐ **Desde 10/09 isso vale para a paleta INTEIRA** — `background`, `surface`, `border`, `danger`
+    e a sombra eram hex literais no config, e enquanto foram, a promessa cobria metade da paleta:
+    justamente o fundo e as molduras não tinham como mudar por escopo. → D-066
+    ⛔ **Classe multipropriedade vai em `@layer components`, nunca em `utilities`.** Em `utilities`
+    ela vence os utilitários do Tailwind por ordem e apaga **em silêncio** o `border-*` escrito no
+    `className` — sem erro, sem aviso, com um resultado plausível. → L-013
+    ⛔ **Há DOIS fios, com trabalhos opostos, e trocá-los estraga alguma coisa nos dois sentidos.**
+    `border-moldura` (floresta) **desenha** a aresta de um bloco; `border-border` (`#C9D5C2`)
+    **separa** item de item dentro dele. Floresta em cada `<tr>` vira livro-razão; o fio claro
+    como aresta não desenha nada. → D-067
 13. ⛔ **O gasto fixo é identificado pela `assinatura`, nunca pelo `nome`.** `fixos.nome` guarda o
     apelido e é só rótulo de exibição. Índice único em `(user_id, assinatura)`. → D-043
 14. ⛔ **Função de carga só lê.** `insert`/`update`/`upsert` dentro de um `carregar()` vira corrida
@@ -275,12 +286,33 @@ volta sem sessão. → P34
 
 **11. ⚠️ A cor de marca só existe em `src/index.css`.** Os canais vão **separados por espaço, sem
 `#`** — é o que o Tailwind precisa para aplicar opacidade. Trocar por hex quebra `bg-primary/10`
-**em silêncio**, sem erro de build. E `text-primary` pinta ícone e texto: dentro da plataforma o
-texto usa `text-azul`. → D-037
+**em silêncio**, sem erro de build. → D-037, D-066
 
-**11b. ⚠️ O `#FF6200` de `public/favicon.svg` é a única duplicação legítima da cor de marca.**
-Arquivo em `public/` não enxerga variável CSS e o navegador não passa cor nenhuma — não há como
-derivá-la. Mudou `--marca` em `src/index.css`? O favicon muda junto, à mão. → D-037
+⚠️ **Correção de 10/09:** este item dizia *"dentro da plataforma o texto usa `text-azul`"*. Não usa,
+e nunca usou — dos 21 `text-azul` do projeto, 16 eram **valor numérico positivo**, quase sempre em
+ternário direto com `text-danger`. O nome descrevia a tinta, não o papel. ⭐ Hoje `azul` é
+oficialmente o **valor positivo**, e absorveu os 42 `#10b981` que faziam o mesmo trabalho com outra
+cor: com a tela e o texto em verde, verde deixou de poder significar "positivo". → D-066
+
+⛔ **`text-primary` nunca passou em contraste, e continua não passando.** Laranja sobre papel é
+2,83:1; **sobre a tela sálvia é 1,28:1**. Ele pinta ícone e preenchimento, não texto pequeno — para
+texto existe `text-primary-hover` (`#D65200`), e sobre floresta existe `text-primary-clara`
+(`#F5A469`, 5,57:1). → D-066
+
+**11b. ⚠️ A marca vive em `public/`, como imagem, e nada ali enxerga variável CSS.**
+São cinco arquivos, derivados dos dois JPGs em `context_color_palet/`: `norteia-simbolo.png` (o
+símbolo, transparente), `norteia-logo.png` (símbolo + nome, transparente), `favicon.png`,
+`apple-touch-icon.png` e `og-image.png`. ⛔ **Os dois últimos NÃO são transparentes de propósito** —
+o iOS compõe o ícone da tela inicial sobre preto, e scraper de link não entende alfa.
+⚠️ Mudou a paleta? Estes arquivos **não** acompanham: eles têm a sálvia embutida ou recortada, e
+regenerá-los é trabalho manual. ⚠️ Trocou o desenho? Suba o `?v=` no `index.html` — favicon tem
+cache próprio que Ctrl+F5 não invalida. → D-068
+
+⚠️ **Correção de 10/09:** este item dizia que o `#FF6200` de `public/favicon.svg` era a única
+duplicação legítima da cor de marca. Aquele arquivo era o ladrilho laranja com os quadrados do
+`LayoutDashboard`, e **foi removido** — a marca virou a rosa dos ventos. O que restou de duplicação
+legítima da paleta fora do `src/index.css` é o `#9BB08D` do `index.html` (fundo inline e
+`theme-color`). → D-068
 
 **12b. ⚠️ Fixture que iguala `nome` e `apelido` não consegue falhar.** Campo que existe para ser
 diferente tem de ser diferente no teste, senão ele prova só o caso degenerado. → L-009

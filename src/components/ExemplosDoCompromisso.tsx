@@ -27,7 +27,7 @@ export default function ExemplosDoCompromisso({ exemplos, className = '' }: {
     <div className={className}>
       <button
         onClick={() => setAberto(v => !v)}
-        className="flex items-center gap-1 text-[11px] text-text-light hover:text-primary transition-colors"
+        className="flex items-center gap-1 text-[11px] text-text-light hover:text-text hover:underline transition-colors"
         title="Transações que ensinam a IA a reconhecer este tipo"
       >
         <GraduationCap size={12} className="shrink-0" />

@@ -214,6 +214,10 @@ export default function Dashboard() {
         // ⚠️ Cor de SÉRIE, não cor de marca. Coincide com o antigo `primary` por história,
         // e é por isso que este comentário existe: a próxima troca de tema não deve arrastá-la.
         // Aqui a cor significa "entrada", e o par com o vermelho de saída é o que se lê.
+        // ⭐ Nota de 2026-09-10: a troca para a paleta sálvia NÃO a arrastou, e por sorte ela
+        // ficou CERTA. "Entrada" passou a ser azul em toda a plataforma (o `--azul` absorveu o
+        // esmeralda que significava renda), então esta fatia deixou de ser o único objeto frio
+        // da tela e virou a mesma coisa que os seis cards de entrada acima dizem.
         { name: 'Entradas', value: inTotal, color: '#0ea5e9' },
         { name: 'Saídas', value: outTotal, color: '#991b1b' }  // danger
       ]);
@@ -257,7 +261,7 @@ export default function Dashboard() {
     <div className="space-y-6">
       <header className="flex justify-between items-end flex-wrap gap-4">
         <div>
-          <h2 className="text-3xl font-bold text-primary">Dashboard Anual</h2>
+          <h2 className="text-3xl font-bold text-text">Dashboard Anual</h2>
           <p className="text-text-light mt-1">Visão geral das suas finanças — soma dos 12 ciclos do ano (fechamento no dia {cicloDia}).</p>
         </div>
 
@@ -281,14 +285,14 @@ export default function Dashboard() {
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* LINHA 1: TOTAIS */}
             <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group">
-              <div className="absolute top-0 left-0 w-1 h-full bg-[#10b981]"></div>
+              <div className="absolute top-0 left-0 w-1 h-full bg-azul"></div>
               <div className="flex justify-between items-start">
                 <span className="text-sm font-medium text-text-light uppercase tracking-wider">Entradas do Ano</span>
-                <div className="bg-[#10b981]/10 p-2 rounded-lg text-[#10b981]">
+                <div className="bg-azul/10 p-2 rounded-lg text-azul">
                   <TrendingUp size={20} />
                 </div>
               </div>
-              <span className="text-3xl font-bold text-[#10b981] mt-2">R$ {entradas.toFixed(2).replace('.', ',')}</span>
+              <span className="text-3xl font-bold text-azul mt-2">R$ {entradas.toFixed(2).replace('.', ',')}</span>
             </div>
 
             <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group">
@@ -306,7 +310,7 @@ export default function Dashboard() {
               <div className="absolute top-0 left-0 w-1 h-full bg-primary"></div>
               <div className="flex justify-between items-start">
                 <span className="text-sm font-medium text-text-light uppercase tracking-wider">Resultado Líquido</span>
-                <div className="bg-primary/10 text-primary p-2 rounded-lg">
+                <div className="bg-primary text-white p-2 rounded-lg">
                   <DollarSign size={20} />
                 </div>
               </div>
@@ -321,14 +325,14 @@ export default function Dashboard() {
 
             {/* LINHA 2: MÉDIAS */}
             <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
-              <div className="absolute top-0 left-0 w-1 h-full bg-[#10b981]"></div>
+              <div className="absolute top-0 left-0 w-1 h-full bg-azul"></div>
               <div className="flex justify-between items-start">
                 <span className="text-sm font-medium text-text-light uppercase tracking-wider">Média de Entradas</span>
-                <div className="bg-[#10b981]/10 p-2 rounded-lg text-[#10b981]">
+                <div className="bg-azul/10 p-2 rounded-lg text-azul">
                   <TrendingUp size={20} />
                 </div>
               </div>
-              <span className="text-2xl font-bold text-[#10b981] mt-2">R$ {(entradas / mesesAtivos).toFixed(2).replace('.', ',')}</span>
+              <span className="text-2xl font-bold text-azul mt-2">R$ {(entradas / mesesAtivos).toFixed(2).replace('.', ',')}</span>
               <span className="text-[10px] text-text-light uppercase">Por mês ativo</span>
             </div>
 
@@ -348,7 +352,7 @@ export default function Dashboard() {
               <div className="absolute top-0 left-0 w-1 h-full bg-primary"></div>
               <div className="flex justify-between items-start">
                 <span className="text-sm font-medium text-text-light uppercase tracking-wider">Média do Resultado</span>
-                <div className="bg-primary/10 text-primary p-2 rounded-lg">
+                <div className="bg-primary text-white p-2 rounded-lg">
                   <DollarSign size={20} />
                 </div>
               </div>
@@ -363,14 +367,14 @@ export default function Dashboard() {
                 são dinheiro que você ganhou. Ver D-025. */}
             {renda > 0 && (
               <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
-                <div className="absolute top-0 left-0 w-1 h-full bg-[#10b981]"></div>
+                <div className="absolute top-0 left-0 w-1 h-full bg-azul"></div>
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-medium text-text-light uppercase tracking-wider">Renda</span>
-                  <div className="bg-[#10b981]/10 p-2 rounded-lg text-[#10b981]">
+                  <div className="bg-azul/10 p-2 rounded-lg text-azul">
                     <Wallet size={20} />
                   </div>
                 </div>
-                <span className="text-2xl font-bold text-[#10b981] mt-2">
+                <span className="text-2xl font-bold text-azul mt-2">
                   R$ {(renda / mesesAtivos).toFixed(2).replace('.', ',')}
                 </span>
                 <span
@@ -426,16 +430,16 @@ export default function Dashboard() {
                 rótulo e de cor, porque as duas situações pedem reações opostas. */}
             {renda > 0 && (
               <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group">
-                <div className={`absolute top-0 left-0 w-1 h-full ${sobra >= 0 ? 'bg-[#10b981]' : 'bg-danger'}`}></div>
+                <div className={`absolute top-0 left-0 w-1 h-full ${sobra >= 0 ? 'bg-azul' : 'bg-danger'}`}></div>
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-medium text-text-light uppercase tracking-wider">
                     {sobra >= 0 ? 'O que sobra' : 'O que falta'}
                   </span>
-                  <div className={`p-2 rounded-lg ${sobra >= 0 ? 'bg-[#10b981]/10 text-[#10b981]' : 'bg-danger/10 text-danger'}`}>
+                  <div className={`p-2 rounded-lg ${sobra >= 0 ? 'bg-azul/10 text-azul' : 'bg-danger/10 text-danger'}`}>
                     {sobra >= 0 ? <PiggyBank size={20} /> : <AlertTriangle size={20} />}
                   </div>
                 </div>
-                <span className={`text-2xl font-bold mt-2 ${sobra >= 0 ? 'text-[#10b981]' : 'text-danger'}`}>
+                <span className={`text-2xl font-bold mt-2 ${sobra >= 0 ? 'text-azul' : 'text-danger'}`}>
                   R$ {Math.abs(sobra).toFixed(2).replace('.', ',')}
                 </span>
                 <span className="text-[10px] text-text-light uppercase">
@@ -511,13 +515,13 @@ export default function Dashboard() {
                     <Calculator size={20} className="text-primary" />
                     Calculadora de Investimentos
                   </div>
-                  {isCalcExpanded ? <ChevronUp size={20} className="text-text-light group-hover:text-primary transition-colors" /> : <ChevronDown size={20} className="text-text-light group-hover:text-primary transition-colors" />}
+                  {isCalcExpanded ? <ChevronUp size={20} className="text-text-light group-hover:text-text hover:underline transition-colors" /> : <ChevronDown size={20} className="text-text-light group-hover:text-text hover:underline transition-colors" />}
                 </button>
 
                 {isCalcExpanded && (
                   <div className="mt-6 pt-6 border-t border-border animate-in slide-in-from-top-2 duration-300">
                     <div className="mb-6 p-4 bg-primary/5 border border-primary/10 rounded-xl">
-                      <h5 className="font-bold text-primary text-sm mb-1 flex items-center gap-2">
+                      <h5 className="font-bold text-text text-sm mb-1 flex items-center gap-2">
                         <Info size={14} /> Fórmula do Valor Presente
                       </h5>
                       <p className="text-xs text-text-light leading-relaxed">
@@ -572,7 +576,7 @@ export default function Dashboard() {
                           </div>
                           <div className="flex justify-between items-center mt-2 pt-2 border-t border-primary/10">
                             <span className="text-xs text-text-light">Soma das parcelas: R$ {(p * n).toFixed(2).replace('.', ',')}</span>
-                            <span className="text-xs text-[#10b981] font-bold">+ R$ {rendimento.toFixed(2).replace('.', ',')} em juros a favor</span>
+                            <span className="text-xs text-azul font-bold">+ R$ {rendimento.toFixed(2).replace('.', ',')} em juros a favor</span>
                           </div>
                         </div>
                       );
@@ -587,12 +591,12 @@ export default function Dashboard() {
               {latestTransaction && (
                 <div className="glass-panel p-6 flex flex-col">
                   <h3 className="font-bold text-lg text-text mb-4">Última Transação Registrada</h3>
-                  <div className="flex justify-between items-center bg-white/40 p-4 rounded-xl border border-border/50">
+                  <div className="flex justify-between items-center bg-superficie p-4 rounded-xl border border-border">
                     <div className="flex flex-col gap-1">
                       <span className="text-sm font-medium text-text">{latestTransaction.data}</span>
                       <span className="font-bold text-lg text-text">{latestTransaction.apelido || latestTransaction.nome}</span>
                       <div className="flex gap-2 items-center mt-1">
-                        <span className="bg-background px-2 py-0.5 rounded text-[10px] uppercase font-bold text-text-light border border-border">
+                        <span className="bg-superficie px-2 py-0.5 rounded text-[10px] uppercase font-bold text-text-light border border-border">
                           {latestTransaction.categories?.nome || 'Sem categoria'}
                         </span>
                         {latestTransaction.parcela_total && (
@@ -621,7 +625,7 @@ export default function Dashboard() {
                   )}
                 </div>
                 <textarea
-                  className="glass-input flex-1 w-full p-4 resize-none bg-white/40 focus:bg-white/80 transition-colors text-sm text-text"
+                  className="glass-input flex-1 w-full p-4 resize-none transition-colors text-sm text-text"
                   placeholder="Escreva suas metas, lembretes ou estratégias financeiras aqui..."
                   value={nota}
                   onChange={(e) => setNota(e.target.value)}

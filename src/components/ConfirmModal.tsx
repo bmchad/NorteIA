@@ -10,12 +10,14 @@ interface ConfirmModalProps {
 export default function ConfirmModal({ title, message, onConfirm, onCancel }: ConfirmModalProps) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 animate-in fade-in duration-200">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onCancel}></div>
-      <div className="glass-panel w-full max-w-sm relative z-10 animate-in zoom-in-95 duration-200 overflow-hidden shadow-2xl bg-white/90">
+      {/* ⚠️ Véu em `bg-text/40`, não `bg-text/40`: preto sobre uma página sálvia acinzenta a
+          matiz inteira por baixo do modal. Floresta mantém a página verde. */}
+      <div className="absolute inset-0 bg-text/40 backdrop-blur-sm" onClick={onCancel}></div>
+      <div className="glass-panel w-full max-w-sm relative z-10 animate-in zoom-in-95 duration-200 overflow-hidden shadow-2xl bg-surface">
         <div className="p-6">
           <div className="flex justify-between items-start mb-4">
             <h3 className="text-xl font-bold text-text">{title}</h3>
-            <button onClick={onCancel} className="text-text-light hover:text-danger transition-colors bg-white/50 rounded-full p-1">
+            <button onClick={onCancel} className="text-text-light hover:text-danger transition-colors bg-text/5 rounded-full p-1">
               <X size={20} />
             </button>
           </div>
@@ -25,7 +27,7 @@ export default function ConfirmModal({ title, message, onConfirm, onCancel }: Co
           <div className="flex justify-end gap-3">
             <button
               onClick={onCancel}
-              className="px-4 py-2 font-medium text-text bg-black/5 hover:bg-black/10 rounded-xl transition-colors"
+              className="px-4 py-2 font-medium text-text bg-text/5 hover:bg-text/10 rounded-xl transition-colors"
             >
               Não
             </button>

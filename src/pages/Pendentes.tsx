@@ -629,7 +629,7 @@ export default function Pendentes() {
         </div>
       )}
       <header>
-        <h2 className="text-3xl font-bold text-primary flex items-center gap-3">
+        <h2 className="text-3xl font-bold text-text flex items-center gap-3">
           <Clock size={32} className="text-primary" /> Novos Registros
         </h2>
         <p className="text-text-light mt-1">
@@ -654,9 +654,9 @@ export default function Pendentes() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
               <button
                 onClick={() => setActiveMode('arquivo')}
-                className="flex flex-col items-center justify-center p-6 bg-white/50 backdrop-blur-sm border-2 border-primary/10 hover:border-primary/60 hover:bg-primary/5 rounded-2xl transition-all shadow-sm group"
+                className="flex flex-col items-center justify-center p-6 bg-superficie backdrop-blur-sm border-2 border-border hover:border-primary/60 hover:bg-primary/5 rounded-2xl transition-all shadow-sm group"
               >
-                <div className="w-14 h-14 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <div className="w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <ImageIcon size={28} />
                 </div>
                 <span className="font-bold text-text text-lg">Arquivo</span>
@@ -665,9 +665,9 @@ export default function Pendentes() {
 
               <button
                 onClick={() => setActiveMode('manual')}
-                className="flex flex-col items-center justify-center p-6 bg-white/50 backdrop-blur-sm border-2 border-primary/10 hover:border-primary/60 hover:bg-primary/5 rounded-2xl transition-all shadow-sm group"
+                className="flex flex-col items-center justify-center p-6 bg-superficie backdrop-blur-sm border-2 border-border hover:border-primary/60 hover:bg-primary/5 rounded-2xl transition-all shadow-sm group"
               >
-                <div className="w-14 h-14 bg-primary/10 text-primary rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
+                <div className="w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <PlusCircle size={28} />
                 </div>
                 <span className="font-bold text-text text-lg">Registro manual</span>
@@ -720,7 +720,7 @@ export default function Pendentes() {
               <button
                 type="button"
                 onClick={() => baixarDemonstracao()}
-                className="mt-5 flex items-center gap-2 text-xs font-medium text-text-light hover:text-primary transition-colors bg-transparent border-none cursor-pointer"
+                className="mt-5 flex items-center gap-2 text-xs font-medium text-text-light hover:text-text hover:underline transition-colors bg-transparent border-none cursor-pointer"
                 title="Um .csv com seis meses de transações fictícias, para experimentar a plataforma"
               >
                 <Download size={14} /> Baixar planilha de exemplo
@@ -733,12 +733,12 @@ export default function Pendentes() {
           <div className="w-full flex flex-col items-center animate-fade-in">
             <button
               onClick={limparEnvio}
-              className="absolute top-4 left-4 flex items-center gap-2 text-sm text-text-light hover:text-primary transition-colors font-medium bg-transparent border-none cursor-pointer"
+              className="absolute top-4 left-4 flex items-center gap-2 text-sm text-text-light hover:text-text hover:underline transition-colors font-medium bg-transparent border-none cursor-pointer"
             >
               <ArrowLeft size={16} /> Voltar
             </button>
 
-            <div className={`${extractedData.length > 0 ? 'w-10 h-10 mb-2' : 'w-16 h-16 mb-4'} bg-primary/10 text-primary rounded-full flex items-center justify-center`}>
+            <div className={`${extractedData.length > 0 ? 'w-10 h-10 mb-2' : 'w-16 h-16 mb-4'} bg-primary text-white rounded-full flex items-center justify-center`}>
               <ImageIcon size={extractedData.length > 0 ? 20 : 32} />
             </div>
             <h3 className={`${extractedData.length > 0 ? 'text-lg' : 'text-xl'} font-bold text-text mb-1`}>
@@ -767,8 +767,8 @@ export default function Pendentes() {
                     onClick={() => setTipoDoEnvio(valor)}
                     aria-pressed={tipoDoEnvio === valor}
                     className={`flex-1 flex items-start gap-2 p-3 rounded-xl border text-left transition-all ${tipoDoEnvio === valor
-                      ? 'border-primary bg-primary/10 text-primary'
-                      : 'border-border bg-white/50 text-text-light hover:border-primary/40'
+                      ? 'border-primary bg-primary text-white'
+                      : 'border-campo bg-surface text-text-light hover:border-primary/40'
                       }`}
                   >
                     <Icone size={18} className="mt-0.5 shrink-0" />
@@ -834,7 +834,7 @@ export default function Pendentes() {
                         <span className="max-w-[150px] truncate" title={file.name}>{file.name}</span>
                         <button
                           onClick={() => removerArquivo(index)}
-                          className="rounded-full p-0.5 transition-colors cursor-pointer flex items-center justify-center hover:bg-primary/20 hover:text-danger text-primary"
+                          className="rounded-full p-0.5 transition-colors cursor-pointer flex items-center justify-center hover:bg-primary/20 hover:text-danger text-text"
                           title="Remover arquivo"
                           type="button"
                         >
@@ -850,7 +850,7 @@ export default function Pendentes() {
                   disabled={loading || arquivos.length > 10}
                   className={`py-2 px-6 rounded-lg font-medium transition-all flex items-center gap-2 text-sm ${arquivos.length > 10
                     ? 'bg-border text-text-light cursor-not-allowed opacity-60'
-                    : 'bg-text text-white hover:bg-black cursor-pointer'
+                    : 'bg-text text-white hover:bg-text/90 cursor-pointer'
                     }`}
                 >
                   {loading ? (
@@ -872,12 +872,12 @@ export default function Pendentes() {
           <div className="w-full flex flex-col items-center animate-fade-in">
             <button
               onClick={() => { setActiveMode('selection'); setFormManual({ nome: '', valor: '', data: '', categoria_id: '' }); }}
-              className="absolute top-4 left-4 flex items-center gap-2 text-sm text-text-light hover:text-primary transition-colors font-medium bg-transparent border-none cursor-pointer"
+              className="absolute top-4 left-4 flex items-center gap-2 text-sm text-text-light hover:text-text hover:underline transition-colors font-medium bg-transparent border-none cursor-pointer"
             >
               <ArrowLeft size={16} /> Voltar
             </button>
 
-            <div className={`${extractedData.length > 0 ? 'w-10 h-10 mb-2' : 'w-16 h-16 mb-4'} bg-primary/10 text-primary rounded-full flex items-center justify-center`}>
+            <div className={`${extractedData.length > 0 ? 'w-10 h-10 mb-2' : 'w-16 h-16 mb-4'} bg-primary text-white rounded-full flex items-center justify-center`}>
               <PlusCircle size={extractedData.length > 0 ? 20 : 32} />
             </div>
             <h3 className={`${extractedData.length > 0 ? 'text-lg' : 'text-xl'} font-bold text-text mb-1`}>
@@ -892,7 +892,7 @@ export default function Pendentes() {
                 value={formManual.nome}
                 onChange={e => setFormManual({ ...formManual, nome: e.target.value })}
                 placeholder="Nome da transação"
-                className="glass-input w-full p-2 text-sm bg-white"
+                className="glass-input w-full p-2 text-sm"
                 autoFocus
               />
               <div className="flex flex-wrap gap-2">
@@ -901,19 +901,19 @@ export default function Pendentes() {
                   onChange={e => setFormManual({ ...formManual, valor: e.target.value })}
                   placeholder="Valor (ex: -49,90)"
                   inputMode="decimal"
-                  className="glass-input p-2 text-sm bg-white flex-1 min-w-[140px]"
+                  className="glass-input p-2 text-sm flex-1 min-w-[140px]"
                 />
                 <input
                   type="date"
                   value={formManual.data}
                   onChange={e => setFormManual({ ...formManual, data: e.target.value })}
-                  className="glass-input p-2 text-sm bg-white flex-1 min-w-[140px]"
+                  className="glass-input p-2 text-sm flex-1 min-w-[140px]"
                   title="Em branco, usa hoje"
                 />
                 <select
                   value={formManual.categoria_id}
                   onChange={e => setFormManual({ ...formManual, categoria_id: e.target.value })}
-                  className="glass-input p-2 text-sm bg-white flex-1 min-w-[140px] cursor-pointer"
+                  className="glass-input p-2 text-sm flex-1 min-w-[140px] cursor-pointer"
                 >
                   <option value="">Sem categoria</option>
                   {categories.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
@@ -924,7 +924,7 @@ export default function Pendentes() {
             <button
               onClick={criarManual}
               disabled={!formManual.nome.trim() || formManual.valor.trim() === ''}
-              className="mt-4 py-2 px-6 rounded-lg font-medium bg-text text-white hover:bg-black transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
+              className="mt-4 py-2 px-6 rounded-lg font-medium bg-text text-white hover:bg-text/90 transition-all text-sm disabled:opacity-40 disabled:cursor-not-allowed"
             >
               Criar rascunho
             </button>
@@ -937,7 +937,7 @@ export default function Pendentes() {
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
             <div>
               <h3 className="text-xl font-bold text-text flex items-center gap-2">
-                <CheckCircle className="text-primary" /> Rascunhos Salvos ({extractedData.length})
+                <CheckCircle className="text-text" /> Rascunhos Salvos ({extractedData.length})
               </h3>
               <span className="text-sm text-text-light">As edições são salvas automaticamente.</span>
             </div>
@@ -983,7 +983,7 @@ export default function Pendentes() {
                         type="date"
                         defaultValue={item.data}
                         onBlur={(e) => handleUpdateField(item.id, 'data', e.target.value)}
-                        className="glass-input w-full p-1 text-sm bg-transparent border-transparent hover:border-border"
+                        className="glass-input w-full p-1 text-sm bg-transparent border-transparent hover:border-campo"
                       />
                     </div>
                     {/* Apelido */}
@@ -1003,13 +1003,13 @@ export default function Pendentes() {
                       <select
                         value={item.categoria_id || ''}
                         onChange={(e) => handleCategoryChange(item.id, e.target.value)}
-                        className="glass-input w-full p-1 bg-transparent border-transparent hover:border-border text-sm appearance-none cursor-pointer"
+                        className="glass-input w-full p-1 bg-transparent border-transparent hover:border-campo text-sm appearance-none cursor-pointer"
                       >
                         <option value="" disabled>Selecione...</option>
                         {categories.map(c => (
-                          <option key={c.id} value={c.id} className="text-black">{c.nome}</option>
+                          <option key={c.id} value={c.id} className="text-text">{c.nome}</option>
                         ))}
-                        <option value="ADD_NEW" className="font-bold text-primary bg-primary/10">+ Adicionar Categoria</option>
+                        <option value="ADD_NEW" className="font-bold text-text bg-primary/10">+ Adicionar Categoria</option>
                       </select>
                     </div>
                     {/* Compromisso — ao lado de Categoria porque os dois são classificação.
@@ -1021,17 +1021,17 @@ export default function Pendentes() {
                       <select
                         value={item.compromisso || ''}
                         onChange={(e) => handleCompromissoChange(item.id, e.target.value)}
-                        className="glass-input w-full p-1 bg-transparent border-transparent hover:border-border text-sm appearance-none cursor-pointer"
+                        className="glass-input w-full p-1 bg-transparent border-transparent hover:border-campo text-sm appearance-none cursor-pointer"
                         title={tipos.length === 0 ? 'Nenhum tipo cadastrado. Crie em Perfil.' : 'Compromisso'}
                       >
                         <option value="">Nenhum</option>
                         {tipos.map(t => (
-                          <option key={t.slug} value={t.slug} className="text-black">{t.titulo}</option>
+                          <option key={t.slug} value={t.slug} className="text-text">{t.titulo}</option>
                         ))}
                         {/* ⚠️ Rótulo de um tipo desativado depois da importação: sem esta
                             opção o select cairia em "Nenhum" e mentiria sobre o dado. */}
                         {item.compromisso && !tipos.some(t => t.slug === item.compromisso) && (
-                          <option value={item.compromisso} className="text-black">{item.compromisso}</option>
+                          <option value={item.compromisso} className="text-text">{item.compromisso}</option>
                         )}
                       </select>
                     </div>
@@ -1047,7 +1047,7 @@ export default function Pendentes() {
                             const newSign = isNeg ? 1 : -1;
                             handleUpdateField(item.id, 'valor', currentAbs === 0 ? (newSign === -1 ? -0 : 0) : currentAbs * newSign);
                           }}
-                          className={`font-extrabold px-2 py-1 flex items-center justify-center transition-colors hover:bg-black/5 ${item.valor < 0 || Object.is(item.valor, -0) ? 'text-danger' : 'text-primary'}`}
+                          className={`font-extrabold px-2 py-1 flex items-center justify-center transition-colors hover:bg-text/5 ${item.valor < 0 || Object.is(item.valor, -0) ? 'text-danger' : 'text-text'}`}
                           title="Alternar Entrada/Saída"
                         >
                           {item.valor < 0 || Object.is(item.valor, -0) ? '-' : '+'}
@@ -1067,7 +1067,7 @@ export default function Pendentes() {
                             e.target.value = val.toString();
                           }}
                           onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                          className={`w-full bg-transparent border-none outline-none py-1 pr-1 text-sm font-bold ${item.valor < 0 || Object.is(item.valor, -0) ? 'text-danger' : 'text-primary'}`}
+                          className={`w-full bg-transparent border-none outline-none py-1 pr-1 text-sm font-bold ${item.valor < 0 || Object.is(item.valor, -0) ? 'text-danger' : 'text-text'}`}
                         />
                       </div>
                     </div>
@@ -1076,7 +1076,7 @@ export default function Pendentes() {
                   <div className="flex gap-2 w-full xl:w-auto mt-4 xl:mt-0">
                     <button
                       onClick={() => aprovarTransacao(item.id)}
-                      className="flex-1 xl:flex-none bg-primary/10 hover:bg-primary text-primary hover:text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
+                      className="flex-1 xl:flex-none bg-primary hover:bg-primary-hover text-white px-4 py-2 rounded-lg transition-colors flex items-center justify-center gap-2 font-medium"
                       title="Aprovar"
                     >
                       <CheckCircle size={20} /> <span className="xl:hidden">Aprovar</span>
@@ -1095,7 +1095,7 @@ export default function Pendentes() {
                 <div className="border-t border-border">
                   <button
                     onClick={() => toggleRascunho(item.id)}
-                    className="w-full flex items-center justify-start px-4 gap-2 py-2 text-xs font-semibold text-primary hover:bg-primary/5 transition-colors"
+                    className="w-full flex items-center justify-start px-4 gap-2 py-2 text-xs font-semibold text-text hover:bg-primary/5 transition-colors"
                   >
                     Opções Avançadas
                     {isExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
@@ -1112,7 +1112,7 @@ export default function Pendentes() {
                             defaultValue={item.nome || ''}
                             onBlur={(e) => handleUpdateField(item.id, 'nome', e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                            className="glass-input w-full p-2 text-sm bg-transparent border-transparent hover:border-border text-text-light"
+                            className="glass-input w-full p-2 text-sm bg-transparent border-transparent hover:border-campo text-text-light"
                             title="Nome Original"
                           />
                         </div>
@@ -1122,11 +1122,11 @@ export default function Pendentes() {
                           <select
                             value={item.mes_fatura || ''}
                             onChange={(e) => handleUpdateField(item.id, 'mes_fatura', e.target.value || null)}
-                            className="glass-input w-full p-2 bg-transparent border-transparent hover:border-border text-xs appearance-none cursor-pointer"
+                            className="glass-input w-full p-2 bg-transparent border-transparent hover:border-campo text-xs appearance-none cursor-pointer"
                           >
                             <option value="">Ciclo do dia {cicloDia}</option>
                             {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map(mes => (
-                              <option key={mes} value={mes} className="text-black">{mes}</option>
+                              <option key={mes} value={mes} className="text-text">{mes}</option>
                             ))}
                           </select>
                         </div>
@@ -1139,7 +1139,7 @@ export default function Pendentes() {
                             defaultValue={item.banco || ''}
                             onBlur={(e) => handleUpdateField(item.id, 'banco', e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                            className="glass-input w-full p-2 bg-transparent border-transparent hover:border-border text-xs"
+                            className="glass-input w-full p-2 bg-transparent border-transparent hover:border-campo text-xs"
                             title="Banco"
                           />
                         </div>
@@ -1154,7 +1154,7 @@ export default function Pendentes() {
                               placeholder="Atual"
                               defaultValue={item.parcela_atual || ''}
                               onBlur={(e) => handleUpdateField(item.id, 'parcela_atual', e.target.value ? parseInt(e.target.value) : null)}
-                              className="glass-input w-full p-2 bg-transparent border-transparent hover:border-border text-xs text-center"
+                              className="glass-input w-full p-2 bg-transparent border-transparent hover:border-campo text-xs text-center"
                               title="Parcela Atual"
                             />
                             <span className="text-text-light font-bold">/</span>
@@ -1165,7 +1165,7 @@ export default function Pendentes() {
                               placeholder="Total"
                               defaultValue={item.parcela_total || ''}
                               onBlur={(e) => handleUpdateField(item.id, 'parcela_total', e.target.value ? parseInt(e.target.value) : null)}
-                              className="glass-input w-full p-2 bg-transparent border-transparent hover:border-border text-xs text-center"
+                              className="glass-input w-full p-2 bg-transparent border-transparent hover:border-campo text-xs text-center"
                               title="Total de Parcelas"
                             />
                           </div>

@@ -1,7 +1,8 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { LayoutDashboard, AlertCircle, ArrowLeft } from 'lucide-react';
+import { AlertCircle, ArrowLeft } from 'lucide-react';
+import Marca from '../components/Marca';
 import { ENTRADA } from '../lib/rotas';
 import GraficoDecorativo from '../components/GraficoDecorativo';
 
@@ -32,21 +33,22 @@ export default function Auth() {
     <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4 relative overflow-hidden">
       <GraficoDecorativo />
       
-      <div className="glass-panel w-full max-w-md p-8 relative z-10">
+      {/* ⭐ `painel-estrutural` (2px floresta) é opt-in e mora em 3 lugares no projeto: aqui,
+          no número de "Comprometido por mês" e no card de lead da landing. É o cartão que É a
+          resposta da tela — nesta, ele é o único elemento. */}
+      <div className="glass-panel painel-estrutural w-full max-w-md p-8 relative z-10">
         {/* ⚠️ Sem isto o login é um beco: quem chega aqui por engano só sai pelo botão do
             navegador, e num app instalado como PWA nem isso existe. */}
         <button
           onClick={() => navigate('/')}
-          className="flex items-center gap-1.5 text-sm text-text-light hover:text-primary transition-colors mb-6"
+          className="flex items-center gap-1.5 text-sm text-text-light hover:text-text hover:underline transition-colors mb-6"
         >
           <ArrowLeft size={16} /> Voltar
         </button>
 
         <div className="flex flex-col items-center mb-8">
-          <div className="bg-primary/10 p-3 rounded-2xl mb-4">
-            <LayoutDashboard size={40} className="text-primary" />
-          </div>
-          <h1 className="text-3xl font-bold text-text mb-2">NorteIA</h1>
+          <img src="/norteia-simbolo.png" alt="" className="h-20 w-20 mb-4" />
+          <h1 className="text-3xl font-bold text-text mb-2"><Marca /></h1>
           <p className="text-text-light text-center">
             Quanto do seu dinheiro já tem dono
           </p>
@@ -62,7 +64,14 @@ export default function Auth() {
         <button
           onClick={handleGoogleLogin}
           disabled={loading}
-          className="w-full bg-white hover:bg-gray-50 text-text font-medium py-3 px-4 rounded-xl transition-all shadow-md border border-border flex justify-center items-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
+          /**
+           * ⛔ EXCEÇÃO DE MARCA — não aplique a paleta do NorteIA aqui.
+           * As diretrizes do Google exigem superfície branca (ou #131314) e traço neutro
+           * #747775 no botão de login. Os quatro `fill` do logo abaixo são intocáveis pela
+           * mesma razão. Uma varredura de cor que "conserta" este botão quebra a
+           * conformidade — daí este comentário.
+           */
+          className="w-full bg-white hover:bg-[#F2F2F2] text-text font-medium py-3 px-4 rounded-xl transition-all shadow-md border border-[#747775] flex justify-center items-center gap-3 disabled:opacity-70 disabled:cursor-not-allowed"
         >
           {loading ? (
             <div className="w-5 h-5 border-2 border-primary/30 border-t-primary rounded-full animate-spin"></div>

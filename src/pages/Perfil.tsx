@@ -569,7 +569,7 @@ export default function Perfil() {
         />
       )}
       <header>
-        <h2 className="text-3xl font-bold text-primary">Seu Perfil</h2>
+        <h2 className="text-3xl font-bold text-text">Seu Perfil</h2>
         {/* ⚠️ A frase enumera as seções da tela, na ordem em que elas aparecem. Seção nova
             entra aqui também — senão a promessa "aqui você define o que existe" fica menor
             que a página. */}
@@ -587,10 +587,10 @@ export default function Perfil() {
           </h3>
 
           <div className="flex items-center gap-2">
-            <div className={`flex items-center gap-1 rounded-xl transition-all duration-300 ${isSearchExpanded ? 'bg-white/60 p-1.5 px-3 border border-border/50' : ''}`}>
+            <div className={`flex items-center gap-1 rounded-xl transition-all duration-300 ${isSearchExpanded ? 'bg-surface p-1.5 px-3 border border-border' : ''}`}>
               <button
                 onClick={() => setIsSearchExpanded(true)}
-                className={`p-2 flex items-center justify-center rounded-xl transition-colors ${isSearchExpanded ? 'text-primary' : 'bg-white/40 hover:bg-white/60 text-text-light hover:text-primary'}`}
+                className={`p-2 flex items-center justify-center rounded-xl transition-colors ${isSearchExpanded ? 'text-text' : 'bg-text/5 hover:bg-text/10 text-text-light hover:text-text'}`}
               >
                 <Search size={16} />
               </button>
@@ -615,14 +615,18 @@ export default function Perfil() {
             </div>
 
             <div className="relative">
-              <button onClick={() => setIsSortOpen(!isSortOpen)} className="p-2 rounded-xl bg-white/40 hover:bg-white/60 transition-colors text-text-light hover:text-primary">
+              <button onClick={() => setIsSortOpen(!isSortOpen)} className="p-2 rounded-xl bg-text/5 hover:bg-text/10 transition-colors text-text-light hover:text-text">
                 <ListFilter size={18} />
               </button>
+              {/* ⭐ Branco PURO de propósito, aqui e nos dois popovers de paleta abaixo. O papel
+                  (#FBF8F2) é a superfície do cartão; um flutuante que pousa em cima dele precisa
+                  de um degrau, e branco é o único passo que sobra acima do papel. É o mesmo
+                  motivo pelo qual a paleta especifica campos em #FFFFFF. */}
               {isSortOpen && (
-                <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-border/50 overflow-hidden z-10 w-48">
-                  <button onClick={() => { setSortType('recentes'); setIsSortOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-primary/5 ${sortType === 'recentes' ? 'font-bold text-primary' : 'text-text'}`}>Mais recentes</button>
-                  <button onClick={() => { setSortType('antigas'); setIsSortOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-primary/5 ${sortType === 'antigas' ? 'font-bold text-primary' : 'text-text'}`}>Mais antigas</button>
-                  <button onClick={() => { setSortType('az'); setIsSortOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-primary/5 ${sortType === 'az' ? 'font-bold text-primary' : 'text-text'}`}>Ordem Alfabética</button>
+                <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-border overflow-hidden z-10 w-48">
+                  <button onClick={() => { setSortType('recentes'); setIsSortOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-primary/5 ${sortType === 'recentes' ? 'font-bold text-text' : 'text-text'}`}>Mais recentes</button>
+                  <button onClick={() => { setSortType('antigas'); setIsSortOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-primary/5 ${sortType === 'antigas' ? 'font-bold text-text' : 'text-text'}`}>Mais antigas</button>
+                  <button onClick={() => { setSortType('az'); setIsSortOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-primary/5 ${sortType === 'az' ? 'font-bold text-text' : 'text-text'}`}>Ordem Alfabética</button>
                 </div>
               )}
             </div>
@@ -653,18 +657,18 @@ export default function Perfil() {
                 <button
                   type="button"
                   onClick={() => setIsAddColorOpen(!isAddColorOpen)}
-                  className="w-8 h-8 rounded-full shrink-0 border-2 border-white/50 hover:scale-110 transition-transform shadow-sm"
+                  className="w-8 h-8 rounded-full shrink-0 border-2 border-border hover:scale-110 transition-transform shadow-sm"
                   style={{ backgroundColor: selectedCor }}
                   title="Escolher cor"
                 />
                 {isAddColorOpen && (
-                  <div className="absolute top-full left-0 mt-2 bg-white p-3 rounded-xl shadow-xl border border-border/50 z-30 w-[240px] grid grid-cols-5 gap-2">
+                  <div className="absolute top-full left-0 mt-2 bg-white p-3 rounded-xl shadow-xl border border-border z-30 w-[240px] grid grid-cols-5 gap-2">
                     {coresList.map(cor => (
                       <button
                         key={cor.id}
                         type="button"
                         onClick={() => { setSelectedCor(cor.codigo); setIsAddColorOpen(false); }}
-                        className="w-8 h-8 rounded-full hover:scale-110 transition-transform border border-border/50"
+                        className="w-8 h-8 rounded-full hover:scale-110 transition-transform border border-border"
                         style={{ backgroundColor: cor.codigo }}
                         title={cor.nome}
                       />
@@ -682,7 +686,7 @@ export default function Perfil() {
 
               {/* ⭐ O lado se escolhe na criação: perguntar depois é o que fazia a categoria
                   nascer errada e o Dashboard somar reembolso como renda. */}
-              <div className="flex gap-1 p-1 bg-white/40 rounded-xl">
+              <div className="flex gap-1 p-1 bg-text/5 rounded-xl">
                 {([[false, 'Gasto'], [true, 'Renda']] as const).map(([ehRenda, rotulo]) => (
                   <button
                     key={rotulo}
@@ -690,7 +694,7 @@ export default function Perfil() {
                     onClick={() => setNovaEhRenda(ehRenda)}
                     className={`flex-1 px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                       novaEhRenda === ehRenda
-                        ? ehRenda ? 'bg-[#10b981] text-white' : 'bg-primary text-white'
+                        ? ehRenda ? 'bg-azul text-white' : 'bg-primary text-white'
                         : 'text-text-light hover:text-text'
                     }`}
                   >
@@ -746,7 +750,7 @@ export default function Perfil() {
             }`}
           >
             <div className="flex items-baseline gap-2 mb-3">
-              <h4 className={`font-bold ${ehRenda ? 'text-[#10b981]' : 'text-text'}`}>
+              <h4 className={`font-bold ${ehRenda ? 'text-azul' : 'text-text'}`}>
                 Categorias de {titulo}
               </h4>
               <span className="text-xs text-text-light">
@@ -761,7 +765,7 @@ export default function Perfil() {
                 draggable={editingId !== category.id}
                 onDragStart={(e) => { e.dataTransfer.setData('text/plain', category.id); setArrastando(category.id); }}
                 onDragEnd={() => { setArrastando(null); setAlvoRenda(null); }}
-                className={`flex items-center justify-between p-3 rounded-xl border border-border bg-white/30 backdrop-blur-sm hover:border-primary/30 transition-all group ${editingId === category.id ? 'z-30 relative' : 'z-0 relative cursor-grab active:cursor-grabbing'} ${arrastando === category.id ? 'opacity-40' : ''}`}
+                className={`flex items-center justify-between p-3 rounded-xl border border-border bg-superficie backdrop-blur-sm hover:border-primary/30 transition-all group ${editingId === category.id ? 'z-30 relative' : 'z-0 relative cursor-grab active:cursor-grabbing'} ${arrastando === category.id ? 'opacity-40' : ''}`}
               >
                 {editingId === category.id ? (
                   <div className="flex flex-col gap-3 w-full">
@@ -769,17 +773,17 @@ export default function Perfil() {
                       <div className="relative">
                         <button
                           onClick={() => setIsEditingColorOpen(!isEditingColorOpen)}
-                          className="w-6 h-6 rounded-full shrink-0 border-2 border-white/50 hover:scale-110 transition-transform shadow-sm"
+                          className="w-6 h-6 rounded-full shrink-0 border-2 border-border hover:scale-110 transition-transform shadow-sm"
                           style={{ backgroundColor: editingColor }}
                           title="Alterar cor"
                         />
                         {isEditingColorOpen && (
-                          <div className="absolute top-full left-0 mt-2 bg-white p-3 rounded-xl shadow-xl border border-border/50 z-20 w-[240px] grid grid-cols-5 gap-2">
+                          <div className="absolute top-full left-0 mt-2 bg-white p-3 rounded-xl shadow-xl border border-border z-20 w-[240px] grid grid-cols-5 gap-2">
                             {coresList.map(cor => (
                               <button
                                 key={cor.id}
                                 onClick={() => { setEditingColor(cor.codigo); setIsEditingColorOpen(false); }}
-                                className="w-8 h-8 rounded-full hover:scale-110 transition-transform border border-border/50"
+                                className="w-8 h-8 rounded-full hover:scale-110 transition-transform border border-border"
                                 style={{ backgroundColor: cor.codigo }}
                                 title={cor.nome}
                               />
@@ -798,7 +802,7 @@ export default function Perfil() {
                         <div className="absolute right-1 flex items-center gap-0.5">
                           <button
                             onClick={() => saveCategory(category.id)}
-                            className="p-1 text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                            className="p-1 text-text hover:bg-primary/10 rounded-lg transition-colors"
                             title="Salvar"
                           >
                             <Check size={16} />
@@ -831,7 +835,7 @@ export default function Perfil() {
                           Esta seta faz a mesma coisa e é a única via em telefone. */}
                       <button
                         onClick={() => moverPara(category, !category.e_renda)}
-                        className="p-1.5 rounded-lg text-text-light/50 opacity-0 group-hover:opacity-100 hover:text-primary hover:bg-primary/10 transition-colors"
+                        className="p-1.5 rounded-lg text-text-light/50 opacity-0 group-hover:opacity-100 hover:bg-primary hover:text-white transition-colors"
                         title={category.e_renda ? 'Mover para Gasto' : 'Mover para Renda'}
                       >
                         {category.e_renda ? <ArrowLeftRight size={16} /> : <ArrowLeftRight size={16} />}
@@ -840,7 +844,7 @@ export default function Perfil() {
                     <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                       <button
                         onClick={() => startEditing(category)}
-                        className="p-1.5 text-text-light hover:text-primary hover:bg-primary/10 rounded-lg transition-colors"
+                        className="p-1.5 text-text-light hover:bg-primary hover:text-white rounded-lg transition-colors"
                         title="Editar"
                       >
                         <Edit2 size={16} />
@@ -888,11 +892,23 @@ export default function Perfil() {
           <h4 className="font-bold text-text text-sm mb-3">Regras</h4>
           <div className="space-y-2 mb-3">
             {vocabulario.filter(v => v.tipo === 'regra').map(v => (
-              <div key={v.id} className="group flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-white/30 backdrop-blur-sm">
+              <div key={v.id} className="group flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-superficie backdrop-blur-sm">
                 <span className="text-sm text-text min-w-0">
                   Se o nome tiver <strong>{v.padrao}</strong> → {' '}
-                  <span style={{ color: categories.find(c => c.id === v.categoria_id)?.cor }}>
-                    {categories.find(c => c.id === v.categoria_id)?.nome ?? '—'}
+                  {/* ⚠️ Isto pintava o NOME com a cor da categoria. Cor de categoria é
+                      escolhida pelo usuário numa paleta de 25 hexes saturados — a semente dá
+                      #00FF00 para "Salário" —, então o nome saía ilegível sobre qualquer
+                      superfície clara. Como ponto + nome em floresta, a cor continua
+                      identificando e o texto volta a ser lido. É o mesmo padrão da lista de
+                      categorias logo acima. */}
+                  <span className="inline-flex items-center gap-1.5 align-middle">
+                    <span
+                      className="w-2 h-2 rounded-full shrink-0 border border-border"
+                      style={{ backgroundColor: categories.find(c => c.id === v.categoria_id)?.cor ?? '#ccc' }}
+                    />
+                    <strong className="text-text">
+                      {categories.find(c => c.id === v.categoria_id)?.nome ?? '—'}
+                    </strong>
                   </span>
                 </span>
                 <button
@@ -934,7 +950,7 @@ export default function Perfil() {
           <h4 className="font-bold text-text text-sm mb-3">Notas</h4>
           <div className="space-y-2 mb-3">
             {vocabulario.filter(v => v.tipo === 'nota').map(v => (
-              <div key={v.id} className="group flex items-start justify-between gap-3 p-3 rounded-xl border border-border bg-white/30 backdrop-blur-sm">
+              <div key={v.id} className="group flex items-start justify-between gap-3 p-3 rounded-xl border border-border bg-superficie backdrop-blur-sm">
                 <span className="text-sm text-text-light">{v.texto}</span>
                 <button
                   onClick={() => excluirVocabulario(v.id)}
@@ -986,7 +1002,7 @@ export default function Perfil() {
           {tiposCompromisso.map(tipo => (
             <div
               key={tipo.id}
-              className={`flex items-start justify-between p-3 rounded-xl border border-border bg-white/30 backdrop-blur-sm hover:border-primary/30 transition-colors group ${
+              className={`flex items-start justify-between p-3 rounded-xl border border-border bg-superficie backdrop-blur-sm hover:border-primary/30 transition-colors group ${
                 editandoTipo === tipo.id ? 'md:col-span-2 lg:col-span-3' : ''
               }`}
             >
@@ -995,7 +1011,7 @@ export default function Perfil() {
                   <input
                     value={formTipo.titulo ?? ''}
                     onChange={e => setFormTipo({ ...formTipo, titulo: e.target.value })}
-                    className="glass-input p-2 text-sm bg-white w-full"
+                    className="glass-input p-2 text-sm w-full"
                     placeholder="Nome"
                     autoFocus
                   />
@@ -1007,7 +1023,7 @@ export default function Perfil() {
                       <input
                         value={formTipo.periodicidade ?? ''}
                         onChange={e => setFormTipo({ ...formTipo, periodicidade: e.target.value })}
-                        className="glass-input p-2 text-sm bg-white w-full"
+                        className="glass-input p-2 text-sm w-full"
                         placeholder="Ex: toda semana; todo mês, dia 10..."
                       />
                     </label>
@@ -1020,7 +1036,7 @@ export default function Perfil() {
                       <input
                         value={formTipo.valor_mensal ?? ''}
                         onChange={e => setFormTipo({ ...formTipo, valor_mensal: e.target.value })}
-                        className="glass-input p-2 text-sm bg-white w-full"
+                        className="glass-input p-2 text-sm w-full"
                         inputMode="decimal" placeholder="R$ por mês"
                       />
                     </label>
@@ -1100,7 +1116,7 @@ export default function Perfil() {
                         periodicidade: tipo.periodicidade ?? '',
                         valor_mensal: tipo.valor_mensal ?? '',
                       }); }}
-                      className="p-1.5 text-text-light hover:text-primary hover:bg-primary/10 rounded-lg"
+                      className="p-1.5 text-text-light hover:bg-primary hover:text-white rounded-lg"
                       title="Editar"
                     >
                       <Edit2 size={16} />
@@ -1124,12 +1140,12 @@ export default function Perfil() {
         {!criando ? (
           <button
             onClick={() => setCriando(true)}
-            className="mt-4 w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-border text-sm font-medium text-text-light hover:border-primary/40 hover:text-primary transition-colors"
+            className="mt-4 w-full flex items-center justify-center gap-2 p-3 rounded-xl border border-dashed border-border text-sm font-medium text-text-light hover:border-primary/40 hover:text-text hover:underline transition-colors"
           >
             <PlusCircle size={18} /> Novo compromisso
           </button>
         ) : (
-          <div className="mt-4 p-4 rounded-xl border border-primary/30 bg-white/40 space-y-3">
+          <div className="mt-4 p-4 rounded-xl border border-primary/30 bg-superficie space-y-3">
             <label className="block">
               <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">
                 Nome
@@ -1138,7 +1154,7 @@ export default function Perfil() {
                 value={formNovo.titulo}
                 onChange={e => setFormNovo({ ...formNovo, titulo: e.target.value })}
                 placeholder="Ex: Supermercado"
-                className="glass-input p-2 text-sm bg-white w-full"
+                className="glass-input p-2 text-sm w-full"
                 autoFocus
               />
             </label>
@@ -1151,7 +1167,7 @@ export default function Perfil() {
                 <input
                   value={formNovo.periodicidade}
                   onChange={e => setFormNovo({ ...formNovo, periodicidade: e.target.value })}
-                  className="glass-input p-2 text-sm bg-white w-full"
+                  className="glass-input p-2 text-sm w-full"
                   placeholder="Ex: toda semana; todo mês, dia 10..."
                 />
               </label>
@@ -1164,7 +1180,7 @@ export default function Perfil() {
                 <input
                   value={formNovo.valor_mensal}
                   onChange={e => setFormNovo({ ...formNovo, valor_mensal: e.target.value })}
-                  className="glass-input p-2 text-sm bg-white w-full"
+                  className="glass-input p-2 text-sm w-full"
                   inputMode="decimal" placeholder="R$ por mês"
                 />
               </label>
@@ -1221,7 +1237,7 @@ export default function Perfil() {
             max="27"
             value={cicloDia}
             onChange={(e) => handleSaveCiclo(Number(e.target.value))}
-            className="glass-input w-20 px-3 py-2 text-center font-bold text-azul [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="glass-input w-20 px-3 py-2 text-center font-bold text-text [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           {isSavingCiclo && <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>}
         </div>
@@ -1276,7 +1292,7 @@ export default function Perfil() {
                       if (novo === String(atual?.dia ?? '')) return;
                       handleSaveVencimento(nome, novo);
                     }}
-                    className="glass-input w-20 px-3 py-2 text-center font-bold text-azul [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="glass-input w-20 px-3 py-2 text-center font-bold text-text [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                   {salvandoVencimento === nome && (
                     <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>

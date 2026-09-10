@@ -11,7 +11,13 @@
 export default function GraficoDecorativo({ className = '' }: { className?: string }) {
   return (
     <div
-      className={`absolute inset-0 z-0 opacity-30 pointer-events-none flex items-end justify-center text-primary ${className}`}
+      /**
+       * ⚠️ Floresta, não laranja. O `text-primary` de antes vivia sobre um fundo quase
+       * branco; sobre a tela sálvia, laranja a 30% dá ~#BC9264 (um bege sujo) e as barras,
+       * que têm `opacity-40` aninhada, caem para 12% efetivo e desaparecem.
+       * ⭐ E floresta a 20% não disputa com o botão laranja que fica em cima dele.
+       */
+      className={`absolute inset-0 z-0 opacity-20 pointer-events-none flex items-end justify-center text-text ${className}`}
       aria-hidden="true"
     >
       <svg className="w-full h-full" viewBox="0 0 1200 600" preserveAspectRatio="none">

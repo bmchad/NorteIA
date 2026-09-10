@@ -22,20 +22,35 @@ import { cicloDeHoje, limitesDoCiclo } from '../lib/ciclo';
  * `#FF6200` aqui seria a duplicação que a armadilha 11 proíbe — `src/index.css` é o único
  * dono da cor de marca (D-037) —, então a variável é lida de lá.
  *
- * `danger` e `border` não passam por variável: são literais no `tailwind.config.js` e não
- * são cor de marca, então o valor vem de lá mesmo.
+ * ⭐ Só a forma-ATRIBUTO precisa desta leitura. Onde a cor pode ir por classe, ela vai: o
+ * `<text>` do eixo usa `className="fill-text-light"` e o navegador resolve o `var()` sozinho,
+ * porque ali `fill` é propriedade CSS e não atributo de apresentação.
+ *
+ * ⚠️ Correção de 2026-09-10: `grade` e `renda` eram literais aqui, com um comentário dizendo
+ * que `danger` e `border` "não passam por variável". Passam desde a paleta sálvia — `border`
+ * virou o fio (--fio) e `danger` virou --perigo. Só `perigo` continua literal, e por escolha:
+ * é o vermelho de `danger`, que não é cor de marca nem mudou de valor.
  */
 const COR = {
   marca: () => daVariavel('--marca', '#FF6200'),
-  texto: () => daVariavel('--texto-suave', '#64748b'),
+  texto: () => daVariavel('--texto-suave', '#43563D'),
   perigo: '#991b1b',
-  grade: '#e2e8f0',
-  renda: '#059669',
+  grade: () => daVariavel('--fio', '#C9D5C2'),
+  renda: () => daVariavel('--azul', '#0284c7'),
 };
 
+/**
+ * ⚠️⚠️ Lê do elemento com `.tema-plataforma`, NÃO de `document.documentElement`.
+ *
+ * Esta tela roda dentro do `Layout`, e é o wrapper dele que carrega a classe — ler do `:root`
+ * devolve o valor da landing, não o do produto. O bug existia desde que a classe nasceu e era
+ * invisível porque os dois valores de `--texto-suave` eram cinza-azulados parecidos; com o
+ * floresta divergindo por escopo, ele apareceria na tela.
+ */
 function daVariavel(nome: string, reserva: string): string {
   if (typeof document === 'undefined') return reserva;
-  const canais = getComputedStyle(document.documentElement).getPropertyValue(nome).trim();
+  const escopo = document.querySelector('.tema-plataforma') ?? document.documentElement;
+  const canais = getComputedStyle(escopo).getPropertyValue(nome).trim();
   return canais ? `rgb(${canais})` : reserva;
 }
 
@@ -180,7 +195,7 @@ export default function MercadoDeDatas() {
   return (
     <div className="space-y-6">
       <header>
-        <h2 className="text-3xl font-bold text-primary flex items-center gap-2">
+        <h2 className="text-3xl font-bold text-text flex items-center gap-2">
           <CalendarClock size={28} /> Mercado de Datas
         </h2>
         {/* ⭐ A promessa da tela em uma frase, e ela não é "você gasta demais". É a outra, que
@@ -270,7 +285,7 @@ function PropostasDeData(
                   <button
                     onClick={() => onDecidir(p, 'ativo')}
                     title="Contar esta cobrança na curva"
-                    className="p-2 rounded-lg text-primary hover:bg-primary/10 transition-colors"
+                    className="p-2 rounded-lg text-text hover:bg-primary/10 transition-colors"
                   >
                     <Check size={18} />
                   </button>
@@ -445,7 +460,7 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
           )}
         </div>
       ) : (
-        <div className="glass-panel p-6 border-l-4 border-emerald-500">
+        <div className="glass-panel p-6 border-l-4 border-azul">
           <h3 className="text-lg font-bold text-text mb-1">O ciclo fecha sem aperto</h3>
           <p className="text-sm text-text-light">
             Seu pior momento é o dia <strong>{rotuloDoDia(curva.folgaMinima.dia)}</strong>, com{' '}
@@ -471,7 +486,7 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
         <div className="h-[26rem] w-full">
           <ResponsiveContainer width="100%" height="100%">
             <ComposedChart data={dados} margin={{ top: 12, right: 12, bottom: 4, left: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke={COR.grade} />
+              <CartesianGrid strokeDasharray="3 3" stroke={COR.grade()} />
               <XAxis dataKey="rotulo" tick={{ fontSize: 11 }} interval="preserveStartEnd" />
               <YAxis tick={{ fontSize: 11 }} tickFormatter={(v) => real(Number(v))} width={70} />
               <Tooltip
@@ -501,7 +516,7 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
                 <ReferenceLine
                   key={`m${m.dia}`}
                   x={dados[m.dia - 1]?.rotulo}
-                  stroke={m.natureza === 'renda' ? COR.renda : m.natureza === 'fatura' ? COR.marca() : COR.perigo}
+                  stroke={m.natureza === 'renda' ? COR.renda() : m.natureza === 'fatura' ? COR.marca() : COR.perigo}
                   strokeWidth={m.natureza === 'debito' ? 1 : 2}
                   strokeOpacity={m.jaAconteceu ? 0.35 : 0.85}
                   strokeDasharray={m.ajustada ? '4 3' : undefined}
@@ -578,7 +593,7 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
 
       {/* ---------------------------------------------------------------- o que ficou fora */}
       {(curva.cartoesSemVencimento.length > 0 || curva.semBanco > 0) && (
-        <div className="glass-panel p-6 border-l-4 border-amber-500">
+        <div className="glass-panel p-6 border-l-4 border-primary">
           <h3 className="text-base font-bold text-text flex items-center gap-2 mb-2">
             <CreditCard size={18} /> Fatura que ficou fora da curva
           </h3>
@@ -603,7 +618,7 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
           </p>
           <Link
             to="/perfil"
-            className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-lg border border-border text-sm font-medium text-primary hover:bg-primary/5 transition-colors"
+            className="inline-flex items-center gap-2 mt-3 px-3 py-1.5 rounded-lg border border-border text-sm font-medium text-text hover:bg-primary/5 transition-colors"
           >
             <Settings size={14} /> Configurar no Perfil
           </Link>
@@ -678,8 +693,8 @@ function RotuloDoMarcador(
 function LinhaDoEvento(
   { evento, rotulo, destaque }: { evento: EventoDatado; rotulo: string; destaque: boolean },
 ) {
-  const cor = evento.natureza === 'renda' ? 'text-emerald-600'
-    : evento.natureza === 'fatura' ? 'text-primary' : 'text-danger';
+  const cor = evento.natureza === 'renda' ? 'text-azul'
+    : evento.natureza === 'fatura' ? 'text-text' : 'text-danger';
   return (
     <div className={`flex items-center gap-3 py-2 border-b border-border last:border-b-0 ${destaque ? 'bg-primary/5 -mx-2 px-2 rounded-lg' : ''}`}>
       <span className="w-10 text-sm font-bold text-text-light text-right shrink-0">{rotulo}</span>

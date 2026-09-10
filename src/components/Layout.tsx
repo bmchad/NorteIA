@@ -2,6 +2,7 @@ import type { ReactNode } from 'react';
 import { NavLink, useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
 import { LayoutDashboard, Clock, Calendar, LogOut, User, Layers, History, CalendarClock } from 'lucide-react';
+import Marca from './Marca';
 
 interface LayoutProps {
   children: ReactNode;
@@ -42,13 +43,28 @@ export default function Layout({ children }: LayoutProps) {
   return (
     <div className="tema-plataforma min-h-screen flex bg-background">
       {/* Sidebar */}
-      <aside className="w-64 bg-surface border-r border-border flex flex-col shadow-sm hidden md:flex">
-        <div className="h-16 flex items-center px-6 border-b border-border">
-          <h1 className="text-xl font-bold text-primary flex items-center gap-2">
-            <span className="bg-primary/10 p-1.5 rounded-lg">
-              <LayoutDashboard size={20} className="text-primary" />
-            </span>
-            NorteIA
+      {/* ⭐ A barra é a PRÓPRIA TELA, não um painel sobre ela: mesmo `bg-background` do
+          conteúdo. Ela deixou de ser a maior superfície branca do produto — os cartões é que
+          flutuam agora, e a navegação se distingue por posição e espaço, não por superfície.
+          ⚠️ Sem fio à direita e sem sombra, e agora por um motivo diferente do de antes: não
+          há mais degrau nenhum a marcar (barra e conteúdo são a mesma cor, 1:1). A sombra
+          preta do `shadow-sm` sobre um fundo cromático dessatura o verde e vira auréola.
+          ⭐ Se a falta de fronteira incomodar, o único valor que funciona ali é o floresta:
+          `border-r border-moldura`, 4,82:1. Sálvia 500 daria 1,31:1 e não separaria nada. */}
+      <aside className="w-64 bg-background flex flex-col hidden md:flex">
+        <div className="h-16 flex items-center px-6 border-b border-moldura">
+          {/* ⛔ Era `text-primary` com o ícone num chip `bg-primary/10`. Sobre a barra sálvia
+              o laranja dá 1,28:1 — a palavra sumia — e o chip a 10% era imperceptível.
+              ⭐ A palavra vai para floresta (6,45:1) e o chip vira laranja SÓLIDO com ícone
+              branco: o laranja continua no logo, como bloco, que é o papel que a paleta dá
+              a ele. Mesmo movimento do ícone do hero na landing. */}
+          {/* ⭐ O símbolo é o arquivo, não um ícone da lucide: ele já carrega o laranja da
+              marca, então o chip laranja que existia aqui saiu — eram dois laranjas empilhados.
+              `alt=""` de propósito: o wordmark ao lado já diz o nome, e repetir faria o leitor
+              de tela anunciar "NorteIA NorteIA". */}
+          <h1 className="text-xl font-bold text-text flex items-center gap-2">
+            <img src="/norteia-simbolo.png" alt="" className="h-9 w-9 shrink-0" />
+            <Marca />
           </h1>
         </div>
 
@@ -58,9 +74,9 @@ export default function Layout({ children }: LayoutProps) {
               key={item.path}
               to={item.path}
               className={({ isActive }) =>
-                `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive
-                  ? 'bg-primary-hover text-white shadow-md shadow-primary/20'
-                  : 'text-text-light hover:bg-background hover:text-primary'
+                `flex items-center gap-3 px-4 py-3 rounded-xl border-l-[3px] transition-all duration-200 ${isActive
+                  ? 'bg-text text-surface border-primary shadow-glass'
+                  : 'text-text border-transparent hover:bg-realce'
                 }`
               }
             >
@@ -70,13 +86,13 @@ export default function Layout({ children }: LayoutProps) {
           ))}
         </nav>
 
-        <div className="p-4 border-t border-border flex flex-col gap-2">
+        <div className="p-4 border-t border-moldura flex flex-col gap-2">
           <NavLink
             to="/perfil"
             className={({ isActive }) =>
-              `flex items-center gap-3 px-4 py-3 rounded-xl transition-all duration-200 ${isActive
-                ? 'bg-primary-hover text-white shadow-md shadow-primary/20'
-                : 'text-text-light hover:bg-background hover:text-primary'
+              `flex items-center gap-3 px-4 py-3 rounded-xl border-l-[3px] transition-all duration-200 ${isActive
+                ? 'bg-text text-surface border-primary shadow-glass'
+                : 'text-text border-transparent hover:bg-realce'
               }`
             }
           >
@@ -85,7 +101,7 @@ export default function Layout({ children }: LayoutProps) {
           </NavLink>
           <button
             onClick={handleLogout}
-            className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-danger hover:bg-danger/10 transition-colors font-medium"
+            className="flex items-center gap-3 px-4 py-3 w-full rounded-xl text-danger-hover hover:bg-danger hover:text-white transition-colors font-medium"
           >
             <LogOut size={20} />
             <span>Sair</span>
@@ -96,8 +112,15 @@ export default function Layout({ children }: LayoutProps) {
       {/* Main Content */}
       <main className="flex-1 flex flex-col h-screen overflow-hidden">
         {/* Mobile Header */}
-        <header className="h-16 bg-surface border-b border-border flex items-center justify-between px-4 md:hidden shadow-sm">
-          <h1 className="text-lg font-bold text-primary">NorteIA</h1>
+        {/* ⭐ Acompanha a barra: é a mesma superfície noutro viewport, e deixá-la em papel
+            faria o mobile destoar do desktop. Aqui a sombra FICA — este header flutua sobre o
+            conteúdo que rola por baixo —, mas é a `shadow-glass` (floresta), porque a preta
+            do `shadow-sm` não lê sobre sálvia. */}
+        <header className="h-16 bg-background border-b border-moldura flex items-center justify-between px-4 md:hidden shadow-glass">
+          <h1 className="text-lg font-bold text-text flex items-center gap-2">
+            <img src="/norteia-simbolo.png" alt="" className="h-8 w-8 shrink-0" />
+            <Marca />
+          </h1>
           {/* Add mobile menu toggle here if needed */}
         </header>
 

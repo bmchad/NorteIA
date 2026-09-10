@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { LayoutDashboard, LogIn, ChevronDown, CheckCircle } from 'lucide-react';
+import { LogIn, ChevronDown, CheckCircle } from 'lucide-react';
+import Marca from '../components/Marca';
 import { supabase } from '../lib/supabase';
 import GraficoDecorativo from '../components/GraficoDecorativo';
 
@@ -105,21 +106,28 @@ export default function Home() {
       {/* Header Fixo */}
       <header
         className={`fixed top-0 left-0 right-0 z-50 transition-all duration-300 ${
-          scrolled ? 'bg-white/90 backdrop-blur-md shadow-glass-lg py-3' : 'bg-transparent py-5'
+          scrolled ? 'bg-surface/90 backdrop-blur-md shadow-glass-lg py-3' : 'bg-transparent py-5'
         }`}
       >
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           <div className="flex items-center gap-2 cursor-pointer" onClick={() => window.scrollTo({top: 0, behavior: 'smooth'})}>
-            <div className="bg-primary/10 p-2 rounded-xl">
-              <LayoutDashboard size={24} className="text-primary" />
-            </div>
-            <span className="text-2xl font-bold text-text">NorteIA</span>
+            {/* ⭐ O símbolo entra sem pastilha atrás: a imagem tem fundo transparente, então
+                ela funciona tanto sobre o hero sálvia (header transparente) quanto sobre o papel
+                (header rolado), sem precisar de um tile que sirva de base para os dois. */}
+            <img src="/norteia-simbolo.png" alt="" className="h-10 w-10 shrink-0" />
+            <Marca className="text-2xl font-bold text-text" />
           </div>
 
-          <nav className="hidden md:flex items-center gap-8 font-medium text-text-light">
-            <button onClick={() => scrollTo('inicio')} className={`transition-colors ${activeSection === 'inicio' ? 'text-primary font-bold' : 'hover:text-primary'}`}>Início</button>
-            <button onClick={() => scrollTo('faq')} className={`transition-colors ${activeSection === 'faq' ? 'text-primary font-bold' : 'hover:text-primary'}`}>FAQ</button>
-            <button onClick={() => scrollTo('contato')} className={`transition-colors ${activeSection === 'contato' ? 'text-primary font-bold' : 'hover:text-primary'}`}>Contato</button>
+          {/* ⛔ O item ativo era `text-primary`, e este nav fica sobre o hero sálvia enquanto o
+              header é transparente: laranja sobre #9BB08D é 1,28:1 — ilegível, o pior caso de
+              laranja pequeno do projeto.
+              ⭐ O laranja continua marcando o ativo, mas como FIO de 2px embaixo, que é o papel
+              que a paleta dá a ele. O texto vai para floresta (4,82:1 sobre sálvia). O inativo
+              carrega `border-transparent` para a linha de base não pular no hover. */}
+          <nav className="hidden md:flex items-center gap-8 font-medium text-text">
+            <button onClick={() => scrollTo('inicio')} className={`pb-1 border-b-2 transition-colors ${activeSection === 'inicio' ? 'font-bold border-primary' : 'border-transparent hover:border-primary/60'}`}>Início</button>
+            <button onClick={() => scrollTo('faq')} className={`pb-1 border-b-2 transition-colors ${activeSection === 'faq' ? 'font-bold border-primary' : 'border-transparent hover:border-primary/60'}`}>FAQ</button>
+            <button onClick={() => scrollTo('contato')} className={`pb-1 border-b-2 transition-colors ${activeSection === 'contato' ? 'font-bold border-primary' : 'border-transparent hover:border-primary/60'}`}>Contato</button>
           </nav>
 
           <button
@@ -136,11 +144,17 @@ export default function Home() {
         <GraficoDecorativo />
 
         <div className="relative z-10 text-center px-4 max-w-4xl mx-auto flex flex-col items-center">
-          <div className="bg-primary/10 p-5 rounded-3xl mb-8 animate-bounce-slow">
-            <LayoutDashboard size={64} className="text-primary" />
-          </div>
-          <h1 className="text-5xl md:text-7xl font-extrabold text-text mb-6 tracking-tight">
-            NorteIA
+          {/* ⭐ Aqui a marca é a LOGO INTEIRA, um arquivo só — o símbolo e o wordmark que
+              existiam separados viraram a imagem. É o único lugar do produto onde ela aparece
+              completa, e é o que justifica a versão com o nome desenhado.
+              ⚠️ O `alt` carrega o nome porque este `<h1>` não tem mais texto: sem ele a landing
+              fica com um cabeçalho vazio para leitor de tela e para busca. */}
+          <h1 className="mb-6 w-full">
+            <img
+              src="/norteia-logo.png"
+              alt="NorteIA"
+              className="w-full max-w-sm md:max-w-lg mx-auto"
+            />
           </h1>
           {/* ⭐ A promessa é a tese, não a funcionalidade: primeiro o que já tem dono,
               depois o que sobra. */}
@@ -177,7 +191,7 @@ export default function Home() {
                 >
                   <span className="text-lg font-bold text-text">{faq.q}</span>
                   <ChevronDown 
-                    className={`text-primary transition-transform duration-300 ${activeFaq === index ? 'rotate-180' : ''}`} 
+                    className={`text-text transition-transform duration-300 ${activeFaq === index ? 'rotate-180' : ''}`} 
                     size={24} 
                   />
                 </button>
@@ -197,18 +211,27 @@ export default function Home() {
         <GraficoDecorativo />
 
         <div className="max-w-2xl mx-auto px-6 relative z-10">
-          <div className="glass-panel p-8 md:p-12 shadow-2xl border-2 border-primary/40 rounded-3xl text-center bg-white/80 backdrop-blur-xl">
+          {/* ⭐ A moldura laranja de 2px é a exceção deliberada ao fio estrutural floresta: este é
+              o único cartão da página com ação própria. Sólida, não a 40% — sobre papel o
+              laranja diluído virava um contorno fantasma. */}
+          <div className="glass-panel p-8 md:p-12 shadow-2xl border-2 border-primary rounded-3xl text-center bg-surface backdrop-blur-xl">
             <h3 className="text-3xl font-bold text-text mb-4">Pronto para saber o que sobra?</h3>
             <p className="text-text-light mb-8">
               Deixe seu contato para conhecer todos os detalhes do NorteIA.
             </p>
             
             {leadStatus === 'success' ? (
-              <div className="bg-green-50 border border-green-200 p-6 rounded-xl flex flex-col items-center text-center animate-fade-in">
-                <CheckCircle size={48} className="text-green-500 mb-4" />
-                <h4 className="text-xl font-bold text-green-800 mb-2">Enviado com sucesso!</h4>
-                <p className="text-green-700">Obrigado pelo interesse. Em breve entraremos em contato.</p>
-                <button onClick={() => { setLeadStatus('idle'); setLeadStep(1); }} className="mt-6 text-green-600 font-medium hover:underline">
+              /* ⛔ Este bloco era `bg-green-50` com texto `text-green-800`. Numa paleta em que a
+                 tela E o texto já são verdes, verde deixa de ser sinal e vira ruído — o estado de
+                 sucesso ficaria indistinguível do resto da página.
+                 ⭐ Invertido: painel floresta sólido dentro do cartão de papel, que é o "cartão
+                 escuro" da paleta. Sucesso passa a significar "isto virou um bloco fechado", e
+                 não precisa de cor própria para dizer isso. */
+              <div className="bg-text border border-text p-6 rounded-xl flex flex-col items-center text-center animate-fade-in">
+                <CheckCircle size={48} className="text-background mb-4" />
+                <h4 className="text-xl font-bold text-surface mb-2">Enviado com sucesso!</h4>
+                <p className="text-superficie-forte">Obrigado pelo interesse. Em breve entraremos em contato.</p>
+                <button onClick={() => { setLeadStatus('idle'); setLeadStep(1); }} className="mt-6 text-primary-clara font-medium hover:underline">
                   Enviar outro
                 </button>
               </div>
@@ -227,7 +250,7 @@ export default function Home() {
                         required
                         value={leadForm.nome}
                         onChange={e => setLeadForm({...leadForm, nome: e.target.value})}
-                        className="glass-input w-full bg-background mb-4"
+                        className="glass-input w-full mb-4"
                         placeholder="Seu nome completo"
                       />
                       <button type="submit" className="w-full bg-primary hover:bg-primary-hover text-white font-bold py-3 px-4 rounded-xl transition-all shadow-lg shadow-primary/30">Continuar</button>
@@ -243,11 +266,11 @@ export default function Home() {
                         required
                         value={leadForm.email}
                         onChange={e => setLeadForm({...leadForm, email: e.target.value})}
-                        className="glass-input w-full bg-background mb-4"
+                        className="glass-input w-full mb-4"
                         placeholder="seu@email.com"
                       />
                       <div className="flex gap-3">
-                        <button type="button" onClick={() => setLeadStep(1)} className="w-1/3 bg-gray-100 hover:bg-gray-200 text-text font-bold py-3 px-4 rounded-xl border border-border transition-colors">Voltar</button>
+                        <button type="button" onClick={() => setLeadStep(1)} className="w-1/3 bg-superficie hover:bg-superficie-forte text-text font-bold py-3 px-4 rounded-xl border border-border transition-colors">Voltar</button>
                         <button type="submit" className="w-2/3 bg-primary hover:bg-primary-hover text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-primary/30">Continuar</button>
                       </div>
                     </form>
@@ -261,14 +284,14 @@ export default function Home() {
                         type="tel"
                         value={leadForm.telefone}
                         onChange={e => setLeadForm({...leadForm, telefone: e.target.value})}
-                        className="glass-input w-full bg-background mb-4"
+                        className="glass-input w-full mb-4"
                         placeholder="(31) 90000-0000"
                       />
                       {leadStatus === 'error' && (
                         <p className="text-danger text-sm font-medium mb-3 text-left">Erro ao enviar. Tente novamente.</p>
                       )}
                       <div className="flex gap-3">
-                        <button type="button" onClick={() => setLeadStep(2)} className="w-1/3 bg-gray-100 hover:bg-gray-200 text-text font-bold py-3 px-4 rounded-xl border border-border transition-colors">Voltar</button>
+                        <button type="button" onClick={() => setLeadStep(2)} className="w-1/3 bg-superficie hover:bg-superficie-forte text-text font-bold py-3 px-4 rounded-xl border border-border transition-colors">Voltar</button>
                         <button type="submit" disabled={leadStatus === 'loading'} className="w-2/3 bg-primary hover:bg-primary-hover text-white font-bold py-3 px-4 rounded-xl shadow-lg shadow-primary/30 disabled:opacity-70">
                           {leadStatus === 'loading' ? 'Enviando...' : 'Finalizar'}
                         </button>
@@ -288,9 +311,14 @@ export default function Home() {
           bastante para não roubar a tela no celular.
           ⚠️ O `pb-24` no wrapper da página existe por causa dela: sem folga, o rodapé fixo
           cobre o fim da última seção. */}
-      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-text/95 backdrop-blur-sm text-white py-3 px-6 text-center">
-        <p className="text-sm text-white/80 max-w-3xl mx-auto leading-snug">
-          © {new Date().getFullYear()} <strong className="text-white">NorteIA</strong> · NEXFIN
+      {/* ⭐ Faixa de floresta OPACA, e é a superfície invertida da paleta — papel sobre
+          floresta é 10,62:1. O `/95` de antes existia para o slate-800 não pesar; sobre a tela
+          sálvia a translucidez tinge a faixa de verde-médio e come justamente esse contraste.
+          ⚠️ E o texto não é branco puro: a paleta pede papel (#FBF8F2) e sálvia 100 (#E2E8DD)
+          sobre floresta. Branco puro ali é mais duro do que o sistema. */}
+      <footer className="fixed bottom-0 left-0 right-0 z-50 bg-text py-3 px-6 text-center">
+        <p className="text-sm text-superficie-forte max-w-3xl mx-auto leading-snug">
+          © {new Date().getFullYear()} <Marca className="font-bold text-surface" destaque="text-primary-clara" /> · NEXFIN
           — todos os direitos reservados.
         </p>
       </footer>

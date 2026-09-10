@@ -205,7 +205,7 @@ export default function Historico() {
         />
       )}
       <header className="mb-8">
-        <h2 className="text-3xl font-bold text-primary flex items-center gap-3">
+        <h2 className="text-3xl font-bold text-text flex items-center gap-3">
           <History className="text-primary" size={32} />
           Histórico
         </h2>
@@ -218,7 +218,7 @@ export default function Historico() {
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
-              <tr className="border-b-2 border-border/50 text-text-light text-sm uppercase">
+              <tr className="border-b-2 border-border text-text-light text-sm uppercase">
                 <th className="pb-2 font-medium w-[18%]">
                   <div className="flex items-center gap-1 cursor-pointer hover:text-text transition-colors" onClick={() => handleSort('created_at')} title="Ordenar por Data de Criação">
                     Data de Criação
@@ -234,7 +234,7 @@ export default function Historico() {
                 <th className="pb-2 font-medium w-[22%] relative">
                   <div className="flex items-center gap-1">
                     <span>Item</span>
-                    <button onClick={() => setIsApelidoFilterOpen(!isApelidoFilterOpen)} className={`p-1 rounded hover:bg-black/5 transition-colors ${filterApelido ? 'text-primary' : ''}`} title="Pesquisar Apelido">
+                    <button onClick={() => setIsApelidoFilterOpen(!isApelidoFilterOpen)} className={`p-1 rounded hover:bg-text/5 transition-colors ${filterApelido ? 'text-text' : ''}`} title="Pesquisar Apelido">
                       <Search size={14} />
                     </button>
                     {isApelidoFilterOpen && (
@@ -252,7 +252,7 @@ export default function Historico() {
                 <th className="pb-2 font-medium w-[17%] text-center">
                   <div className="flex items-center justify-center gap-1">
                     <span>Categoria</span>
-                    <button onClick={() => setIsCategoriaFilterOpen(!isCategoriaFilterOpen)} className={`p-1 rounded hover:bg-black/5 transition-colors ${filterCategoria ? 'text-primary' : ''}`} title="Filtrar Categoria">
+                    <button onClick={() => setIsCategoriaFilterOpen(!isCategoriaFilterOpen)} className={`p-1 rounded hover:bg-text/5 transition-colors ${filterCategoria ? 'text-text' : ''}`} title="Filtrar Categoria">
                       <ListFilter size={14} />
                     </button>
                     {isCategoriaFilterOpen && (
@@ -279,7 +279,7 @@ export default function Historico() {
             <tbody>
               {filtered.length === 0 ? (
                 <tr>
-                  <td colSpan={5} className="py-8 text-center text-text-light text-sm bg-white/10">
+                  <td colSpan={5} className="py-8 text-center text-text-light text-sm bg-text/[0.03]">
                     Nenhuma transação encontrada.
                   </td>
                 </tr>
@@ -289,7 +289,7 @@ export default function Historico() {
 
                   if (isEditing) {
                     return (
-                      <tr key={t.id} className="border-b border-border/50 bg-primary/5">
+                      <tr key={t.id} className="border-b border-border bg-primary/5">
                         <td className="py-2 px-1 text-sm text-text-light">
                           {new Date(t.created_at).toLocaleDateString('pt-BR')}
                           <div className="text-[10px] mt-0.5">
@@ -301,12 +301,12 @@ export default function Historico() {
                             type="date"
                             value={editForm.data}
                             onChange={e => setEditForm({ ...editForm, data: e.target.value })}
-                            className="glass-input w-full p-1 text-sm bg-white mb-1"
+                            className="glass-input w-full p-1 text-sm mb-1"
                           />
                           <select
                             value={editForm.mes_fatura || ''}
                             onChange={e => setEditForm({ ...editForm, mes_fatura: e.target.value || null })}
-                            className="glass-input w-full p-1 text-xs bg-white text-text-light"
+                            className="glass-input w-full p-1 text-xs text-text-light"
                             title="Balanço (Mês da Fatura)"
                           >
                             <option value="">Ciclo do dia {cicloDia}</option>
@@ -320,7 +320,7 @@ export default function Historico() {
                             type="text"
                             value={editForm.apelido}
                             onChange={e => setEditForm({ ...editForm, apelido: e.target.value })}
-                            className="glass-input w-full p-1 text-sm bg-white"
+                            className="glass-input w-full p-1 text-sm"
                           />
                           <input
                             type="text"
@@ -328,7 +328,7 @@ export default function Historico() {
                             onChange={e => setEditForm({ ...editForm, comentario: e.target.value })}
                             placeholder="Comentário..."
                             title="Comentário livre sobre esta transação"
-                            className="glass-input w-full p-1 mt-1 text-xs bg-white text-text-light"
+                            className="glass-input w-full p-1 mt-1 text-xs text-text-light"
                           />
                           {t.nome && t.nome !== 'Nova Transação' && t.nome !== 'Nova transação' && (
                             <div className="mt-1 text-[10px] text-text-light/70 break-words whitespace-normal" title={t.nome}>
@@ -340,7 +340,7 @@ export default function Historico() {
                           <select
                             value={editForm.categoria_id}
                             onChange={e => setEditForm({ ...editForm, categoria_id: e.target.value })}
-                            className="glass-input w-full p-1 text-sm bg-white appearance-none text-center"
+                            className="glass-input w-full p-1 text-sm appearance-none text-center"
                           >
                             <option value="">Selecione...</option>
                             {categories.map(c => (
@@ -354,7 +354,7 @@ export default function Historico() {
                             step="0.01"
                             value={editForm.valor}
                             onChange={e => setEditForm({ ...editForm, valor: e.target.value })}
-                            className="glass-input w-full p-1 text-lg font-extrabold text-center bg-white"
+                            className="glass-input w-full p-1 text-lg font-extrabold text-center"
                           />
                           <div className="flex items-center justify-center gap-1 mt-1">
                             <span className="text-[10px] text-text-light font-semibold">Parc:</span>
@@ -364,7 +364,7 @@ export default function Historico() {
                               pattern="[0-9]*"
                               value={editForm.parcela_atual}
                               onChange={e => setEditForm({ ...editForm, parcela_atual: e.target.value })}
-                              className="glass-input w-10 px-1 py-0.5 text-[11px] text-center bg-white font-medium"
+                              className="glass-input w-10 px-1 py-0.5 text-[11px] text-center font-medium"
                             />
                             <span className="text-[10px] text-text-light font-bold">/</span>
                             <input
@@ -373,13 +373,13 @@ export default function Historico() {
                               pattern="[0-9]*"
                               value={editForm.parcela_total}
                               onChange={e => setEditForm({ ...editForm, parcela_total: e.target.value })}
-                              className="glass-input w-10 px-1 py-0.5 text-[11px] text-center bg-white font-medium"
+                              className="glass-input w-10 px-1 py-0.5 text-[11px] text-center font-medium"
                             />
                           </div>
                         </td>
                         <td className="py-2 px-1 text-center">
                           <div className="flex items-center justify-center gap-2">
-                            <button onClick={() => saveEditing(t.id)} className="text-primary hover:text-primary-hover p-1" title="Salvar">
+                            <button onClick={() => saveEditing(t.id)} className="text-text hover:text-text-hover p-1" title="Salvar">
                               <CheckCircle size={18} />
                             </button>
                             <button onClick={cancelEditing} className="text-text-light hover:text-danger p-1" title="Cancelar">
@@ -392,7 +392,7 @@ export default function Historico() {
                   }
 
                   return (
-                    <tr key={t.id} className="border-b border-border/50 hover:bg-white/40 transition-colors">
+                    <tr key={t.id} className="border-b border-border hover:bg-text/5 transition-colors">
                       <td className="py-3 text-sm text-text-light">
                         {new Date(t.created_at).toLocaleDateString('pt-BR')}
                         <div className="text-[10px] mt-0.5 font-medium">
@@ -419,7 +419,7 @@ export default function Historico() {
                         )}
                       </td>
                       <td className="py-3 text-sm text-center">
-                        <span className="bg-background px-3 py-1.5 rounded-md border border-border">
+                        <span className="bg-superficie px-3 py-1.5 rounded-md border border-border">
                           {t.categories?.nome || 'Sem categoria'}
                         </span>
                       </td>
@@ -433,7 +433,7 @@ export default function Historico() {
                       </td>
                       <td className="py-3 text-center">
                         <div className="flex items-center justify-center gap-2">
-                          <button onClick={() => startEditing(t)} className="text-text-light hover:text-primary p-2 transition-colors" title="Editar">
+                          <button onClick={() => startEditing(t)} className="text-text-light hover:text-text p-2 transition-colors" title="Editar">
                             <Edit2 size={16} />
                           </button>
                           <button onClick={() => deleteTransaction(t.id)} className="text-text-light hover:text-danger p-2 transition-colors" title="Excluir">
@@ -448,11 +448,11 @@ export default function Historico() {
             </tbody>
           </table>
           {filtered.length > 0 && filtered.length >= pageLimit && (
-            <div className="flex justify-center p-4 border-t border-border/50">
+            <div className="flex justify-center p-4 border-t border-border">
               <button
                 onClick={() => setPageLimit(prev => prev + 100)}
                 disabled={isLoadingMore}
-                className="bg-primary/10 hover:bg-primary text-primary hover:text-white px-6 py-2 rounded-xl font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="bg-primary hover:bg-primary-hover text-white px-6 py-2 rounded-xl font-medium transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isLoadingMore ? (
                   <>
