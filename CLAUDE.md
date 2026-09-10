@@ -121,12 +121,15 @@ redireciona sem ela.
 
 ## Banco de dados
 
-⛔⛔ **Duas migrations estão no repositório e NÃO foram aplicadas** (2026-09-03):
-`20260903120000_transactions_tipo.sql` e `20260903130000_vencimentos.sql`. O `db push` daquela
-sessão devolveu **403 de privilégio**. Enquanto não rodarem, o envio de arquivos em
-`/novos-registros`, a seção de vencimentos do `/perfil` e o `/mercado-de-datas` **quebram** com erro
-do PostgREST — o front já está commitado. ⚠️ A Vercel publica no push, o banco não: aplicar vem
-**antes** do próximo deploy. → `context/20-pendencias-e-dividas.md` P39
+✅ **Banco em dia (conferido em 2026-09-10).** `npx supabase migration list --linked` mostra
+`local` e `remote` iguais nas **20** migrations, incluindo as duas do Mercado de Datas
+(`20260903120000_transactions_tipo.sql` e `20260903130000_vencimentos.sql`), que passaram uma semana
+escritas e não aplicadas por um 403 de privilégio. → P39, fechada.
+
+⚠️ **A assimetria que aquilo revelou continua valendo, e é permanente:** a Vercel publica **no
+push**, o banco **não**. Migration nova é sempre aplicada **antes** do deploy do front que depende
+dela — senão a tela chega primeiro e quebra com erro do PostgREST, não com degradação elegante.
+⭐ Antes de dar push, conferir com `npx supabase migration list --linked` custa 10 segundos.
 
 O dump completo está em `supabase-backup/supabase/schema.sql` (fora do git). ⭐ **Mudança nova de
 schema entra como migration** em `supabase/migrations/`, aplicada por `npx supabase db push`. RLS

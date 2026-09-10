@@ -20,7 +20,7 @@ export default function Home() {
    */
   const faqs = [
     {
-      q: 'O que é o Assistente Itaú?',
+      q: 'O que é o NorteIA?',
       a: 'Uma plataforma que responde uma pergunta antes de qualquer outra: quanto do seu dinheiro já tem dono. Parcela que ainda corre, assinatura que renova, mercado que você vai fazer de todo jeito — o que sobra depois disso é o que você realmente decide.'
     },
     {
@@ -113,7 +113,7 @@ export default function Home() {
             <div className="bg-primary/10 p-2 rounded-xl">
               <LayoutDashboard size={24} className="text-primary" />
             </div>
-            <span className="text-2xl font-bold text-text">Assistente Itaú</span>
+            <span className="text-2xl font-bold text-text">NorteIA</span>
           </div>
 
           <nav className="hidden md:flex items-center gap-8 font-medium text-text-light">
@@ -140,7 +140,7 @@ export default function Home() {
             <LayoutDashboard size={64} className="text-primary" />
           </div>
           <h1 className="text-5xl md:text-7xl font-extrabold text-text mb-6 tracking-tight">
-            Assistente Itaú
+            NorteIA
           </h1>
           {/* ⭐ A promessa é a tese, não a funcionalidade: primeiro o que já tem dono,
               depois o que sobra. */}
@@ -200,7 +200,7 @@ export default function Home() {
           <div className="glass-panel p-8 md:p-12 shadow-2xl border-2 border-primary/40 rounded-3xl text-center bg-white/80 backdrop-blur-xl">
             <h3 className="text-3xl font-bold text-text mb-4">Pronto para saber o que sobra?</h3>
             <p className="text-text-light mb-8">
-              Deixe seu contato para conhecer todos os detalhes do Assistente Itaú.
+              Deixe seu contato para conhecer todos os detalhes do NorteIA.
             </p>
             
             {leadStatus === 'success' ? (
@@ -282,17 +282,16 @@ export default function Home() {
         </div>
       </section>
       
-      {/* ⚠️ Fixo no rodapé da janela, não no fim do documento: a página usa o nome e a cor
-          do Itaú, e um aviso que só aparece para quem rola até o fim não avisa ninguém.
-          ⭐ Por estar sempre visível, ele pode ser curto — e curto é o que o mantém baixo o
-          bastante para não roubar a tela no celular. */}
+      {/* ⚠️ Fixo no rodapé da janela, não no fim do documento: as seções ocupam a tela
+          inteira, e uma linha que só aparece para quem rola até o fim não é lida por ninguém.
+          ⭐ Por estar sempre visível, ela precisa ser curta — e curta é o que a mantém baixa o
+          bastante para não roubar a tela no celular.
+          ⚠️ O `pb-24` no wrapper da página existe por causa dela: sem folga, o rodapé fixo
+          cobre o fim da última seção. */}
       <footer className="fixed bottom-0 left-0 right-0 z-50 bg-text/95 backdrop-blur-sm text-white py-3 px-6 text-center">
         <p className="text-sm text-white/80 max-w-3xl mx-auto leading-snug">
-          Protótipo desenvolvido para o <strong className="text-white">InovaCamp WI</strong> do Itaú.
-        </p>
-        <p className="text-xs text-white/50 max-w-3xl mx-auto leading-snug mt-0.5">
-          Não é um produto oficial do Itaú Unibanco. Nome e identidade visual são usados apenas
-          no contexto do desafio.
+          © {new Date().getFullYear()} <strong className="text-white">NorteIA</strong> · NEXFIN
+          — todos os direitos reservados.
         </p>
       </footer>
     </div>

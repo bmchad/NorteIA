@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-09-03
+atualizado_em: 2026-09-10
 ---
 
 # As páginas do Balanço Geral
@@ -30,9 +30,13 @@ a cada novo lead.
 
 ⭐ É a única tela do sistema que grava sem usuário autenticado.
 
-⭐ **A vitrine se chama "Assistente Itaú"** e usa a paleta do banco — é protótipo do InovaCamp WI.
-⛔ O rodapé **precisa** continuar dizendo que não é produto oficial: a página usa o nome e a cor do
-Itaú, e sem isso ela se passa por oficial. → D-039
+⭐ **A vitrine se chama "NorteIA"** desde 10/09 — era "Assistente Itaú". O rodapé fixo agora é uma
+linha de direitos: `© <ano> NorteIA · NEXFIN — todos os direitos reservados`. → D-065
+⚠️ **O rodapé continua fixo na janela**, não no fim do documento, e o `pb-24` do wrapper existe por
+causa dele: sem a folga, ele cobre o fim da última seção.
+⛔ **A cor não mudou junto com o nome.** A página ainda usa o laranja #FF6200 do Itaú, e o aviso de
+"não é produto oficial" — que a D-039 exigia justamente pelo nome **e** pela cor — saiu inteiro.
+Metade da razão do aviso continua de pé. → P43
 
 ⚠️ **A seção "Onde Estamos" não existe mais** — endereço, mapa e item de menu saíram em 30/08.
 Protótipo de hackathon não tem sede.

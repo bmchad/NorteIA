@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-09-03
+atualizado_em: 2026-09-10
 ---
 
 # Erros comuns — o que se acredita e é falso
@@ -69,7 +69,8 @@ atualizado_em: 2026-09-03
 | A evidência de um gasto fixo vem da coluna `fixos.evidencia` | Vem **derivada na hora**, de `lancamentosDoFixo`. A coluna é registro do que justificou o aceite, e envelhece | `30-decisoes-e-licoes.md` D-033 |
 | Para trocar a cor do produto, edite o `tailwind.config.js` | ⭐ Edite **`src/index.css`** — é o único lugar onde uma cor de tema é escrita. O config só aponta para as variáveis | `30-decisoes-e-licoes.md` D-037 |
 | Entrar leva ao `/dashboard` | Leva a `/compromissos` desde 30/08. ⚠️ São **dois** caminhos até lá: o redirect pós-login e o `redirectTo` do SSO | `30-decisoes-e-licoes.md` D-038 |
-| O produto se chama Balanço Geral | Na **vitrine** é "Assistente Itaú", protótipo do InovaCamp WI. Repositório, banco e domínio continuam `balanco-geral` | `30-decisoes-e-licoes.md` D-039 |
+| O produto se chama Balanço Geral | Na **vitrine** é **"NorteIA"** desde 10/09. Repositório, banco e domínio continuam `balanco-geral` | `30-decisoes-e-licoes.md` D-065 |
+| A vitrine se chama "Assistente Itaú" | ⚠️ Chamou-se, de 30/08 a 10/09. O nome saiu; a **paleta laranja do Itaú ficou**, agora sem nenhum aviso ao lado | `30-decisoes-e-licoes.md` D-065, P43 |
 | O "ano" do Dashboard é de 1º de janeiro a 31 de dezembro | É um **ano de ciclos**: com ciclo 5, vai de 06/01 a 05/01 do ano seguinte. O total bate com a soma dos 12 ciclos do `/meses` | `02-paginas-do-balanco-geral.md` |
 | ⭐ Duplicar uma regra é arriscado no dia em que se escreve | ⛔ É no dia em que **uma das cópias é corrigida**. As duas convivem idênticas por meses; quem conserta uma raramente sabe da outra | `30-decisoes-e-licoes.md` L-010 |
 | O número de parcelas do Dashboard vem de `agruparParcelas` | ⚠️ **Vinha de uma cópia** que comparava valor como texto exato, e por isso partia cada compra em duas — R$ 11.065,97 onde eram R$ 3.238,82 | `30-decisoes-e-licoes.md` L-010 |

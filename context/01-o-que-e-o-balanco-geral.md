@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-30
+atualizado_em: 2026-09-10
 ---
 
 # O que é o Balanço Geral
@@ -23,10 +23,14 @@ A ordem importa e é o que organiza o produto inteiro:
 comprometido  →  o que sobra  →  como você gasta o que sobra
 ```
 
-⚠️ **Dois nomes, um produto.** Desde 30/08 a **vitrine** — landing, login e cabeçalho — se chama
-**Assistente Itaú**, protótipo do InovaCamp WI, com a paleta do banco e um aviso de que não é
-produto oficial. Repositório, banco de dados e domínio continuam `balanco-geral`, e é assim que este
-`context/` se refere ao produto. → D-039
+⚠️ **Dois nomes, um produto.** Desde 10/09 a **vitrine** — landing, login e cabeçalho — se chama
+**NorteIA**, e o rodapé traz uma linha de direitos (`© NorteIA · NEXFIN`) no lugar do antigo aviso
+de protótipo. Repositório, banco de dados e domínio continuam `balanco-geral`, e é assim que este
+`context/` se refere ao produto. → D-065
+
+⚠️ De 30/08 a 10/09 a vitrine se chamou **Assistente Itaú** (D-039). O nome saiu; a **paleta laranja
+do banco ficou** — ver P43. E dentro de `context_hacka/` o produto continua sendo "Assistente Itaú"
+de propósito, porque aquela tese é escrita para o desafio.
 
 ⚠️ **Isto mudou em 2026-08-29** (D-027). Por muito tempo o objetivo parecia ser *extrair PDF,
 categorizar por IA e consultar gasto por categoria*. Isso é **meio, não fim** — e enquanto era

@@ -46,7 +46,7 @@ export default function Auth() {
           <div className="bg-primary/10 p-3 rounded-2xl mb-4">
             <LayoutDashboard size={40} className="text-primary" />
           </div>
-          <h1 className="text-3xl font-bold text-text mb-2">Assistente Itaú</h1>
+          <h1 className="text-3xl font-bold text-text mb-2">NorteIA</h1>
           <p className="text-text-light text-center">
             Quanto do seu dinheiro já tem dono
           </p>

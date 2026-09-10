@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-30
+atualizado_em: 2026-09-10
 ---
 
 # LEIA PRIMEIRO
@@ -35,8 +35,8 @@ atualizado_em: 2026-08-30
    se justifica por argumento estrutural, nunca pela frequência de algo no histórico de um usuário.
 8. O produto é **pessoal, com ambição de virar produto** — a landing page, o FAQ e a tabela `leads`
    já existem, mas não há cliente. Ver `11-ambicao-de-produto.md`.
-   ⚠️ A **vitrine** se chama *Assistente Itaú* desde 30/08, protótipo do InovaCamp WI; repositório,
-   banco e domínio continuam `balanco-geral`. Ver D-039.
+   ⚠️ A **vitrine** se chama *NorteIA* desde 10/09 (era *Assistente Itaú*, de 30/08 até então);
+   repositório, banco e domínio continuam `balanco-geral`. Ver D-065.
 9. ⭐ **Nenhuma tela fala com o Gemini.** Toda chamada de agente passa pela Edge Function
    `ai-agents`, onde a chave vive como secret do servidor. São **dois** agentes desde 30/08 —
    extrair e classificar compromisso. Ver `03-agentes-de-ia.md`.
