@@ -258,7 +258,7 @@ export default function Meses() {
               <div key={key} className="glass-panel overflow-hidden transition-all duration-300">
                 <button
                   onClick={() => toggleMonth(key)}
-                  className="w-full p-4 flex items-center justify-between bg-superficie hover:bg-superficie-forte transition-colors"
+                  className="w-full p-4 flex items-center justify-between bg-cartao-claro hover:bg-realce transition-colors"
                 >
                   <div className="flex items-center gap-3">
                     {isExpanded ? <ChevronDown size={20} className="text-text" /> : <ChevronRight size={20} className="text-text-light" />}
@@ -291,7 +291,7 @@ export default function Meses() {
                 </button>
 
                 {isExpanded && (
-                  <div className="p-4 border-t border-border bg-superficie">
+                  <div className="p-4 border-t border-border bg-cartao-claro">
                     {/* Resumo por Categoria - Dois Dashboards */}
                     {(despesasCategories.length > 0 || receitasCategories.length > 0) && (
                       <>
@@ -478,7 +478,7 @@ export default function Meses() {
                                       value={filterApelido}
                                       onChange={e => setFilterApelido(e.target.value)}
                                       placeholder="Buscar..."
-                                      className="glass-input text-xs p-1 pr-6 w-full max-w-[100px] font-normal"
+                                      className="glass-input bg-cartao-claro text-xs p-1 pr-6 w-full max-w-[100px] font-normal"
                                       autoFocus
                                     />
                                     {filterApelido && (
@@ -500,7 +500,7 @@ export default function Meses() {
                                   <select
                                     value={filterCategoria}
                                     onChange={e => setFilterCategoria(e.target.value)}
-                                    className="glass-input text-xs py-0.5 px-1 ml-1 font-normal cursor-pointer w-[95px]"
+                                    className="glass-input bg-cartao-claro text-xs py-0.5 px-1 ml-1 font-normal cursor-pointer w-[95px]"
                                   >
                                     <option value="">Todas</option>
                                     {categories.map(c => <option key={c.id} value={c.nome}>{c.nome}</option>)}
@@ -558,12 +558,12 @@ export default function Meses() {
                                         type="date"
                                         value={editForm.data}
                                         onChange={e => setEditForm({ ...editForm, data: e.target.value })}
-                                        className="glass-input w-full p-1 text-sm mb-1"
+                                        className="glass-input bg-cartao-claro w-full p-1 text-sm mb-1"
                                       />
                                       <select
                                         value={editForm.mes_fatura || ''}
                                         onChange={e => setEditForm({ ...editForm, mes_fatura: e.target.value || null })}
-                                        className="glass-input w-full p-1 text-xs text-text-light"
+                                        className="glass-input bg-cartao-claro w-full p-1 text-xs text-text-light"
                                         title="Balanço (Mês da Fatura)"
                                       >
                                         <option value="">Ciclo do dia {cicloDia}</option>
@@ -577,7 +577,7 @@ export default function Meses() {
                                         type="text"
                                         value={editForm.apelido}
                                         onChange={e => setEditForm({ ...editForm, apelido: e.target.value })}
-                                        className="glass-input w-full p-1 text-sm"
+                                        className="glass-input bg-cartao-claro w-full p-1 text-sm"
                                       />
                                       <input
                                         type="text"
@@ -585,7 +585,7 @@ export default function Meses() {
                                         onChange={e => setEditForm({ ...editForm, comentario: e.target.value })}
                                         placeholder="Comentário..."
                                         title="Comentário livre sobre esta transação"
-                                        className="glass-input w-full p-1 mt-1 text-xs text-text-light"
+                                        className="glass-input bg-cartao-claro w-full p-1 mt-1 text-xs text-text-light"
                                       />
                                       {t.nome && t.nome !== 'Nova Transação' && t.nome !== 'Nova transação' && (
                                         <div className="mt-1 text-[10px] text-text-light/70 break-words whitespace-normal" title={t.nome}>
@@ -597,7 +597,7 @@ export default function Meses() {
                                       <select
                                         value={editForm.categoria_id}
                                         onChange={e => setEditForm({ ...editForm, categoria_id: e.target.value })}
-                                        className="glass-input w-full p-1 text-sm appearance-none text-center"
+                                        className="glass-input bg-cartao-claro w-full p-1 text-sm appearance-none text-center"
                                       >
                                         <option value="">Selecione...</option>
                                         {categories.map(c => (
@@ -611,7 +611,7 @@ export default function Meses() {
                                         step="0.01"
                                         value={editForm.valor}
                                         onChange={e => setEditForm({ ...editForm, valor: e.target.value })}
-                                        className="glass-input w-full p-1 text-lg font-extrabold text-center"
+                                        className="glass-input bg-cartao-claro w-full p-1 text-lg font-extrabold text-center"
                                       />
                                       <div className="flex items-center justify-center gap-1 mt-1">
                                         <span className="text-[10px] text-text-light font-semibold">Parc:</span>
@@ -621,7 +621,7 @@ export default function Meses() {
                                           pattern="[0-9]*"
                                           value={editForm.parcela_atual}
                                           onChange={e => setEditForm({ ...editForm, parcela_atual: e.target.value })}
-                                          className="glass-input w-10 px-1 py-0.5 text-[11px] text-center font-medium"
+                                          className="glass-input bg-cartao-claro w-10 px-1 py-0.5 text-[11px] text-center font-medium"
                                         />
                                         <span className="text-[10px] text-text-light font-bold">/</span>
                                         <input
@@ -630,7 +630,7 @@ export default function Meses() {
                                           pattern="[0-9]*"
                                           value={editForm.parcela_total}
                                           onChange={e => setEditForm({ ...editForm, parcela_total: e.target.value })}
-                                          className="glass-input w-10 px-1 py-0.5 text-[11px] text-center font-medium"
+                                          className="glass-input bg-cartao-claro w-10 px-1 py-0.5 text-[11px] text-center font-medium"
                                         />
                                       </div>
                                     </td>

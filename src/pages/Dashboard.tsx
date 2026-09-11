@@ -268,7 +268,7 @@ export default function Dashboard() {
         <select
           value={ano}
           onChange={(e) => setAno(e.target.value)}
-          className="glass-input cursor-pointer font-medium text-lg w-32"
+          className="glass-input bg-cartao-claro cursor-pointer font-medium text-lg w-32"
         >
           <option value="2026">2026</option>
           <option value="2025">2025</option>
@@ -284,7 +284,7 @@ export default function Dashboard() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
             {/* LINHA 1: TOTAIS */}
-            <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group">
+            <div className="glass-panel bg-cartao-claro p-6 flex flex-col gap-2 relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-1 h-full bg-azul"></div>
               <div className="flex justify-between items-start">
                 <span className="text-sm font-medium text-text-light uppercase tracking-wider">Entradas do Ano</span>
@@ -295,7 +295,7 @@ export default function Dashboard() {
               <span className="text-3xl font-bold text-azul mt-2">R$ {entradas.toFixed(2).replace('.', ',')}</span>
             </div>
 
-            <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group">
+            <div className="glass-panel bg-cartao-claro p-6 flex flex-col gap-2 relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-1 h-full bg-danger"></div>
               <div className="flex justify-between items-start">
                 <span className="text-sm font-medium text-text-light uppercase tracking-wider">Saídas do Ano</span>
@@ -306,7 +306,7 @@ export default function Dashboard() {
               <span className="text-3xl font-bold text-danger mt-2">R$ {saidas.toFixed(2).replace('.', ',')}</span>
             </div>
 
-            <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group">
+            <div className="glass-panel bg-cartao-claro p-6 flex flex-col gap-2 relative overflow-hidden group">
               <div className="absolute top-0 left-0 w-1 h-full bg-primary"></div>
               <div className="flex justify-between items-start">
                 <span className="text-sm font-medium text-text-light uppercase tracking-wider">Resultado Líquido</span>
@@ -324,7 +324,7 @@ export default function Dashboard() {
             </div>
 
             {/* LINHA 2: MÉDIAS */}
-            <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
+            <div className="glass-panel bg-cartao-claro p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
               <div className="absolute top-0 left-0 w-1 h-full bg-azul"></div>
               <div className="flex justify-between items-start">
                 <span className="text-sm font-medium text-text-light uppercase tracking-wider">Média de Entradas</span>
@@ -336,7 +336,7 @@ export default function Dashboard() {
               <span className="text-[10px] text-text-light uppercase">Por mês ativo</span>
             </div>
 
-            <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
+            <div className="glass-panel bg-cartao-claro p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
               <div className="absolute top-0 left-0 w-1 h-full bg-danger"></div>
               <div className="flex justify-between items-start">
                 <span className="text-sm font-medium text-text-light uppercase tracking-wider">Média de Saídas</span>
@@ -348,7 +348,7 @@ export default function Dashboard() {
               <span className="text-[10px] text-text-light uppercase">Por mês ativo</span>
             </div>
 
-            <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
+            <div className="glass-panel bg-cartao-claro p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
               <div className="absolute top-0 left-0 w-1 h-full bg-primary"></div>
               <div className="flex justify-between items-start">
                 <span className="text-sm font-medium text-text-light uppercase tracking-wider">Média do Resultado</span>
@@ -366,7 +366,7 @@ export default function Dashboard() {
                 ⚠️ Renda não é "média de entradas": estorno e reembolso entram positivos e não
                 são dinheiro que você ganhou. Ver D-025. */}
             {renda > 0 && (
-              <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
+              <div className="glass-panel bg-cartao-claro p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
                 <div className="absolute top-0 left-0 w-1 h-full bg-azul"></div>
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-medium text-text-light uppercase tracking-wider">Renda</span>
@@ -389,7 +389,7 @@ export default function Dashboard() {
             )}
 
             {comprometido.total > 0 && (
-              <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
+              <div className="glass-panel bg-cartao-claro p-6 flex flex-col gap-2 relative overflow-hidden group opacity-90">
                 <div className="absolute top-0 left-0 w-1 h-full bg-danger"></div>
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-medium text-text-light uppercase tracking-wider">Comprometido por Mês</span>
@@ -429,7 +429,7 @@ export default function Dashboard() {
                 tem dono. ⚠️ Negativo não é "sobra negativa" — é falta, e o card troca de
                 rótulo e de cor, porque as duas situações pedem reações opostas. */}
             {renda > 0 && (
-              <div className="glass-panel p-6 flex flex-col gap-2 relative overflow-hidden group">
+              <div className="glass-panel bg-cartao-claro p-6 flex flex-col gap-2 relative overflow-hidden group">
                 <div className={`absolute top-0 left-0 w-1 h-full ${sobra >= 0 ? 'bg-azul' : 'bg-danger'}`}></div>
                 <div className="flex justify-between items-start">
                   <span className="text-sm font-medium text-text-light uppercase tracking-wider">
@@ -591,7 +591,7 @@ export default function Dashboard() {
               {latestTransaction && (
                 <div className="glass-panel p-6 flex flex-col">
                   <h3 className="font-bold text-lg text-text mb-4">Última Transação Registrada</h3>
-                  <div className="flex justify-between items-center bg-superficie p-4 rounded-xl border border-border">
+                  <div className="flex justify-between items-center bg-cartao-claro p-4 rounded-xl border border-border">
                     <div className="flex flex-col gap-1">
                       <span className="text-sm font-medium text-text">{latestTransaction.data}</span>
                       <span className="font-bold text-lg text-text">{latestTransaction.apelido || latestTransaction.nome}</span>
@@ -625,7 +625,7 @@ export default function Dashboard() {
                   )}
                 </div>
                 <textarea
-                  className="glass-input flex-1 w-full p-4 resize-none transition-colors text-sm text-text"
+                  className="glass-input bg-cartao-claro flex-1 w-full p-4 resize-none transition-colors text-sm text-text"
                   placeholder="Escreva suas metas, lembretes ou estratégias financeiras aqui..."
                   value={nota}
                   onChange={(e) => setNota(e.target.value)}

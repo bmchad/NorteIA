@@ -654,7 +654,7 @@ export default function Pendentes() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 w-full max-w-2xl">
               <button
                 onClick={() => setActiveMode('arquivo')}
-                className="flex flex-col items-center justify-center p-6 bg-superficie backdrop-blur-sm border-2 border-border hover:border-primary/60 hover:bg-primary/5 rounded-2xl transition-all shadow-sm group"
+                className="flex flex-col items-center justify-center p-6 bg-cartao-claro backdrop-blur-sm border-2 border-border hover:border-primary/60 hover:bg-primary/5 rounded-2xl transition-all shadow-sm group"
               >
                 <div className="w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <ImageIcon size={28} />
@@ -665,7 +665,7 @@ export default function Pendentes() {
 
               <button
                 onClick={() => setActiveMode('manual')}
-                className="flex flex-col items-center justify-center p-6 bg-superficie backdrop-blur-sm border-2 border-border hover:border-primary/60 hover:bg-primary/5 rounded-2xl transition-all shadow-sm group"
+                className="flex flex-col items-center justify-center p-6 bg-cartao-claro backdrop-blur-sm border-2 border-border hover:border-primary/60 hover:bg-primary/5 rounded-2xl transition-all shadow-sm group"
               >
                 <div className="w-14 h-14 bg-primary text-white rounded-full flex items-center justify-center mb-4 group-hover:scale-110 transition-transform">
                   <PlusCircle size={28} />
@@ -973,7 +973,7 @@ export default function Pendentes() {
           {rascunhosOrdenados.map((item) => {
             const isExpanded = expandedRascunhos.has(item.id);
             return (
-              <div key={item.id} className="glass-panel flex flex-col border-l-4 border-l-primary/50 overflow-hidden">
+              <div key={item.id} className="glass-panel bg-cartao-claro flex flex-col border-l-4 border-l-primary/50 overflow-hidden">
                 <div className="p-4 flex flex-col xl:flex-row items-center gap-4 justify-between">
                   <div className="flex-1 grid grid-cols-2 md:grid-cols-3 xl:grid-cols-5 gap-4 w-full">
                     {/* Data */}
@@ -983,7 +983,7 @@ export default function Pendentes() {
                         type="date"
                         defaultValue={item.data}
                         onBlur={(e) => handleUpdateField(item.id, 'data', e.target.value)}
-                        className="glass-input w-full p-1 text-sm bg-transparent border-transparent hover:border-campo"
+                        className="glass-input w-full p-1 text-sm bg-superficie border-transparent hover:border-campo"
                       />
                     </div>
                     {/* Apelido */}
@@ -994,7 +994,7 @@ export default function Pendentes() {
                         defaultValue={item.apelido || item.nome}
                         onBlur={(e) => handleUpdateField(item.id, 'apelido', e.target.value)}
                         onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                        className="glass-input w-full p-1 text-sm font-medium"
+                        className="glass-input bg-superficie w-full p-1 text-sm font-medium"
                       />
                     </div>
                     {/* Categoria */}
@@ -1003,7 +1003,7 @@ export default function Pendentes() {
                       <select
                         value={item.categoria_id || ''}
                         onChange={(e) => handleCategoryChange(item.id, e.target.value)}
-                        className="glass-input w-full p-1 bg-transparent border-transparent hover:border-campo text-sm appearance-none cursor-pointer"
+                        className="glass-input w-full p-1 bg-superficie border-transparent hover:border-campo text-sm appearance-none cursor-pointer"
                       >
                         <option value="" disabled>Selecione...</option>
                         {categories.map(c => (
@@ -1021,7 +1021,7 @@ export default function Pendentes() {
                       <select
                         value={item.compromisso || ''}
                         onChange={(e) => handleCompromissoChange(item.id, e.target.value)}
-                        className="glass-input w-full p-1 bg-transparent border-transparent hover:border-campo text-sm appearance-none cursor-pointer"
+                        className="glass-input w-full p-1 bg-superficie border-transparent hover:border-campo text-sm appearance-none cursor-pointer"
                         title={tipos.length === 0 ? 'Nenhum tipo cadastrado. Crie em Perfil.' : 'Compromisso'}
                       >
                         <option value="">Nenhum</option>
@@ -1038,7 +1038,7 @@ export default function Pendentes() {
                     {/* Valor */}
                     <div>
                       <span className="text-xs text-text-light uppercase">Valor (R$)</span>
-                      <div className="flex items-center glass-input w-full p-0 overflow-hidden">
+                      <div className="flex items-center glass-input bg-superficie w-full p-0 overflow-hidden">
                         <button
                           type="button"
                           onClick={() => {
@@ -1112,7 +1112,7 @@ export default function Pendentes() {
                             defaultValue={item.nome || ''}
                             onBlur={(e) => handleUpdateField(item.id, 'nome', e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                            className="glass-input w-full p-2 text-sm bg-transparent border-transparent hover:border-campo text-text-light"
+                            className="glass-input w-full p-2 text-sm bg-superficie border-transparent hover:border-campo text-text-light"
                             title="Nome Original"
                           />
                         </div>
@@ -1122,7 +1122,7 @@ export default function Pendentes() {
                           <select
                             value={item.mes_fatura || ''}
                             onChange={(e) => handleUpdateField(item.id, 'mes_fatura', e.target.value || null)}
-                            className="glass-input w-full p-2 bg-transparent border-transparent hover:border-campo text-xs appearance-none cursor-pointer"
+                            className="glass-input w-full p-2 bg-superficie border-transparent hover:border-campo text-xs appearance-none cursor-pointer"
                           >
                             <option value="">Ciclo do dia {cicloDia}</option>
                             {['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'].map(mes => (
@@ -1139,7 +1139,7 @@ export default function Pendentes() {
                             defaultValue={item.banco || ''}
                             onBlur={(e) => handleUpdateField(item.id, 'banco', e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && e.currentTarget.blur()}
-                            className="glass-input w-full p-2 bg-transparent border-transparent hover:border-campo text-xs"
+                            className="glass-input w-full p-2 bg-superficie border-transparent hover:border-campo text-xs"
                             title="Banco"
                           />
                         </div>
@@ -1154,7 +1154,7 @@ export default function Pendentes() {
                               placeholder="Atual"
                               defaultValue={item.parcela_atual || ''}
                               onBlur={(e) => handleUpdateField(item.id, 'parcela_atual', e.target.value ? parseInt(e.target.value) : null)}
-                              className="glass-input w-full p-2 bg-transparent border-transparent hover:border-campo text-xs text-center"
+                              className="glass-input w-full p-2 bg-superficie border-transparent hover:border-campo text-xs text-center"
                               title="Parcela Atual"
                             />
                             <span className="text-text-light font-bold">/</span>
@@ -1165,7 +1165,7 @@ export default function Pendentes() {
                               placeholder="Total"
                               defaultValue={item.parcela_total || ''}
                               onBlur={(e) => handleUpdateField(item.id, 'parcela_total', e.target.value ? parseInt(e.target.value) : null)}
-                              className="glass-input w-full p-2 bg-transparent border-transparent hover:border-campo text-xs text-center"
+                              className="glass-input w-full p-2 bg-superficie border-transparent hover:border-campo text-xs text-center"
                               title="Total de Parcelas"
                             />
                           </div>

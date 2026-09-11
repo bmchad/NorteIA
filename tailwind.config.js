@@ -21,6 +21,8 @@ export default {
       colors: {
         background: 'rgb(var(--fundo) / <alpha-value>)',
         surface: 'rgb(var(--papel) / <alpha-value>)',
+        // A variante clara do cartão — ver o comentário de --cartao-claro.
+        'cartao-claro': 'rgb(var(--cartao-claro) / <alpha-value>)',
         // A superfície aninhada: sub-card dentro do cartão, trilho, aba inativa.
         superficie: 'rgb(var(--superficie) / <alpha-value>)',
         'superficie-forte': 'rgb(var(--superficie-forte) / <alpha-value>)',
@@ -35,6 +37,9 @@ export default {
         'danger-hover': 'rgb(var(--perigo-forte) / <alpha-value>)',
         text: 'rgb(var(--texto) / <alpha-value>)',
         'text-light': 'rgb(var(--texto-suave) / <alpha-value>)',
+        // O bloco de título de card e a tinta dele — ver o comentário em src/index.css.
+        'titulo-bloco': 'rgb(var(--titulo-bloco) / <alpha-value>)',
+        'titulo-tinta': 'rgb(var(--titulo-tinta) / <alpha-value>)',
         // ⭐ Dois fios com trabalhos opostos — ver o comentário em src/index.css.
         // `moldura` DESENHA a aresta do cartão; `border` SEPARA item de item dentro dele.
         moldura: 'rgb(var(--moldura) / <alpha-value>)',

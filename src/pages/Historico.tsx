@@ -214,7 +214,19 @@ export default function Historico() {
         </p>
       </header>
 
-      <div className="glass-panel overflow-hidden">
+      {/* ⭐⭐ `-mx-[10px] px-[10px]` andam SEMPRE em par, e é o par que resolve o pedido:
+          a margem negativa estica o card 10px para fora de cada lado, e o padding empurra o
+          conteúdo 10px para dentro. O resultado é folga nas laterais com a tabela exatamente
+          onde estava — as colunas são percentuais (`w-[18%]`...), então `px` sozinho as
+          redistribuiria e moveria tudo.
+          ⚠️ O Layout dá `p-4 md:p-8` em volta — 16px no mobile, 32px no desktop. Os 20px do
+          desktop passariam do que o mobile tem, então lá o valor é 12px: `-mx-3 px-3`, e o
+          `md:` assume a partir de 768px. Sem isso o card sangraria para fora da tela no
+          celular, e `overflow-x` no `<body>` é o tipo de bug que só aparece no aparelho.
+          ⚠️ O `pb` é 8px menor que o `pt` porque embaixo o `py-3` da célula entra na conta
+          (26+12=38px contra 34px em cima) — é o que faz a folga PARECER simétrica, que é o que
+          se enxerga. Mexeu num, mexa no outro mantendo a diferença. */}
+      <div className="glass-panel bg-cartao-claro overflow-hidden pt-[34px] pb-[26px] -mx-3 px-3 md:-mx-[20px] md:px-[20px]">
         <div className="overflow-x-auto">
           <table className="w-full text-left">
             <thead>
@@ -289,7 +301,7 @@ export default function Historico() {
 
                   if (isEditing) {
                     return (
-                      <tr key={t.id} className="border-b border-border bg-primary/5">
+                      <tr key={t.id} className="border-b border-border last:border-b-0 bg-primary/5">
                         <td className="py-2 px-1 text-sm text-text-light">
                           {new Date(t.created_at).toLocaleDateString('pt-BR')}
                           <div className="text-[10px] mt-0.5">
@@ -392,7 +404,7 @@ export default function Historico() {
                   }
 
                   return (
-                    <tr key={t.id} className="border-b border-border hover:bg-text/5 transition-colors">
+                    <tr key={t.id} className="border-b border-border last:border-b-0 hover:bg-text/5 transition-colors">
                       <td className="py-3 text-sm text-text-light">
                         {new Date(t.created_at).toLocaleDateString('pt-BR')}
                         <div className="text-[10px] mt-0.5 font-medium">
@@ -419,7 +431,7 @@ export default function Historico() {
                         )}
                       </td>
                       <td className="py-3 text-sm text-center">
-                        <span className="bg-superficie px-3 py-1.5 rounded-md border border-border">
+                        <span className="bg-surface px-3 py-1.5 rounded-md border border-border">
                           {t.categories?.nome || 'Sem categoria'}
                         </span>
                       </td>

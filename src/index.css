@@ -54,6 +54,14 @@
    * tudo. Nenhum dos tokens de texto retunados regride sobre papel.
    */
   --papel: 132 154 118;       /* #849A76 — sálvia 500. O CARTÃO. */
+  /**
+   * ⭐ A variante CLARA do cartão, escolhida por decisão de produto para os blocos que
+   * concentram número: as três abas e os cards de parcela/previsível do /compromissos, os
+   * nove KPIs do /dashboard, o seletor de ano e a caixa de notas.
+   * ⚠️ Mesmo valor de `--fio` e de `--superficie-forte`, e ainda assim token próprio: são
+   * papéis diferentes (fio, hover de sub-card, cartão), e um dia um deles muda sem os outros.
+   */
+  --cartao-claro: 201 213 194; /* #C9D5C2 — sálvia 200 */
   --papel-campo: 251 248 242; /* #FBF8F2 — o antigo papel, agora só do CAMPO. Sobre o cartão
                                  sálvia, um campo claro dá 10,62:1 ao texto digitado e ainda
                                  comunica sozinho "aqui dá para escrever". */
@@ -85,6 +93,20 @@
   --moldura: 20 67 42;        /* #14432A — floresta 800. A ARESTA: 10,62:1 sobre o papel. */
   --fio: 201 213 194;         /* #C9D5C2 — sálvia 200. O DIVISOR: 1,44:1, um sussurro. */
   --campo: 67 86 61;          /* #43563D — sálvia 800. Um campo tem de parecer um campo. */
+  /**
+   * ⭐ O bloco de TÍTULO DE CARD e a tinta dele — hoje os cinco títulos do /perfil.
+   * São dois tokens e não um porque são duas decisões: o preenchimento do bloco e a letra
+   * em cima dele mudam por motivos diferentes.
+   * ⚠️ `--titulo-bloco` tem o mesmo valor de `--moldura` e do `--texto` do `:root`, e ainda
+   * assim é token próprio: aqui o papel é "o preenchimento do bloco de título", e um dia um
+   * deles muda sem os outros.
+   * ⭐ Medido: a tinta sobre o bloco dá **3,81:1**, e os títulos são 20px em negrito — texto
+   * grande, cujo mínimo é 3:1. Passa. ⚠️ Não reaproveite este par em texto pequeno: abaixo
+   * de 18,66px o mínimo sobe para 4,5:1 e ele reprova.
+   * ⭐ O bloco contra o card: 3,68:1 sobre a sálvia 500, 7,38:1 sobre o #C9D5C2.
+   */
+  --titulo-bloco: 20 67 42;   /* #14432A — floresta 800 */
+  --titulo-tinta: 236 116 51; /* #EC7433 — laranja 400 */
 
   /**
    * ⚠️ `--moldura` tem o mesmo valor de `--texto` aqui, e mesmo assim é token próprio: o

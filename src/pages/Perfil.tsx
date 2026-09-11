@@ -582,8 +582,8 @@ export default function Perfil() {
 
       <div className="glass-panel p-6">
         <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 border-b border-border pb-4 gap-4">
-          <h3 className="text-xl font-bold text-text flex items-center gap-2">
-            <Tags size={22} className="text-primary" /> Suas categorias
+          <h3 className="inline-flex items-center gap-2 bg-titulo-bloco text-titulo-tinta text-xl font-bold px-4 py-2 rounded-xl">
+            <Tags size={22} /> Suas categorias
           </h3>
 
           <div className="flex items-center gap-2">
@@ -618,12 +618,15 @@ export default function Perfil() {
               <button onClick={() => setIsSortOpen(!isSortOpen)} className="p-2 rounded-xl bg-text/5 hover:bg-text/10 transition-colors text-text-light hover:text-text">
                 <ListFilter size={18} />
               </button>
-              {/* ⭐ Branco PURO de propósito, aqui e nos dois popovers de paleta abaixo. O papel
-                  (#FBF8F2) é a superfície do cartão; um flutuante que pousa em cima dele precisa
-                  de um degrau, e branco é o único passo que sobra acima do papel. É o mesmo
-                  motivo pelo qual a paleta especifica campos em #FFFFFF. */}
+              {/* ⚠️ Correção: este comentário dizia que os três popovers desta tela eram BRANCO
+                  puro de propósito, porque o cartão era papel (#FBF8F2) e branco era o único
+                  passo acima dele. O cartão virou sálvia 500, então o degrau passou a existir
+                  bem abaixo: os popovers são #C9D5C2 e ainda sobem 2,01:1 acima do cartão.
+                  ⚠️ E foi por isso que os anéis das amostras de cor saíram de `border-border`
+                  para `border-campo`: o anel era exatamente #C9D5C2, a mesma cor que o popover
+                  tem agora, e as cores claras da paleta (#FFE900, #9FFF00) ficariam sem limite. */}
               {isSortOpen && (
-                <div className="absolute top-full right-0 mt-2 bg-white rounded-xl shadow-xl border border-border overflow-hidden z-10 w-48">
+                <div className="absolute top-full right-0 mt-2 bg-cartao-claro rounded-xl shadow-xl border border-border overflow-hidden z-10 w-48">
                   <button onClick={() => { setSortType('recentes'); setIsSortOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-primary/5 ${sortType === 'recentes' ? 'font-bold text-text' : 'text-text'}`}>Mais recentes</button>
                   <button onClick={() => { setSortType('antigas'); setIsSortOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-primary/5 ${sortType === 'antigas' ? 'font-bold text-text' : 'text-text'}`}>Mais antigas</button>
                   <button onClick={() => { setSortType('az'); setIsSortOpen(false); }} className={`w-full text-left px-4 py-2 text-sm hover:bg-primary/5 ${sortType === 'az' ? 'font-bold text-text' : 'text-text'}`}>Ordem Alfabética</button>
@@ -662,13 +665,13 @@ export default function Perfil() {
                   title="Escolher cor"
                 />
                 {isAddColorOpen && (
-                  <div className="absolute top-full left-0 mt-2 bg-white p-3 rounded-xl shadow-xl border border-border z-30 w-[240px] grid grid-cols-5 gap-2">
+                  <div className="absolute top-full left-0 mt-2 bg-cartao-claro p-3 rounded-xl shadow-xl border border-border z-30 w-[240px] grid grid-cols-5 gap-2">
                     {coresList.map(cor => (
                       <button
                         key={cor.id}
                         type="button"
                         onClick={() => { setSelectedCor(cor.codigo); setIsAddColorOpen(false); }}
-                        className="w-8 h-8 rounded-full hover:scale-110 transition-transform border border-border"
+                        className="w-8 h-8 rounded-full hover:scale-110 transition-transform border border-campo"
                         style={{ backgroundColor: cor.codigo }}
                         title={cor.nome}
                       />
@@ -680,7 +683,7 @@ export default function Perfil() {
                   placeholder="Nova categoria..."
                   value={newCategoryName}
                   onChange={(e) => setNewCategoryName(e.target.value)}
-                  className="glass-input flex-1 px-4 py-2"
+                  className="glass-input bg-cartao-claro flex-1 px-4 py-2"
                 />
               </div>
 
@@ -765,7 +768,7 @@ export default function Perfil() {
                 draggable={editingId !== category.id}
                 onDragStart={(e) => { e.dataTransfer.setData('text/plain', category.id); setArrastando(category.id); }}
                 onDragEnd={() => { setArrastando(null); setAlvoRenda(null); }}
-                className={`flex items-center justify-between p-3 rounded-xl border border-border bg-superficie backdrop-blur-sm hover:border-primary/30 transition-all group ${editingId === category.id ? 'z-30 relative' : 'z-0 relative cursor-grab active:cursor-grabbing'} ${arrastando === category.id ? 'opacity-40' : ''}`}
+                className={`flex items-center justify-between p-3 rounded-xl border border-border bg-cartao-claro backdrop-blur-sm hover:border-primary/30 transition-all group ${editingId === category.id ? 'z-30 relative' : 'z-0 relative cursor-grab active:cursor-grabbing'} ${arrastando === category.id ? 'opacity-40' : ''}`}
               >
                 {editingId === category.id ? (
                   <div className="flex flex-col gap-3 w-full">
@@ -773,17 +776,17 @@ export default function Perfil() {
                       <div className="relative">
                         <button
                           onClick={() => setIsEditingColorOpen(!isEditingColorOpen)}
-                          className="w-6 h-6 rounded-full shrink-0 border-2 border-border hover:scale-110 transition-transform shadow-sm"
+                          className="w-6 h-6 rounded-full shrink-0 border-2 border-campo hover:scale-110 transition-transform shadow-sm"
                           style={{ backgroundColor: editingColor }}
                           title="Alterar cor"
                         />
                         {isEditingColorOpen && (
-                          <div className="absolute top-full left-0 mt-2 bg-white p-3 rounded-xl shadow-xl border border-border z-20 w-[240px] grid grid-cols-5 gap-2">
+                          <div className="absolute top-full left-0 mt-2 bg-cartao-claro p-3 rounded-xl shadow-xl border border-border z-20 w-[240px] grid grid-cols-5 gap-2">
                             {coresList.map(cor => (
                               <button
                                 key={cor.id}
                                 onClick={() => { setEditingColor(cor.codigo); setIsEditingColorOpen(false); }}
-                                className="w-8 h-8 rounded-full hover:scale-110 transition-transform border border-border"
+                                className="w-8 h-8 rounded-full hover:scale-110 transition-transform border border-campo"
                                 style={{ backgroundColor: cor.codigo }}
                                 title={cor.nome}
                               />
@@ -796,7 +799,7 @@ export default function Perfil() {
                           type="text"
                           value={editingName}
                           onChange={(e) => setEditingName(e.target.value)}
-                          className="glass-input w-full pl-2 pr-16 py-1.5 text-sm"
+                          className="glass-input bg-cartao-claro w-full pl-2 pr-16 py-1.5 text-sm"
                           autoFocus
                         />
                         <div className="absolute right-1 flex items-center gap-0.5">
@@ -879,8 +882,8 @@ export default function Perfil() {
       {/* ⭐ Vocabulário — o que só o usuário sabe. A memória de categoria casa nome exato,
           então nunca aprende que três grafias de "Elizabeth" são a mesma lavanderia. */}
       <div className="glass-panel p-6">
-        <h3 className="text-xl font-bold text-text flex items-center gap-2 mb-2">
-          <BookOpen size={22} className="text-primary" /> Vocabulário
+        <h3 className="inline-flex items-center gap-2 bg-titulo-bloco text-titulo-tinta text-xl font-bold px-4 py-2 rounded-xl mb-4">
+          <BookOpen size={22} /> Vocabulário
         </h3>
         <p className="text-sm text-text-light mb-5">
           O que só você sabe. <strong>Regras</strong> são aplicadas direto, sem consultar a IA:
@@ -892,7 +895,7 @@ export default function Perfil() {
           <h4 className="font-bold text-text text-sm mb-3">Regras</h4>
           <div className="space-y-2 mb-3">
             {vocabulario.filter(v => v.tipo === 'regra').map(v => (
-              <div key={v.id} className="group flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-superficie backdrop-blur-sm">
+              <div key={v.id} className="group flex items-center justify-between gap-3 p-3 rounded-xl border border-border bg-cartao-claro backdrop-blur-sm">
                 <span className="text-sm text-text min-w-0">
                   Se o nome tiver <strong>{v.padrao}</strong> → {' '}
                   {/* ⚠️ Isto pintava o NOME com a cor da categoria. Cor de categoria é
@@ -903,7 +906,7 @@ export default function Perfil() {
                       categorias logo acima. */}
                   <span className="inline-flex items-center gap-1.5 align-middle">
                     <span
-                      className="w-2 h-2 rounded-full shrink-0 border border-border"
+                      className="w-2 h-2 rounded-full shrink-0 border border-campo"
                       style={{ backgroundColor: categories.find(c => c.id === v.categoria_id)?.cor ?? '#ccc' }}
                     />
                     <strong className="text-text">
@@ -926,12 +929,12 @@ export default function Perfil() {
               value={novaRegra.padrao}
               onChange={e => setNovaRegra({ ...novaRegra, padrao: e.target.value })}
               placeholder="Ex: Elizabeth"
-              className="glass-input px-4 py-2 text-sm flex-1 min-w-[160px]"
+              className="glass-input bg-cartao-claro px-4 py-2 text-sm flex-1 min-w-[160px]"
             />
             <select
               value={novaRegra.categoria_id}
               onChange={e => setNovaRegra({ ...novaRegra, categoria_id: e.target.value })}
-              className="glass-input px-4 py-2 text-sm flex-1 min-w-[160px]"
+              className="glass-input bg-cartao-claro px-4 py-2 text-sm flex-1 min-w-[160px]"
             >
               <option value="">Vira qual categoria?</option>
               {categories.map(c => <option key={c.id} value={c.id}>{c.nome}</option>)}
@@ -950,7 +953,7 @@ export default function Perfil() {
           <h4 className="font-bold text-text text-sm mb-3">Notas</h4>
           <div className="space-y-2 mb-3">
             {vocabulario.filter(v => v.tipo === 'nota').map(v => (
-              <div key={v.id} className="group flex items-start justify-between gap-3 p-3 rounded-xl border border-border bg-superficie backdrop-blur-sm">
+              <div key={v.id} className="group flex items-start justify-between gap-3 p-3 rounded-xl border border-border bg-cartao-claro backdrop-blur-sm">
                 <span className="text-sm text-text-light">{v.texto}</span>
                 <button
                   onClick={() => excluirVocabulario(v.id)}
@@ -968,7 +971,7 @@ export default function Perfil() {
               onChange={e => setNovaNota(e.target.value)}
               onKeyDown={e => e.key === 'Enter' && criarNota()}
               placeholder="Ex: meu cartão XP é usado só em viagens"
-              className="glass-input px-4 py-2 text-sm flex-1"
+              className="glass-input bg-cartao-claro px-4 py-2 text-sm flex-1"
             />
             <button
               onClick={criarNota}
@@ -985,8 +988,8 @@ export default function Perfil() {
           trabalha com o que foi ENCONTRADO; aqui se define o que EXISTE. */}
       <div className="glass-panel p-6">
         <div className="flex items-center justify-between flex-wrap gap-2 mb-2">
-          <h3 className="text-xl font-bold text-text flex items-center gap-2">
-            <Layers size={22} className="text-primary" /> Compromissos
+          <h3 className="inline-flex items-center gap-2 bg-titulo-bloco text-titulo-tinta text-xl font-bold px-4 py-2 rounded-xl">
+            <Layers size={22} /> Compromissos
           </h3>
           <span className={`text-xs ${tiposCompromisso.length > TETO_TIPOS_ATIVOS ? 'text-danger font-medium' : 'text-text-light'}`}>
             {tiposCompromisso.length} de {TETO_TIPOS_ATIVOS}
@@ -1002,7 +1005,7 @@ export default function Perfil() {
           {tiposCompromisso.map(tipo => (
             <div
               key={tipo.id}
-              className={`flex items-start justify-between p-3 rounded-xl border border-border bg-superficie backdrop-blur-sm hover:border-primary/30 transition-colors group ${
+              className={`flex items-start justify-between p-3 rounded-xl border border-border bg-cartao-claro backdrop-blur-sm hover:border-primary/30 transition-colors group ${
                 editandoTipo === tipo.id ? 'md:col-span-2 lg:col-span-3' : ''
               }`}
             >
@@ -1011,7 +1014,7 @@ export default function Perfil() {
                   <input
                     value={formTipo.titulo ?? ''}
                     onChange={e => setFormTipo({ ...formTipo, titulo: e.target.value })}
-                    className="glass-input p-2 text-sm w-full"
+                    className="glass-input bg-cartao-claro p-2 text-sm w-full"
                     placeholder="Nome"
                     autoFocus
                   />
@@ -1023,7 +1026,7 @@ export default function Perfil() {
                       <input
                         value={formTipo.periodicidade ?? ''}
                         onChange={e => setFormTipo({ ...formTipo, periodicidade: e.target.value })}
-                        className="glass-input p-2 text-sm w-full"
+                        className="glass-input bg-cartao-claro p-2 text-sm w-full"
                         placeholder="Ex: toda semana; todo mês, dia 10..."
                       />
                     </label>
@@ -1036,7 +1039,7 @@ export default function Perfil() {
                       <input
                         value={formTipo.valor_mensal ?? ''}
                         onChange={e => setFormTipo({ ...formTipo, valor_mensal: e.target.value })}
-                        className="glass-input p-2 text-sm w-full"
+                        className="glass-input bg-cartao-claro p-2 text-sm w-full"
                         inputMode="decimal" placeholder="R$ por mês"
                       />
                     </label>
@@ -1145,7 +1148,7 @@ export default function Perfil() {
             <PlusCircle size={18} /> Novo compromisso
           </button>
         ) : (
-          <div className="mt-4 p-4 rounded-xl border border-primary/30 bg-superficie space-y-3">
+          <div className="mt-4 p-4 rounded-xl border border-primary/30 bg-cartao-claro space-y-3">
             <label className="block">
               <span className="block text-[10px] uppercase text-text-light font-bold mb-0.5">
                 Nome
@@ -1154,7 +1157,7 @@ export default function Perfil() {
                 value={formNovo.titulo}
                 onChange={e => setFormNovo({ ...formNovo, titulo: e.target.value })}
                 placeholder="Ex: Supermercado"
-                className="glass-input p-2 text-sm w-full"
+                className="glass-input bg-cartao-claro p-2 text-sm w-full"
                 autoFocus
               />
             </label>
@@ -1167,7 +1170,7 @@ export default function Perfil() {
                 <input
                   value={formNovo.periodicidade}
                   onChange={e => setFormNovo({ ...formNovo, periodicidade: e.target.value })}
-                  className="glass-input p-2 text-sm w-full"
+                  className="glass-input bg-cartao-claro p-2 text-sm w-full"
                   placeholder="Ex: toda semana; todo mês, dia 10..."
                 />
               </label>
@@ -1180,7 +1183,7 @@ export default function Perfil() {
                 <input
                   value={formNovo.valor_mensal}
                   onChange={e => setFormNovo({ ...formNovo, valor_mensal: e.target.value })}
-                  className="glass-input p-2 text-sm w-full"
+                  className="glass-input bg-cartao-claro p-2 text-sm w-full"
                   inputMode="decimal" placeholder="R$ por mês"
                 />
               </label>
@@ -1225,8 +1228,8 @@ export default function Perfil() {
 
       {/* Seus Ciclos */}
       <div className="glass-panel p-6">
-        <h3 className="text-xl font-bold text-text mb-2 flex items-center gap-2">
-          <CalendarRange size={22} className="text-primary" /> Seus ciclos
+        <h3 className="inline-flex items-center gap-2 bg-titulo-bloco text-titulo-tinta text-xl font-bold px-4 py-2 rounded-xl mb-4">
+          <CalendarRange size={22} /> Seus ciclos
         </h3>
         <p className="text-sm text-text-light mb-4">Selecione onde seu mês começa! Exemplo, se seu mês começa no dia 5, seus balanços serão do dia 5 do mês atual até dia 5 do próximo.</p>
         <div className="flex items-center gap-3">
@@ -1237,7 +1240,7 @@ export default function Perfil() {
             max="27"
             value={cicloDia}
             onChange={(e) => handleSaveCiclo(Number(e.target.value))}
-            className="glass-input w-20 px-3 py-2 text-center font-bold text-text [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+            className="glass-input bg-cartao-claro w-20 px-3 py-2 text-center font-bold text-text [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
           />
           {isSavingCiclo && <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>}
         </div>
@@ -1245,8 +1248,8 @@ export default function Perfil() {
 
       {/* Vencimento das faturas */}
       <div className="glass-panel p-6">
-        <h3 className="text-xl font-bold text-text mb-2 flex items-center gap-2">
-          <CreditCard size={22} className="text-primary" /> Vencimento das faturas
+        <h3 className="inline-flex items-center gap-2 bg-titulo-bloco text-titulo-tinta text-xl font-bold px-4 py-2 rounded-xl mb-4">
+          <CreditCard size={22} /> Vencimento das faturas
         </h3>
         {/* ⚠️⚠️ Vencimento não é fechamento, e a distinção decide o que se pode mexer.
             `ciclo_dia` é onde o ciclo CORTA: mexer nele muda o /meses, o Dashboard e as
@@ -1292,7 +1295,7 @@ export default function Perfil() {
                       if (novo === String(atual?.dia ?? '')) return;
                       handleSaveVencimento(nome, novo);
                     }}
-                    className="glass-input w-20 px-3 py-2 text-center font-bold text-text [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                    className="glass-input bg-cartao-claro w-20 px-3 py-2 text-center font-bold text-text [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                   />
                   {salvandoVencimento === nome && (
                     <div className="w-4 h-4 border-2 border-primary border-t-transparent rounded-full animate-spin"></div>

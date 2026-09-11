@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
-import { Anchor, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, Trash2, TrendingDown, TrendingUp, Minus, Undo2, ShoppingCart, ListChecks, AlertTriangle, PlusCircle, CheckCheck, PiggyBank, type LucideIcon } from 'lucide-react';
+import PastilhaDeDia from '../components/PastilhaDeDia';
+import { Anchor, BadgeCheck, CreditCard, Layers, Settings2, Check, X, Info, ChevronDown, ChevronUp, Trash2, TrendingDown, TrendingUp, Minus, Undo2, ShoppingCart, ListChecks, AlertTriangle, PlusCircle, CheckCheck, PiggyBank, type LucideIcon } from 'lucide-react';
 import {
   agruparParcelas, comprometidoRestante, contaDaCompra, parcelasRestantes, projecaoPorCiclo,
 } from '../lib/parcelas';
@@ -633,7 +634,7 @@ export default function Compromissos() {
               ⛔ Some quando não há nada a reservar — "Reserve R$ 0,00" é ruído, e um aviso
               que aparece sempre deixa de ser aviso. */}
           {reserva.pendentes.length > 0 && (
-            <div className="glass-panel p-5 border-l-4 border-primary">
+            <div className="glass-panel bg-cartao-claro p-5 border-l-4 border-primary">
               <div className="flex items-start gap-3">
                 <div className="bg-primary text-white p-2 rounded-lg shrink-0">
                   <PiggyBank size={20} />
@@ -817,7 +818,7 @@ export default function Compromissos() {
             </div>
           ) : (
             detectados.map(c => (
-              <div key={c.slug} className="glass-panel p-4">
+              <div key={c.slug} className="glass-panel bg-cartao-claro p-4">
                 <button
                   onClick={() => setExpandido(expandido === c.slug ? null : c.slug)}
                   className="w-full flex items-center justify-between gap-4"
@@ -1011,7 +1012,7 @@ export default function Compromissos() {
               {concluidas.length > 0 && (
                 <section>
                   <h3 className="text-xl font-bold text-text mb-4 flex items-center gap-2">
-                    <Check size={20} className="text-azul" /> Quitadas
+                    <BadgeCheck size={20} className="text-primary" /> Quitadas
                   </h3>
                   <Colunas
                     itens={concluidas}
@@ -1049,8 +1050,8 @@ function CardCamada({ titulo, valor, nota, cor, icone: Icone, ativo, onClick }: 
       onClick={onClick}
       className={`text-left rounded-xl p-4 transition-all ${
         ativo
-          ? 'bg-surface ring-2 ring-primary shadow-md'
-          : 'bg-superficie hover:bg-superficie-forte'
+          ? 'bg-cartao-claro ring-2 ring-primary shadow-md'
+          : 'bg-cartao-claro hover:bg-superficie'
       }`}
     >
       <div className="flex items-center gap-1.5 text-[10px] uppercase font-bold text-text-light tracking-wider">
@@ -1199,14 +1200,7 @@ function LinhaDeCobranca({ c, brl }: { c: Cobranca; brl: (v: number) => string }
   return (
     <div className="flex items-center justify-between gap-3 text-sm">
       <span className="flex items-center gap-3 min-w-0">
-        {/* ⭐⭐ O dia é a informação que esta linha existe para dar, e era o elemento mais
-            apagado dela — cinza, 12px, do tamanho de uma legenda. Agora é uma pastilha de
-            largura fixa, e a largura fixa é o ponto: os dias se alinham numa coluna e a
-            lista inteira se lê de cima a baixo como um calendário do ciclo. */}
-        <span className="shrink-0 w-11 rounded-lg bg-primary/10 py-1 text-center leading-none">
-          <span className="block text-[9px] font-semibold uppercase tracking-wide text-primary/70">dia</span>
-          <span className="block text-base font-bold text-text">{String(dia).padStart(2, '0')}</span>
-        </span>
+        <PastilhaDeDia dia={dia} />
         <span className="flex items-baseline gap-2 min-w-0">
           <span className="text-text truncate">{c.fixo.nome}</span>
           {/* ⚠️ Quando o dia nominal cai em fim de semana, a data muda — e esconder isso faria
@@ -1390,7 +1384,7 @@ function CardParcelas({ grupo, brl, aberto, onAlternar, onExcluir }: {
 
   return (
     <div
-      className={`glass-panel p-6 flex flex-col gap-4 relative overflow-hidden group/card border-t-4 transition-all duration-300 ${
+      className={`glass-panel bg-cartao-claro p-6 flex flex-col gap-4 relative overflow-hidden group/card border-t-4 transition-all duration-300 ${
         c.concluida
           ? 'border-t-azul hover:border-t-azul-forte bg-azul/[0.01]'
           : 'border-t-transparent hover:border-t-primary'

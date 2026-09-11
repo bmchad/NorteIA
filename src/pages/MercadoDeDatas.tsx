@@ -6,6 +6,7 @@ import {
 import { CalendarClock, CreditCard, AlertTriangle, TrendingUp, Settings, Check, X, Gauge } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { supabase } from '../lib/supabase';
+import PastilhaDeDia from '../components/PastilhaDeDia';
 import {
   cobrancasEmRisco, curvaDeFolga, sugestaoDeData,
   type CurvaDeFolga, type EntradaDoMercado, type EventoDatado, type FixoDaFolga, type TransacaoDaFolga,
@@ -258,7 +259,7 @@ function PropostasDeData(
       <div className="flex flex-col">
         {propostas.map(p => (
           <div key={p.assinatura} className="flex items-center gap-3 py-3 border-b border-border last:border-b-0">
-            <span className="w-10 text-sm font-bold text-text-light text-right shrink-0">{p.dia}</span>
+            <PastilhaDeDia dia={p.dia} />
             <span className="flex-1 min-w-0">
               <span className="text-sm font-semibold text-text block truncate">{p.nome}</span>
               <span className="text-xs text-text-light">
@@ -359,6 +360,17 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
   // domínio, e ela tem um dono só — o mesmo de onde a sugestão tira os candidatos.
   const emRisco = useMemo(() => cobrancasEmRisco(curva), [curva]);
   const totalEmRisco = emRisco.reduce((soma, e) => soma + e.valor, 0);
+
+  /**
+   * ⭐ A lista do ciclo era plana e misturava o que já saiu da conta com o que ainda vai sair
+   * — duas coisas de utilidade oposta: uma é histórico, a outra é decisão. Quem abre esta tela
+   * para escolher uma data só precisa da segunda.
+   * ⭐ O flag `jaAconteceu` já existia em `folga.ts` (é o mesmo que o gráfico usa para apagar
+   * o traço do passado); só faltava a lista usá-lo.
+   * ⚠️ A ordem por dia vem preservada de `curva.eventos` — `filter` não reordena.
+   */
+  const vaiCair = useMemo(() => curva.eventos.filter(e => !e.jaAconteceu), [curva]);
+  const jaCaiu = useMemo(() => curva.eventos.filter(e => e.jaAconteceu), [curva]);
 
   /**
    * O eixo X mostra a **data**, não o índice do dia do ciclo.
@@ -470,7 +482,7 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
       )}
 
       {/* ---------------------------------------------------------------- o gráfico */}
-      <div className="glass-panel p-6">
+      <div className="glass-panel bg-cartao-claro p-6">
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-1">
           <h3 className="text-lg font-bold text-text">Sua folga, dia a dia</h3>
           <span className="text-xs text-text-light">
@@ -584,10 +596,27 @@ function ComCurva({ curva, cicloDia }: { curva: CurvaDeFolga; cicloDia: number }
           Só o débito em conta entra no mercado: é o único que vira multa no dia seguinte.
           Cobrança no cartão não atrasa nada — ela só espera a fatura.
         </p>
-        <div className="flex flex-col">
-          {curva.eventos.map((e, i) => (
-            <LinhaDoEvento key={i} evento={e} rotulo={rotuloDoDia(e.dia)} destaque={sugestao?.evento === e} />
-          ))}
+        <div className="flex flex-col gap-5">
+          {vaiCair.length > 0 && (
+            <div>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-text-light mb-1">Vai cair</h4>
+              <div className="flex flex-col">
+                {vaiCair.map((e, i) => (
+                  <LinhaDoEvento key={i} evento={e} rotulo={rotuloDoDia(e.dia)} destaque={sugestao?.evento === e} />
+                ))}
+              </div>
+            </div>
+          )}
+          {jaCaiu.length > 0 && (
+            <div>
+              <h4 className="text-[11px] font-bold uppercase tracking-wider text-text-light mb-1">Já caiu</h4>
+              <div className="flex flex-col">
+                {jaCaiu.map((e, i) => (
+                  <LinhaDoEvento key={i} evento={e} rotulo={rotuloDoDia(e.dia)} destaque={sugestao?.evento === e} />
+                ))}
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
@@ -697,13 +726,12 @@ function LinhaDoEvento(
     : evento.natureza === 'fatura' ? 'text-text' : 'text-danger';
   return (
     <div className={`flex items-center gap-3 py-2 border-b border-border last:border-b-0 ${destaque ? 'bg-primary/5 -mx-2 px-2 rounded-lg' : ''}`}>
-      <span className="w-10 text-sm font-bold text-text-light text-right shrink-0">{rotulo}</span>
+      <PastilhaDeDia dia={rotulo} />
       <span className="flex-1 min-w-0">
         <span className="text-sm font-semibold text-text block truncate">{evento.rotulo}</span>
         <span className="text-xs text-text-light">
           {evento.natureza === 'renda' ? 'entra' : evento.natureza === 'fatura' ? 'fatura do cartão' : 'débito em conta'}
           {evento.ajustada && ' · escorregou do fim de semana'}
-          {evento.jaAconteceu && ' · já caiu'}
           {evento.movivel && !evento.jaAconteceu && ' · pode mudar de data'}
         </span>
       </span>
