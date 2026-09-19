@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-09-10
+atualizado_em: 2026-09-16
 ---
 
 # LEIA PRIMEIRO
@@ -29,19 +29,25 @@ atualizado_em: 2026-09-10
    (`pendente: true`) e só vira registro depois de você revisar em `/novos-registros`.
 5. ⭐ **O mês do Balanço Geral não é o mês do calendário — é o ciclo**, ancorado no dia em que o
    dinheiro entra. Com `ciclo_dia = 5`, Janeiro vai do dia 6/01 ao dia 5/02.
-6. Todo dado é **por usuário**, isolado por `user_id` no Supabase. Não há administrador nem visão
-   agregada entre usuários.
+6. ⭐⭐ Todo dado é **por usuário**, isolado por `user_id` no Supabase. Não há administrador nem
+   visão agregada entre usuários — e desde 16/09 isso deixou de ser limitação e virou **a tese**:
+   cada operador roda o próprio banco, e não existe ponto de agregação em lugar nenhum. Ver
+   `06-por-que-existe.md`.
 7. ⭐ **É horizontal.** Feito para muitas pessoas, não para um perfil de gasto: decisão de produto
    se justifica por argumento estrutural, nunca pela frequência de algo no histórico de um usuário.
-8. O produto é **pessoal, com ambição de virar produto** — a landing page, o FAQ e a tabela `leads`
-   já existem, mas não há cliente. Ver `11-ambicao-de-produto.md`.
-   ⚠️ A **vitrine** se chama *NorteIA* desde 10/09 (era *Assistente Itaú*, de 30/08 até então);
-   repositório, banco e domínio continuam `balanco-geral`. Ver D-065.
+8. ⚠️ **Correção de 2026-09-16:** esta frase dizia que o produto era "pessoal, com ambição de
+   virar produto" e que "não há cliente". **Deixou de valer.** O produto se chama **NorteIA**, é
+   distribuído como software que cada pessoa roda no próprio Supabase, e outras pessoas o operam
+   hoje. A instância `norteia-nexfin.com.br` roda só para a família, com cadastro fechado.
+   ⚠️ O nome interno continua `balanco-geral` em banco, migrations e caminhos de arquivo — é
+   deliberado. Ver D-070, D-071.
 9. ⭐ **Nenhuma tela fala com o Gemini.** Toda chamada de agente passa pela Edge Function
    `ai-agents`, onde a chave vive como secret do servidor. São **dois** agentes desde 30/08 —
    extrair e classificar compromisso. Ver `03-agentes-de-ia.md`.
-10. O repositório é **público**, e só metade desta pasta está nele. Ver `30-decisoes-e-licoes.md`
-   D-006 — e o aviso logo abaixo.
+10. O repositório é **público** (`github.com/bmchad/NorteIA`), e só metade desta pasta está nele.
+   Ver `30-decisoes-e-licoes.md` D-006 — e o aviso logo abaixo.
+   ⛔ **O `.gitignore` ignora por NOME, não por padrão:** arquivo de contexto novo nasce público,
+   qualquer que seja o número. Ver P47.
 
 ---
 
@@ -62,6 +68,7 @@ decisão registrada ali. → D-006
 
 | Preciso… | Leia |
 |---|---|
+| ⭐ **saber por que este produto existe** | `06-por-que-existe.md` — a origem, a seleção adversa, a regra de decisão |
 | entender o produto em uma leitura | `01-o-que-e-o-balanco-geral.md` |
 | saber o que cada tela faz | `02-paginas-do-balanco-geral.md` |
 | mexer na extração por IA | ⭐ `03-agentes-de-ia.md` |
@@ -88,6 +95,7 @@ deles está velho.
 | Quais são as armadilhas do código? | `CLAUDE.md` (raiz) |
 | O que a IA extrai e com que regras? | `context/03-agentes-de-ia.md` |
 | Por que decidimos assim? | `context/30-decisoes-e-licoes.md` |
+| ⭐ Por que o produto existe, e qual a regra de decisão? | `context/06-por-que-existe.md` |
 | O que está pendente? | `context/20-pendencias-e-dividas.md` |
 | Qual é a paleta / o design? | `tailwind.config.js` |
 
@@ -105,7 +113,9 @@ discordarem sobre como o sistema funciona hoje, **o `CLAUDE.md` está certo**.
 `00` → `05-erros-comuns` → `03-agentes-de-ia` → `04-glossario`.
 
 **Agente que vai propor produto (20 min):**
-`00` → `01` → `11-ambicao-de-produto` → `10-proximos-passos` → `30-decisoes-e-licoes`.
+`00` → ⭐ `06-por-que-existe` → `01` → `11-ambicao-de-produto` → `10-proximos-passos` →
+`30-decisoes-e-licoes`. ⛔ O `06` vem antes de tudo: ele carrega a regra que decide os empates
+(autonomia ganha de conveniência), e proposta que a ignora será recusada.
 
 ---
 

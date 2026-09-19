@@ -1,21 +1,34 @@
 ---
 status: vigente
-atualizado_em: 2026-09-10
+atualizado_em: 2026-09-16
 ---
 
-# O que é o Balanço Geral
+# O que é a NorteIA
 
 > **O que este arquivo é:** o produto em uma leitura — para que serve, como funciona ponta a ponta,
 > e o que ele deliberadamente não faz.
 > **O que este arquivo NÃO é:** o roadmap (é `10-proximos-passos.md`), nem o que ele quer ser
-> (é `11-ambicao-de-produto.md`), nem o manual de operação (é o `CLAUDE.md` da raiz).
+> (é `11-ambicao-de-produto.md`), nem **por que existe** (é `06-por-que-existe.md`), nem o manual de
+> operação (é o `CLAUDE.md` da raiz).
+>
+> ⚠️ **Correção de 2026-09-16: o produto se chama NorteIA.** O nome do arquivo continua
+> `01-o-que-e-o-balanco-geral.md` de propósito — renomear quebra link em repositório público que
+> outras pessoas já clonaram. O mesmo vale para `balanco-geral` em banco, migrations e caminhos.
+> Ver D-070.
+>
+> ⚠️ **E deixou de ser ferramenta pessoal.** É distribuída como software que cada pessoa roda no
+> próprio Supabase, com a própria chave de IA. A instância `norteia-nexfin.com.br` roda só para a
+> família, com cadastro fechado. Ver D-071.
 
 ---
 
 ## ⭐⭐ Para que serve
 
-> **O Balanço Geral identifica quanto você está comprometido a pagar, mostra o que sobra, e só então
+> **A NorteIA identifica quanto você está comprometido a pagar, mostra o que sobra, e só então
 > vira consulta de como você gasta.**
+
+⭐ **Dito para quem ainda não é usuário:** *descubra quanto do seu dinheiro tem dono.* É a mesma
+ideia — a promessa externa da ordem de operação abaixo. Ver D-072 e `06-por-que-existe.md`.
 
 A ordem importa e é o que organiza o produto inteiro:
 

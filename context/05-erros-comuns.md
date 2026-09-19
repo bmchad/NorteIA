@@ -72,6 +72,8 @@ atualizado_em: 2026-09-10
 | Verde é a cor de "positivo" no produto | ⛔ Era, no `#10b981`. Desde a paleta sálvia o fundo **e** o texto são verdes, então verde não sinaliza mais nada — positivo é **azul** | `30-decisoes-e-licoes.md` D-066 |
 | O fundo do produto é branco e os cartões também | ⭐ A tela é **sálvia `#9BB08D`** e o cartão é **papel `#FBF8F2`** | `30-decisoes-e-licoes.md` D-066 |
 | ⭐ `border-border` é a moldura do cartão | ⛔ É o **divisor** (`#C9D5C2`, 1,44:1) — linha de tabela, pastilha. A moldura é **`border-moldura`** (floresta, 10,62:1). Separar e desenhar são trabalhos diferentes | `30-decisoes-e-licoes.md` D-067 |
+| ⭐ O prompt pede "use a data de hoje", então a IA usa hoje | ⛔ Um LLM **não tem relógio**. Sem a data interpolada ele completa o ano pelo treino — o sintoma era transação em **2020**. Prompt declara o presente, não o referencia | `30-decisoes-e-licoes.md` L-014 |
+| As regras de data do prompt de extração valem nos três modos | ⚠️ Valiam **só em `planilha`** até 10/09. `imagem` e `pdf` são extrato impresso, que mostra "15/03" sem ano — o caso que mais precisava da regra era o que não a tinha | `30-decisoes-e-licoes.md` L-014 |
 | O cartão é branco/papel | ⚠️ É **sálvia 500 `#849A76`** desde 10/09. O papel sobreviveu só no **campo** de formulário (`--papel-campo`) | `30-decisoes-e-licoes.md` D-069 |
 | ⛔ Para destacar texto, use `text-primary` | ⛔ Laranja sobre o cartão é **1,02:1** e nenhum tom resolve. Ele só existe **preenchido** — `bg-primary` com branco, anel, trilho — e em **ícone** ao lado de rótulo | `30-decisoes-e-licoes.md` D-069 |
 | Texto secundário se distingue do principal pelo tom | ⚠️ Não mais: 4,72:1 contra 4,92:1 é imperceptível. A hierarquia vem de **peso e tamanho** | `30-decisoes-e-licoes.md` D-069 |

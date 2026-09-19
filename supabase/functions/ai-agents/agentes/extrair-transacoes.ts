@@ -97,8 +97,20 @@ export async function extrairTransacoes(req: Requisicao, supabase: SupabaseClien
   const vocabulario = await carregarVocabulario(supabase);
   log?.etapa('extrair.vocabulario', { regras: vocabulario.regras.length, notas: vocabulario.notas.length });
 
+  /**
+   * ⚠️⚠️ Fuso de São Paulo, NÃO UTC. O Edge Function roda em Deno com relógio UTC: às 21h de
+   * Brasília já é o dia seguinte lá, e `new Date().toISOString()` devolveria amanhã. Numa
+   * fração das importações noturnas o ano ainda estaria certo, mas o dia — e com ele a
+   * fronteira de ciclo — não. É a mesma armadilha que `src/lib/ciclo.ts:34` registra.
+   * ⭐ `en-CA` é o truque: é o único locale comum cujo formato de data curta já é YYYY-MM-DD,
+   * então não precisa de remontagem manual.
+   */
+  const hoje = new Date().toLocaleDateString('en-CA', { timeZone: 'America/Sao_Paulo' });
+  log?.etapa('extrair.hoje', { hoje });
+
   const prompt = montarPrompt({
     modo,
+    hoje,
     cicloDia,
     categorias: categorias.map((c) => c.nome),
     csv,

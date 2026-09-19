@@ -1,4 +1,16 @@
-# Balanço Geral — manual de operação
+# NorteIA — manual de operação
+
+> ⚠️ **O produto se chama NorteIA** (D-070). `balanco-geral` continua sendo o nome interno — banco,
+> migrations, caminhos de arquivo e nomes de contexto —, e isso é deliberado: renomear quebra link
+> em repositório público que outras pessoas já clonaram.
+>
+> ⛔⛔ **Há DOIS alvos de deploy, e a maioria das armadilhas abaixo mudou de gravidade por causa
+> disso.** A instância `norteia-nexfin.com.br` roda só para a família, com cadastro fechado. Os
+> demais operadores **rodam o próprio fork**, com Supabase e chave de IA próprios, e acompanham
+> fazendo pull da `main`. Você não vê o banco deles, não mede nada e não consegue reverter. → D-071
+>
+> ⛔ **Agente chegando a um clone limpo: leia `INSTALAR.md` antes de qualquer coisa.** (P45 — o
+> arquivo ainda não existe; até existir, este é o único aviso de que falta.)
 
 > **Este arquivo é o dono do PRESENTE:** o que está no ar, como rodar, o schema, as armadilhas.
 > **`context/` é o dono do FUTURO e do PORQUÊ.** Se os dois discordarem sobre como o sistema
@@ -13,9 +25,12 @@
 
 ## O que é
 
-Controle financeiro pessoal em que a IA lê a fatura: print, planilha ou PDF entram, transações
+Controle financeiro em que a IA lê a fatura: print, planilha ou PDF entram, transações
 estruturadas saem — sempre como **rascunho**, nunca como registro final.
 → `context/01-o-que-e-o-balanco-geral.md`
+
+⭐ **Por que existe, e a regra que decide os empates** (autonomia ganha de conveniência):
+→ `context/06-por-que-existe.md`. Proposta de produto que ignora essa regra é recusada.
 
 ---
 
@@ -44,7 +59,7 @@ o deploy**. → `context/30-decisoes-e-licoes.md` L-001
 | IA | ⭐ Edge Function `ai-agents` (Deno): `MODELO.EXTRACAO` e `MODELO.CLASSIFICACAO` no Gemini, com `MODELO.FALLBACK` no Claude só em 503. **O front não fala com nenhum dos dois** |
 | Gráficos | `recharts` 3 |
 | Planilhas | `xlsx` (SheetJS), lê `.xlsx` e converte para CSV |
-| Deploy | Vercel — `balanco-geral-beta.vercel.app` |
+| Deploy | Vercel. Instância da família: `norteia-nexfin.com.br`. Repositório público: `github.com/bmchad/NorteIA`. ⛔ Cada fork publica a própria |
 
 ---
 
@@ -126,6 +141,11 @@ redireciona sem ela.
 `local` e `remote` iguais nas **20** migrations, incluindo as duas do Mercado de Datas
 (`20260903120000_transactions_tipo.sql` e `20260903130000_vencimentos.sql`), que passaram uma semana
 escritas e não aplicadas por um 403 de privilégio. → P39, fechada.
+
+⛔⛔ **Desde 16/09 esta assimetria deixou de ser sobre você.** Outros operadores fazem pull da
+`main` em bancos que você não vê. Migration nova chega ao código deles sem chegar ao banco deles, e
+não há tag, changelog nem verificação que avise — quebra com erro do PostgREST, sem diagnóstico
+possível do outro lado. → P44, D-071
 
 ⚠️ **A assimetria que aquilo revelou continua valendo, e é permanente:** a Vercel publica **no
 push**, o banco **não**. Migration nova é sempre aplicada **antes** do deploy do front que depende
@@ -264,8 +284,12 @@ plano B que cria um modo de falha novo não é plano B. → D-055
 categorias, pós-processamento e revisão. É o arquivo mais arriscado do projeto.
 
 **7. `Meses.tsx` carrega todas as transações do usuário** de uma vez, sem paginação.
+⚠️ Em instância de terceiro, isso degrada na máquina de quem você não pode socorrer.
 
 **8. Erro vira `alert()`.** Não há tratamento estruturado em lugar nenhum. → P3
+⛔ **Mudou de gravidade em 16/09:** com operadores independentes, a primeira falha de rede que eles
+virem define o produto, e não há ninguém para explicar. Era o item 3 dos cinco pré-requisitos
+declarados não opcionais em `11-ambicao-de-produto.md`, e foi pulado. → P49
 
 **8b. ⛔ Um `546` da Edge Function não passa pelo `catch` dela.** É o runtime **matando o
 worker** por estourar memória ou tempo de CPU (`WORKER_LIMIT`) — o `try` de `index.ts` nunca roda e

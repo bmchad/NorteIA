@@ -101,6 +101,33 @@ function campoCategoria(modo: Modo, categorias: string): string {
 }
 
 /**
+ * ⭐⭐ As regras de data valem nos TRÊS modos, e é por isso que moram aqui e não em
+ * `regrasDaPlanilha`.
+ *
+ * ⛔ Elas viveram dentro do gate `if (modo === 'planilha')` e esse foi o defeito: `imagem` e
+ * `pdf` são print de extrato e fatura, onde a linha mostra "15/03" SEM ano na maioria dos
+ * bancos — exatamente o caso que precisa da regra, e exatamente onde o prompt ficava mudo.
+ *
+ * ⭐ E o ano vem interpolado, nunca literal. A versão anterior escrevia "Ex: Maio/2026" com o
+ * 2026 cravado: o exemplo ensinaria o ano errado a partir de 2027.
+ *
+ * ⚠️ "Use o ano de hoje quando o documento não declarar" não é o mesmo que "force o ano de
+ * hoje". Extrato antigo é uso legítimo — quem sobe a fatura de 2024 para completar o
+ * histórico tem razão, e a regra diz explicitamente para respeitar o ano declarado.
+ */
+function regrasDeData(hoje: string, cicloDia: number): string {
+  const dia = String(cicloDia).padStart(2, '0');
+  const ano = hoje.slice(0, 4);
+  return `
+3. CONTEXTO TEMPORAL E REGRAS DE DATA. Hoje é ${hoje}, portanto o ano corrente é ${ano}.
+   - Havendo data completa no documento, retorne no formato YYYY-MM-DD e RESPEITE o ano que o documento declara, mesmo que seja antigo.
+   - Quando o documento tiver dia e mês mas NÃO declarar o ano, use ${ano}. Nunca escolha um ano por conta própria: se o ano não está escrito, ele é ${ano}.
+   - Faltando o dia (só mês e ano), padronize o DIA como ${cicloDia}. Ex: Maio/${ano} vira "${ano}-05-${dia}".
+   - Faltando também o mês (só o ano), use Janeiro e o mesmo dia. Ex: ${ano} vira "${ano}-01-${dia}".
+   - Não havendo informação nenhuma de data, use ${hoje}.`;
+}
+
+/**
  * A planilha é a única origem que costuma vir incompleta — linha sem nome, sem dia, às
  * vezes só com o ano. Sem estas regras a IA descarta linha demais ou inventa data.
  *
@@ -109,24 +136,27 @@ function campoCategoria(modo: Modo, categorias: string): string {
  * de outro jeito, e as duas juntas contradiziam a instrução do usuário sem declarar precedência. O
  * dono único da regra de `banco` é `campoBanco` — leia o comentário de lá antes de mexer.
  *
- * ⚠️ As regras foram renumeradas quando a antiga 5 saiu: a 6 virou 5 e a 7 virou 6. Referência a
- * "regra N" em documento antigo pode apontar para a regra errada.
+ * ⚠️ As regras já foram renumeradas duas vezes. Na primeira, quando a antiga 5 saiu: a 6 virou
+ * 5 e a 7 virou 6. Na segunda, quando as regras de DATA subiram para `regrasDeData` e viraram a
+ * regra 3 comum: a antiga 3 (nome e apelido) virou 4 e a antiga 4 (data) deixou de existir aqui.
+ * ⛔ Referência a "regra N" em documento antigo aponta para a regra errada. Cite o assunto.
  */
-function regrasDaPlanilha(cicloDia: number): string {
-  const dia = String(cicloDia).padStart(2, '0');
+function regrasDaPlanilha(): string {
   return `
-3. REGRAS DE NOME E APELIDO: Se o nome da transação estiver ausente, em branco ou nulo, coloque o NOME DA CATEGORIA SUGERIDA tanto em "nome" quanto em "apelido". Se a categoria sugerida também for nula, use "Outros".
-4. REGRAS DE DATA INCOMPLETA:
-   - Havendo data completa, retorne no formato YYYY-MM-DD.
-   - Faltando o dia (só mês e ano), padronize o DIA como ${cicloDia}. Ex: Maio/2026 vira "2026-05-${dia}".
-   - Faltando também o mês (só o ano), use Janeiro e o mesmo dia. Ex: 2026 vira "2026-01-${dia}".
-   - Não havendo informação nenhuma de data na linha, use a data de hoje.
+4. REGRAS DE NOME E APELIDO: Se o nome da transação estiver ausente, em branco ou nulo, coloque o NOME DA CATEGORIA SUGERIDA tanto em "nome" quanto em "apelido". Se a categoria sugerida também for nula, use "Outros".
 5. Os campos de parcela SÓ podem ser preenchidos quando o padrão N/M estiver ESCRITO na descrição da linha. NUNCA os infira do valor, do estabelecimento, nem do fato de a mesma linha se repetir em meses diferentes: uma assinatura mensal não é um parcelamento.
 6. Quando a linha tiver parcela, retorne "mes_fatura" como null. A data de uma linha parcelada é tratada como a data da COMPRA, e o sistema desloca cada parcela para o mês em que ela é cobrada.`;
 }
 
 export interface Contexto {
   modo: Modo;
+  /**
+   * ⭐⭐ A data de hoje em `YYYY-MM-DD`, e ela é OBRIGATÓRIA. Um LLM não tem relógio: sem
+   * âncora temporal no prompt ele completa o ano com o mais provável do treino, e o sintoma
+   * era transação nascendo em 2020.
+   * ⚠️ Calcule no fuso de São Paulo, não em UTC — ver o comentário de quem chama.
+   */
+  hoje: string;
   cicloDia: number;
   categorias: string[];
   instrucao?: string | null;
@@ -138,7 +168,7 @@ export interface Contexto {
  * campo existir nos dois prompts, os dois respondem, o último a escrever vence, e o sintoma
  * é uma classificação que muda sozinha entre importações.
  */
-export function montarPrompt({ modo, cicloDia, categorias, instrucao, csv }: Contexto): string {
+export function montarPrompt({ modo, hoje, cicloDia, categorias, instrucao, csv }: Contexto): string {
   const lista = categorias.join(', ');
 
   let prompt = `Você é um assistente financeiro de elite. Analise ${ORIGEM[modo]} e extraia TODAS as transações válidas.
@@ -154,11 +184,12 @@ ${camposParcela(modo)}
 ${campoCategoria(modo, lista)}
 
 REGRAS CRÍTICAS (SIGA À RISCA):
-1. Se uma transação NÃO tiver data, OU NÃO tiver nome, OU NÃO tiver valor claro, IGNORE-A COMPLETAMENTE. Nunca registre transações pela metade.
-2. Não use blocos de código nem markdown: retorne o JSON puro. A "categoria_sugerida" DEVE ser textualmente idêntica a uma das opções da lista ou null.`;
+1. Se uma transação NÃO tiver nome OU NÃO tiver valor claro, IGNORE-A COMPLETAMENTE. Nunca registre transações pela metade. A data NUNCA é motivo para descartar uma linha: ela tem regra de preenchimento própria na regra 3.
+2. Não use blocos de código nem markdown: retorne o JSON puro. A "categoria_sugerida" DEVE ser textualmente idêntica a uma das opções da lista ou null.
+${regrasDeData(hoje, cicloDia)}`;
 
   if (modo === 'planilha') {
-    prompt += regrasDaPlanilha(cicloDia);
+    prompt += regrasDaPlanilha();
   }
 
   if (instrucao && instrucao.trim()) {
