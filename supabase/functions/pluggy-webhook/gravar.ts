@@ -116,8 +116,26 @@ export async function donoDoItem(itemId: string): Promise<string | null> {
   return data?.user_id ?? null;
 }
 
-/** Grava (ou atualiza) o mapa item -> usuario. Chamado nos eventos `item/*`. */
+/**
+ * Grava (ou atualiza) o mapa item -> usuario. Chamado nos eventos `item/*`.
+ *
+ * ⛔⛔ **Um item NUNCA troca de dono, e recusar a troca e o que fecha o pior caso deste
+ * arquivo.** O `clientUserId` chega no payload do webhook e esta funcao escreve com
+ * `service_role`, por cima da RLS. Sem esta guarda, um `item/created` forjado re-aponta o item
+ * de outra pessoa para o atacante -- e a partir dai as transacoes DELA nascem com o `user_id`
+ * DELE, que a policy de SELECT entao deixa ele ler. Nao e custo de cota: e exfiltracao.
+ *
+ * ⭐ E nao ha caso legitimo que isso barre: a Pluggy emite um `itemId` NOVO a cada conexao,
+ * entao o mesmo item mudar de dono nao acontece. Reconectar o mesmo banco cria outro item.
+ */
 export async function gravarItem(itemId: string, clientUserId: string) {
+  const donoAtual = await donoDoItem(itemId);
+  if (donoAtual && donoAtual !== clientUserId) {
+    // ⚠️ Erro, nao `return` silencioso: isto so acontece por defeito da Pluggy ou por
+    // payload forjado, e os dois merecem uma linha vermelha no painel.
+    throw new Error(`item ${itemId} ja tem outro dono -- troca recusada`);
+  }
+
   let banco: string | null = null;
   let status: string | null = null;
   try {
@@ -153,11 +171,19 @@ export async function gravarTransacoes(linhas: Awaited<ReturnType<typeof paraLin
   if (error) throw new Error(`upsert open_finance: ${error.message}`);
 }
 
-export async function apagarTransacoes(ids: string[]) {
+/**
+ * ⛔ **O `delete` e ESCOPADO ao item do evento, e isso nao e zelo.** Roda com `service_role`,
+ * que passa por cima da RLS: um `.in('pluggy_transaction_id', ids)` solto apaga a linha de
+ * QUALQUER usuario cujo id caia na lista. Amarrar ao `pluggy_item_id` faz um
+ * `transactions/deleted` forjado so alcancar o que aquele item ja possuia -- e a Pluggy nunca
+ * manda id de outro item, entao nada legitimo se perde.
+ */
+export async function apagarTransacoes(itemId: string, ids: string[]) {
   if (!ids.length) return;
   const { error } = await admin()
     .from('open_finance')
     .delete()
+    .eq('pluggy_item_id', itemId)
     .in('pluggy_transaction_id', ids);
   if (error) throw new Error(`delete open_finance: ${error.message}`);
 }

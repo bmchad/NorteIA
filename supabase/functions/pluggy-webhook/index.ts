@@ -1,12 +1,24 @@
 /**
  * Recebe os webhooks da Pluggy (Open Finance) e espelha as transacoes em `public.open_finance`.
  *
- * ⭐⭐ **O payload da Pluggy so traz IDENTIFICADORES** -- `eventId`, `itemId`, `accountId`,
- * `transactionIds`. Nunca nome, data, valor ou banco. Quem quiser o dado busca na API. Isso tem
- * uma consequencia de seguranca que vale escrever: **um webhook forjado nao injeta transacao
- * falsa**; no pior caso faz a funcao buscar os proprios dados de novo, com a propria chave.
- * Custo de cota, nao de integridade. A protecao real e essa, e nao o segredo:
- * **o payload e aviso, nunca dado.**
+ * ⭐ **O payload da Pluggy so traz IDENTIFICADORES** -- `eventId`, `itemId`, `accountId`,
+ * `transactionIds`. Nunca nome, data, valor ou banco: quem quiser o dado busca na API com a
+ * propria chave, entao **um webhook forjado nao injeta transacao falsa.**
+ *
+ * ⛔⛔ **Mas NAO conclua dai que forjar so custa cota.** Esta linha dizia isso, e estava
+ * errada. Dois caminhos daqui escrevem com `service_role`, POR CIMA DA RLS, a partir de campo
+ * que veio no payload:
+ *
+ *   `item/created`         grava `itemId -> clientUserId`. Re-apontar o item de outra pessoa
+ *                          faz as transacoes DELA nascerem com o `user_id` DELE -> exfiltracao.
+ *   `transactions/deleted` apaga por `transactionIds`      -> destruicao.
+ *
+ * ⭐ Os dois estao fechados no `gravar.ts` -- `gravarItem` recusa troca de dono e
+ * `apagarTransacoes` e escopado ao item do evento. Estao fechados LA, e nao so aqui no segredo,
+ * porque "o segredo e forte" e uma premissa que envelhece e uma guarda no codigo nao.
+ *
+ * ⚠️ **Ainda assim o segredo e a UNICA autenticacao deste endpoint.** Gere com >=128 bits
+ * (`openssl rand -base64 32`). Seis letras minusculas sao 28 bits e caem em dias.
  *
  * ⛔ **A Pluggy NAO assina os webhooks.** Nao ha HMAC, nem header de assinatura, nem secret
  * nativo -- conferido na documentacao em 2026-09-24. O `x-webhook-secret` abaixo e um header
@@ -22,6 +34,22 @@ import { buscarTransacao, listarTransacoesCriadas, TransacaoPluggy } from './plu
 import { donoDoItem, gravarItem, gravarTransacoes, apagarTransacoes, paraLinha } from './gravar.ts';
 
 const WEBHOOK_SECRET = Deno.env.get('PLUGGY_WEBHOOK_SECRET');
+
+/**
+ * ⭐⭐ **O carimbo que torna "o que esta no ar" uma MEDICAO e nao uma crenca.**
+ *
+ * Edge Function nao diz de que commit ela veio, e o painel so mostra `version`, que sobe
+ * tambem quando um secret muda -- entao ele nao prova codigo novo. Sem um carimbo, conferir se
+ * um deploy pegou exige comparar comportamento, e mudanca interna (uma guarda, um escopo de
+ * `delete`) nao muda comportamento nenhum visivel de fora. A pergunta fica sem resposta.
+ *
+ * ⚠️ **Bump manual, e de proposito.** Nao e o commit: e o marco que VOCE quer confirmar
+ * que chegou. Mude quando publicar algo que precisa ser verificavel; deixe quieto no resto.
+ *
+ * ⭐ So sai na resposta 200, que exige o segredo. O 401 continua sem contar nada a quem nao
+ * se autenticou -- versao implantada e informacao util para quem estuda o alvo.
+ */
+const VERSAO = '2026-09-24-guardas';
 
 /** ⚠️ Quantas transacoes buscar em paralelo. Segura a mao na API da Pluggy sem serializar. */
 const PARALELISMO = 5;
@@ -85,7 +113,13 @@ async function processar(evento: EventoPluggy, log: ReturnType<typeof criarLog>)
   }
 
   if (event === 'transactions/deleted') {
-    await apagarTransacoes(evento.transactionIds ?? []);
+    // ⛔ Sem `itemId` o delete nao tem escopo, e sem escopo ele alcanca linha de terceiro.
+    // Ignorar e o comportamento certo: a Pluggy sempre manda o item neste evento.
+    if (!itemId) {
+      log.etapa('deleted_sem_item');
+      return;
+    }
+    await apagarTransacoes(itemId, evento.transactionIds ?? []);
     log.etapa('transacoes_apagadas', { n: evento.transactionIds?.length ?? 0 });
     return;
   }
@@ -192,7 +226,7 @@ Deno.serve(async (req: Request) => {
   if (typeof EdgeRuntime !== 'undefined') EdgeRuntime.waitUntil(trabalho);
   else await trabalho; // fallback local, onde `EdgeRuntime` nao existe
 
-  return new Response(JSON.stringify({ recebido: true }), {
+  return new Response(JSON.stringify({ recebido: true, versao: VERSAO }), {
     headers: { 'Content-Type': 'application/json' },
     status: 200,
   });
