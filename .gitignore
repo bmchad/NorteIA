@@ -27,6 +27,22 @@ dist-ssr
 #Ignora a pasta do backup do banco de dados por razões de segurança
 /supabase-backup
 
+# ⛔⛔ DADO, não estrutura — e é por NOME de arquivo, não por caminho.
+#
+# O NorteIA é open source por desenho: schema, migration e policy são públicos de propósito e
+# isso não é risco. O que NUNCA pode ser público é o CONTEÚDO — o extrato de quem usa.
+#
+# ⚠️ A regra `/supabase-backup` acima protege UM diretório, e foi por isso que ela falhou:
+# `seed.sql`, `seed0.sql` e `seed1py.sql` nasceram na RAIZ e foram parar no histórico público,
+# com ~150 transações reais cada (nome do estabelecimento, valor, data, banco). Proteção por
+# caminho só cobre onde alguém previu. Por nome, cobre o repositório inteiro.
+seed*.sql
+*.dump
+*.sql.gz
+schema.sql
+.env*
+!.env.example
+
 #Ignora o context pra ninguém pegar minhas boas ideias
 10-proximos-passos.md
 11-ambicao-de-produto.md
