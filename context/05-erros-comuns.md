@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-09-10
+atualizado_em: 2026-09-24
 ---
 
 # Erros comuns — o que se acredita e é falso
@@ -74,6 +74,10 @@ atualizado_em: 2026-09-10
 | ⭐ `border-border` é a moldura do cartão | ⛔ É o **divisor** (`#C9D5C2`, 1,44:1) — linha de tabela, pastilha. A moldura é **`border-moldura`** (floresta, 10,62:1). Separar e desenhar são trabalhos diferentes | `30-decisoes-e-licoes.md` D-067 |
 | ⭐ O prompt pede "use a data de hoje", então a IA usa hoje | ⛔ Um LLM **não tem relógio**. Sem a data interpolada ele completa o ano pelo treino — o sintoma era transação em **2020**. Prompt declara o presente, não o referencia | `30-decisoes-e-licoes.md` L-014 |
 | As regras de data do prompt de extração valem nos três modos | ⚠️ Valiam **só em `planilha`** até 10/09. `imagem` e `pdf` são extrato impresso, que mostra "15/03" sem ano — o caso que mais precisava da regra era o que não a tinha | `30-decisoes-e-licoes.md` L-014 |
+| `open_finance.tipo` e `transactions.tipo` guardam a mesma coisa | ⛔ **Mesmo nome, domínios diferentes**: `'BANK'`/`'CREDIT'` (conta, cru da Pluggy) × `'credito'`/`'debito'` (declaração do usuário). Copiar direto leva violação de CHECK | `30-decisoes-e-licoes.md` D-076 |
+| Transação do Open Finance entra em `transactions` | ⚠️ Entra em **`public.open_finance`**, tabela-espelho. `transactions` não tem dedup nenhuma, e a travessia ainda não existe | `30-decisoes-e-licoes.md` D-076, P50 |
+| ⭐ Os três eventos `transactions/*` da Pluggy têm o mesmo formato | ⛔ **Não têm.** Só `updated` e `deleted` mandam `transactionIds`; `created` manda contagem e instante, e exige paginar a API | `30-decisoes-e-licoes.md` L-015 |
+| `valor` em `open_finance` é o `amount` da Pluggy | ⚠️ É o `amount` **com sinal aplicado** (saída negativa). Na Pluggy `amount` é sempre positivo e a direção vive em `type` | `30-decisoes-e-licoes.md` D-076 |
 | O cartão é branco/papel | ⚠️ É **sálvia 500 `#849A76`** desde 10/09. O papel sobreviveu só no **campo** de formulário (`--papel-campo`) | `30-decisoes-e-licoes.md` D-069 |
 | ⛔ Para destacar texto, use `text-primary` | ⛔ Laranja sobre o cartão é **1,02:1** e nenhum tom resolve. Ele só existe **preenchido** — `bg-primary` com branco, anel, trilho — e em **ícone** ao lado de rótulo | `30-decisoes-e-licoes.md` D-069 |
 | Texto secundário se distingue do principal pelo tom | ⚠️ Não mais: 4,72:1 contra 4,92:1 é imperceptível. A hierarquia vem de **peso e tamanho** | `30-decisoes-e-licoes.md` D-069 |

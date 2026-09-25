@@ -9,3 +9,11 @@ verify_jwt = true
 # na chamada, entao a verificacao de JWT precisa ficar desligada.
 [functions.send-email]
 verify_jwt = false
+
+# Recebe os webhooks da Pluggy (Open Finance). Quem chama e a Pluggy, que nao manda JWT.
+#
+# ⛔ Sem esta linha a funcao devolve 401 a TODA entrega -- e a Pluggy **nao repete em 401**.
+# O webhook morreria na primeira entrega, permanentemente, sem erro visivel em lugar nenhum.
+# A autenticacao real e o header `x-webhook-secret`, verificado dentro da funcao.
+[functions.pluggy-webhook]
+verify_jwt = false
