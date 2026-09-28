@@ -1,10 +1,17 @@
 /**
  * A traducao Pluggy -> `public.open_finance`, e a escrita.
  *
- * ⛔⛔ **Aqui NADA e padronizado, exceto o sinal de `valor`.** Categoria, banco e tipo entram
- * como a Pluggy escreveu. Casar categoria com `public.categories`, normalizar banco e traduzir
- * `tipo` para o vocabulario do NorteIA sao decisoes de produto que ainda nao foram tomadas --
- * e tomadas aqui, dentro de um mapeamento, ficariam invisiveis.
+ * ⛔⛔ **Aqui NADA e padronizado.** Categoria, banco e tipo entram como a Pluggy escreveu. Casar
+ * categoria com `public.categories`, normalizar banco e traduzir `tipo` para o vocabulario do
+ * NorteIA sao decisoes de produto que ainda nao foram tomadas -- e tomadas aqui, dentro de um
+ * mapeamento, ficariam invisiveis.
+ *
+ * ⭐ **Ate 2026-09-28 esta linha abria uma excecao para o sinal de `valor`, e a excecao estava
+ * errada nos dois sentidos:** a gente calculava o sinal a partir de `type`, e nao precisava --
+ * `amount` ja vem assinado. Hoje nao ha excecao de VALOR nenhuma.
+ *
+ * ⚠️ O que sobra de traducao e de FORMA, e e uma so: o `date` date-time partido em `data` + `hora`,
+ * no fuso de Sao Paulo. Ver `partirData`.
  */
 
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
@@ -37,19 +44,60 @@ function admin() {
 }
 
 /**
- * ⚠️⚠️ **NAO converte fuso, e isso e deliberado.** A Pluggy manda `date` como ISO date-time, e
- * na pratica quase sempre a meia-noite UTC. Converter para America/Sao_Paulo puxaria essa
- * meia-noite para as 21h do **dia anterior** -- toda transacao cairia um dia para tras.
- * `ciclo.ts:34` ja registra essa armadilha no outro sentido; aqui a leitura correta e tomar a
- * data como a Pluggy escreveu, que e a data que o banco informou.
+ * ⚠️ `hourCycle: 'h23'` e obrigatorio: com `hour12: false` o ICU devolve **`24`** para meia-noite
+ * em varias versoes, e `24:00:00` nao e `time` valido no Postgres.
+ */
+const RELOGIO = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'America/Sao_Paulo',
+  year: 'numeric', month: '2-digit', day: '2-digit',
+  hour: '2-digit', minute: '2-digit', second: '2-digit',
+  hourCycle: 'h23',
+});
+
+/**
+ * Parte o `date` da Pluggy em `data` + `hora`, **no fuso de Sao Paulo**.
+ *
+ * ⛔⛔ **Este comentario dizia o contrario, e estava errado.** Afirmava que a Pluggy manda
+ * meia-noite UTC e que converter puxaria tudo para o dia anterior. Medido em 2026-09-28, nas 33
+ * linhas do sandbox:
+ *
+ *   32 linhas   `T03:00:00.000Z`   = meia-noite EM SAO PAULO, nao em UTC
+ *    1 linha    `T01:47:41.315Z`   = 2026-09-24 22:47:41 em Sao Paulo
+ *
+ * ⭐ As 32 provam que a Pluggy codifica **horario de Sao Paulo**: `03:00Z` e a meia-noite local de
+ * quem so tem a data. Fatiar o UTC gravava `hora = 03:00:00` em toda transacao -- um horario que
+ * nenhuma delas teve.
+ *
+ * ⚠️ **A 33a e a que decide, porque ela troca de DIA.** Fatiando o UTC cai em `2026-09-25`;
+ * convertida, em `2026-09-24 22:47`. Como as outras 32 mostram que o campo e local, esta tambem e
+ * -- e um extrato brasileiro lista esse boleto em **24/09**. Converter e a unica regra
+ * internamente consistente com os dois formatos que a Pluggy usa no mesmo campo.
+ *
+ * ⚠️ O Brasil nao tem mais horario de verao (extinto em 2019), mas o `Intl` resolve o offset pelo
+ * IANA em vez de assumir `-03:00` fixo -- entao data anterior a extincao tambem sai certa.
  *
  * O instante completo continua no `payload`, entao nada se perde.
  */
 function partirData(iso: string): { data: string; hora: string | null } {
-  const data = iso.slice(0, 10);
-  const hora = iso.slice(11, 19);
+  const quando = new Date(iso);
+  if (Number.isNaN(quando.getTime())) {
+    // `data` e NOT NULL -- sem data nao ha linha. Falha alta: o evento reentra pelo retry.
+    throw new Error(`date invalido da Pluggy: ${JSON.stringify(iso)}`);
+  }
+
+  const p: Record<string, string> = {};
+  for (const parte of RELOGIO.formatToParts(quando)) {
+    if (parte.type !== 'literal') p[parte.type] = parte.value;
+  }
+
+  const hora = `${p.hour}:${p.minute}:${p.second}`;
   // Meia-noite cheia quase nunca e informacao -- e o default de quem so tem a data.
-  return { data, hora: !hora || hora === '00:00:00' ? null : hora };
+  return { data: `${p.year}-${p.month}-${p.day}`, hora: hora === '00:00:00' ? null : hora };
+}
+
+/** O `nome`, calculado num lugar so, porque `apelido` precisa compara-lo. */
+function nomeDe(t: TransacaoPluggy): string {
+  return t.descriptionRaw ?? t.description ?? '(sem descricao)';
 }
 
 /** Mapeia uma transacao da Pluggy para uma linha de `open_finance`. */
@@ -66,14 +114,32 @@ async function paraLinha(t: TransacaoPluggy, userId: string, itemId: string) {
     hora,
     // ⭐ `descriptionRaw` e o texto cru do banco e `description` e a versao limpa -- o mesmo
     // par de dois niveis que o NorteIA ja tem em `nome`/`apelido`.
-    // ⚠️ `nome` e NOT NULL. Quando a Pluggy nao manda o cru (acontece), o limpo serve de
-    // original: melhor um nome repetido nas duas colunas que uma transacao perdida.
-    nome: t.descriptionRaw ?? t.description ?? '(sem descricao)',
-    apelido: t.description ?? null,
-    // ⛔ A UNICA normalizacao desta funcao. `amount` e sempre positivo na Pluggy e a direcao
-    // vive em `type`; aqui a coluna nasce negativa para saida, igual a `transactions`. Sem
-    // isso `valor` nao seria a mesma coluna e a travessia deixaria de ser uma copia.
-    valor: t.type === 'DEBIT' ? -Math.abs(t.amount) : Math.abs(t.amount),
+    // ⚠️ `nome` e NOT NULL. Quando a Pluggy nao manda o cru (acontece, e e o caso comum), o limpo
+    // serve de original: melhor um nome repetido que uma transacao perdida.
+    nome: nomeDe(t),
+    // ⭐ `apelido` e OVERRIDE, entao fica `null` quando nao ha versao limpa DISTINTA -- nao e uma
+    // segunda copia do `nome`. Medido: `descriptionRaw` vem null em 32 das 33 linhas do sandbox, e
+    // na 33a e igual ao `description`. Sem esta comparacao as 33 nasceriam com as duas colunas
+    // repetidas, fingindo que alguem apelidou a transacao.
+    apelido: t.description && t.description !== nomeDe(t) ? t.description : null,
+    // ⛔⛔ **`amount` JA VEM ASSINADO. Repassar e o certo, e derivar o sinal de `type` era um bug
+    // que invertia linha.** Medido em 2026-09-28, nas duas contas do sandbox:
+    //
+    //   cartao de credito   `type=CREDIT`   amount NEGATIVO   12/12 linhas (compras)
+    //   conta corrente      `type=CREDIT`   amount POSITIVO    4/21 linhas (salario, +8500)
+    //   conta corrente      `type=DEBIT`    amount negativo   17/21 linhas
+    //
+    // ⭐ `type=CREDIT` significa coisas OPOSTAS nas duas: no cartao e compra (voce passa a dever),
+    // na corrente e entrada. Entao `type` nao carrega direcao, e a formula antiga
+    // (`type === 'DEBIT' ? -abs : abs`) jogava as 12 do cartao para positivo.
+    //
+    // ⚠️ **E acertava na conta corrente, o que tornava o defeito insidioso:** quem testasse so com
+    // conta corrente veria numero certo e concluiria que estava tudo bem.
+    //
+    // A prova de que o sinal de `amount` e autoritativo: a soma dos 12 `amount` do cartao da
+    // exatamente `-670,80`, que e o `balance` da conta. E ja e a convencao de `transactions` --
+    // negativo e saida (`src/pages/Dashboard.tsx:199`, `src/pages/Historico.tsx:438`).
+    valor: t.amount,
     banco,
     parcela_atual: cc?.installmentNumber ?? null,
     parcela_total: cc?.totalInstallments ?? null,

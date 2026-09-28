@@ -15,10 +15,22 @@
 -- decisoes de produto que ainda nao foram tomadas -- e tomadas aqui ficariam escondidas dentro de
 -- uma migration.
 --
--- ⛔⛔ **A excecao, e ela e unica: o SINAL de `valor`.** Na Pluggy `amount` e SEMPRE POSITIVO e a
--- direcao vive em `type: DEBIT|CREDIT`. Aqui a coluna nasce negativa para saida, igual a
--- `transactions` -- sem isso `valor` nao seria a mesma coluna e a travessia deixaria de ser copia.
--- A forma original continua inteira no `payload`.
+-- ⛔⛔ **CORRECAO de 2026-09-28: estas linhas diziam que `amount` e SEMPRE POSITIVO e que a direcao
+-- vive em `type`. As duas afirmacoes sao FALSAS**, e a segunda estava implementada como uma
+-- conversao que invertia o sinal de toda linha de cartao de credito. Medido no sandbox:
+--
+--   cartao de credito   `type=CREDIT`   amount NEGATIVO   12/12 (compras)
+--   conta corrente      `type=CREDIT`   amount POSITIVO    4/21 (salario)
+--   conta corrente      `type=DEBIT`    amount negativo   17/21
+--
+-- ⭐ `amount` **ja vem assinado**, na mesma convencao de `transactions` (negativo = saida), e
+-- `type` significa coisas opostas em conta corrente e em cartao. Entao `valor` e copia direta, e
+-- **nao ha excecao de valor nenhuma** nesta tabela. Ver o comentario de `valor` em
+-- `supabase/functions/pluggy-webhook/gravar.ts`.
+--
+-- ⚠️ Esta migration ja estava aplicada quando a correcao foi feita; so o texto mudou, nunca o
+-- schema. **O `COMMENT ON TABLE` abaixo ja esta no banco com a frase antiga** -- corrigi-lo exige
+-- rodar o `COMMENT ON` de novo no SQL Editor.
 
 -- ---------------------------------------------------------------------------------------
 -- Os itens (conexoes com instituicoes), e por que eles vem primeiro
@@ -80,7 +92,8 @@ CREATE TABLE IF NOT EXISTS public.open_finance (
   -- (= `apelido`). E como `Historico.tsx` ja os trata: mostra o apelido, guarda o original.
   nome text NOT NULL,
   apelido text,
-  -- ⛔ JA COM SINAL -- negativo para saida. Ver o aviso do cabecalho.
+  -- ⛔ ASSINADO PELA PLUGGY -- negativo e saida, igual a `transactions`. Copia direta, sem
+  -- conversao. Ver a correcao no cabecalho: derivar este sinal de `type` era um bug.
   valor numeric(10,2) NOT NULL,
   banco text,
   parcela_atual integer,
@@ -127,8 +140,8 @@ CREATE TABLE IF NOT EXISTS public.open_finance (
 
 COMMENT ON TABLE public.open_finance IS
   'Espelho das transacoes do Open Finance (Pluggy), antes de qualquer traducao. Nomes de coluna '
-  'alinhados a public.transactions; valores CRUS, exceto o sinal de `valor`. Nada entra em '
-  'transactions automaticamente.';
+  'alinhados a public.transactions; valores CRUS, inclusive o sinal de valor, que a Pluggy ja '
+  'manda assinado. Nada entra em transactions automaticamente.';
 
 -- ⚠️ NAO PARCIAL, de proposito. A migration 20260830213000 registra a licao: o Postgres **nao
 -- infere indice parcial em `ON CONFLICT`**, e o upsert falha com "no unique or exclusion

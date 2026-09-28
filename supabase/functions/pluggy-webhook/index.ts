@@ -49,7 +49,7 @@ const WEBHOOK_SECRET = Deno.env.get('PLUGGY_WEBHOOK_SECRET');
  * ⭐ So sai na resposta 200, que exige o segredo. O 401 continua sem contar nada a quem nao
  * se autenticou -- versao implantada e informacao util para quem estuda o alvo.
  */
-const VERSAO = '2026-09-24-guardas';
+const VERSAO = '2026-09-28-v2-e-sinal';
 
 /** ⚠️ Quantas transacoes buscar em paralelo. Segura a mao na API da Pluggy sem serializar. */
 const PARALELISMO = 5;

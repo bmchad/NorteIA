@@ -112,33 +112,76 @@ export const buscarTransacao = (id: string) =>
  * e um link -- porque a carga inicial de um item tem centenas de transacoes e a lista nao caberia
  * no payload. Quem quiser as transacoes tem de pagina-las.
  *
- * ⚠️⚠️ **`GET /transactions` esta DEPRECATED e sai em 31/12/2026.** A substituta e
- * `GET /v2/transactions`, com paginacao por CURSOR em vez de `page`. Quando migrar, o que muda e
- * so esta funcao -- o resto do arquivo nao sabe como a lista e buscada.
+ * ⛔⛔ **`GET /transactions` JA MORREU, e este arquivo dizia que morreria em 31/12/2026.**
+ * Medido em 2026-09-28: devolve `410 ENDPOINT_DEPRECATED`. Como `get` lanca em `!r.ok`, o
+ * `transactions/created` inteiro falhava, a excecao virava log e **o webhook respondia 200 do
+ * mesmo jeito** -- zero linhas gravadas, sem sintoma nenhum. E o evento mais importante dos tres.
+ *
+ * ⭐ **O contrato da v2, medido (nao lido na documentacao):**
+ *
+ *   resposta        `{ results: [...], next: string | null }` -- cursor em `next`
+ *   paginacao       segue-se o `next` ate vir `null`. NAO ha `page`/`totalPages`
+ *   `createdAtFrom` ✓ aceito (200)
+ *   `pageSize`      ✗ `property pageSize should not exist`
+ *   `from` / `to`   ✗ idem
+ *   `cursor`        ✗ idem — e e por isso que `next` **so pode ser URL ou caminho**:
+ *                   nao existe parametro de cursor onde pendurar um token
+ *   forma do item   identica a v1 (as mesmas 23 chaves) -> o mapeamento nao mudou
+ *
+ * ⭐ `GET /transactions/{id}` continua vivo (200), entao `buscarTransacao` e o
+ * `transactions/updated` nao foram afetados. Morreu so a listagem.
  */
+
+/** Teto de paginas. `next` que nunca zera viraria laco infinito num worker que paga por segundo. */
+const MAX_PAGINAS = 200;
+
+/**
+ * Traduz o `next` da v2 para um caminho que o `get` aceita.
+ *
+ * ⚠️ **Lacuna declarada:** as duas contas do sandbox tem 12 e 21 linhas e as duas voltaram
+ * `next: null`, entao eu **nunca vi um `next` preenchido** -- nao ha como forcar, porque nao existe
+ * parametro de tamanho de pagina. Trato URL absoluta e caminho relativo, que sao as unicas formas
+ * possiveis (ver a recusa de `cursor` acima), e **lanco com o valor cru** se vier outra coisa: o
+ * log passa a conter a forma real, que e como a gente vai descobrir. Silenciar aqui repetiria
+ * exatamente o defeito que o 410 causou.
+ */
+function proximaPagina(next: string | null | undefined): string | null {
+  if (!next) return null;
+  if (next.startsWith('/')) return next;
+  if (next.startsWith('http')) {
+    const u = new URL(next);
+    return u.pathname + u.search;
+  }
+  throw new Error(`next da v2 em formato inesperado: ${JSON.stringify(next).slice(0, 120)}`);
+}
+
 export async function listarTransacoesCriadas(
   accountId: string,
   createdAtFrom: string | undefined,
   log: { etapa(n: string, d?: Record<string, unknown>): void },
 ): Promise<TransacaoPluggy[]> {
   const todas: TransacaoPluggy[] = [];
-  let pagina = 1;
-  let totalPaginas = 1;
 
-  do {
-    const q = new URLSearchParams({ accountId, pageSize: '500', page: String(pagina) });
-    // ⚠️ Sem `createdAtFrom` a chamada traz o historico INTEIRO da conta. Nao e erro -- o upsert
-    // aguenta --, mas sao muitas paginas a toa. O evento quase sempre manda o instante.
-    if (createdAtFrom) q.set('createdAtFrom', createdAtFrom);
+  const q = new URLSearchParams({ accountId });
+  // ⚠️ Sem `createdAtFrom` a chamada traz o historico INTEIRO da conta. Nao e erro -- o upsert
+  // aguenta --, mas sao paginas a toa. O evento quase sempre manda o instante.
+  if (createdAtFrom) q.set('createdAtFrom', createdAtFrom);
 
-    const r = await get<{ total: number; totalPages: number; page: number; results: TransacaoPluggy[] }>(
-      `/transactions?${q}`,
-    );
-    todas.push(...r.results);
-    totalPaginas = r.totalPages ?? 1;
-    log.etapa('pagina', { pagina, de: totalPaginas, n: r.results.length });
+  let caminho: string | null = `/v2/transactions?${q}`;
+  let pagina = 0;
+
+  while (caminho) {
+    const r: { results: TransacaoPluggy[]; next?: string | null } = await get(caminho);
+    todas.push(...(r.results ?? []));
     pagina++;
-  } while (pagina <= totalPaginas);
+    log.etapa('pagina', { pagina, n: r.results?.length ?? 0, temProxima: !!r.next });
+
+    if (pagina >= MAX_PAGINAS) {
+      // Falha alta, nao truncagem silenciosa: gravar metade sem avisar seria pior que errar.
+      throw new Error(`paginacao passou de ${MAX_PAGINAS} paginas em ${accountId}`);
+    }
+    caminho = proximaPagina(r.next);
+  }
 
   return todas;
 }
