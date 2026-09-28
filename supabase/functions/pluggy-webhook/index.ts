@@ -31,7 +31,7 @@
 
 import { criarLog } from '../_shared/log.ts';
 import { buscarTransacao, listarTransacoesCriadas, TransacaoPluggy } from './pluggy.ts';
-import { donoDoItem, gravarItem, gravarTransacoes, apagarTransacoes, paraLinha } from './gravar.ts';
+import { donosDoItem, gravarItem, gravarTransacoes, apagarTransacoes, paraLinha } from './gravar.ts';
 
 const WEBHOOK_SECRET = Deno.env.get('PLUGGY_WEBHOOK_SECRET');
 
@@ -49,7 +49,7 @@ const WEBHOOK_SECRET = Deno.env.get('PLUGGY_WEBHOOK_SECRET');
  * ⭐ So sai na resposta 200, que exige o segredo. O 401 continua sem contar nada a quem nao
  * se autenticou -- versao implantada e informacao util para quem estuda o alvo.
  */
-const VERSAO = '2026-09-28-v2-e-sinal';
+const VERSAO = '2026-09-28-donos-e-escopo';
 
 /** ⚠️ Quantas transacoes buscar em paralelo. Segura a mao na API da Pluggy sem serializar. */
 const PARALELISMO = 5;
@@ -133,8 +133,8 @@ async function processar(evento: EventoPluggy, log: ReturnType<typeof criarLog>)
     // ⛔ Sem o mapa, a transacao nao tem dono e a linha seria inutil -- `user_id` e NOT NULL.
     // Isto acontece quando o item foi conectado sem `clientUserId` no Connect Token, e nesse
     // caso nao ha conserto retroativo: a Pluggy nao guarda a quem o item pertencia.
-    const userId = await donoDoItem(itemId);
-    if (!userId) {
+    const donos = await donosDoItem(itemId);
+    if (!donos.length) {
       log.etapa('item_orfao', { event });
       return;
     }
@@ -176,9 +176,17 @@ async function processar(evento: EventoPluggy, log: ReturnType<typeof criarLog>)
       }
     }
 
-    const linhas = await Promise.all(transacoes.map((t) => paraLinha(t, userId, itemId)));
+    // ⭐ **O mapeamento roda UMA vez e as copias so trocam o `user_id`.** `paraLinha` faz duas
+    // chamadas de rede por conta (`contaComBanco`) para descobrir o banco; repeti-las por dono
+    // seria pagar o mesmo dado N vezes. O cache de invocacao ja aliviaria, mas nao precisar da
+    // chamada e melhor que cachea-la.
+    const base = await Promise.all(transacoes.map((t) => paraLinha(t, donos[0], itemId)));
+    const linhas = donos.length === 1
+      ? base
+      : donos.flatMap((dono) => base.map((l) => ({ ...l, user_id: dono })));
+
     await gravarTransacoes(linhas);
-    log.etapa('gravadas', { n: linhas.length });
+    log.etapa('gravadas', { n: linhas.length, donos: donos.length });
     return;
   }
 

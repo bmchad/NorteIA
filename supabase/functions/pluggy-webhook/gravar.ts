@@ -167,19 +167,24 @@ async function paraLinha(t: TransacaoPluggy, userId: string, itemId: string) {
 }
 
 /**
- * De quem e a transacao.
+ * De quem sao as transacoes deste item. **Plural, e o plural e o ponto.**
  *
  * ⭐⭐ Os eventos `transactions/*` da Pluggy **nao carregam `clientUserId`** -- so os `item/*`
- * carregam. O dono so existe no mapa que o `item/created` gravou. Item conectado sem
- * `clientUserId` no Connect Token nao tem dono descobrivel, e a transacao dele e inutil.
+ * carregam. O dono so existe no mapa local. Item sem `clientUserId` e sem passagem pelo
+ * `pluggy-register-item` nao tem dono descobrivel, e a transacao dele e inutil.
+ *
+ * ⚠️ **Era `donoDoItem`, com `.maybeSingle()`, e isso quebraria agora.** Desde a migration
+ * 20260928120000 o unico e `(user_id, pluggy_item_id)`, entao o mesmo item pode ter varios donos
+ * -- o caso da conta conjunta. Com duas linhas `.maybeSingle()` lanca; e escolher "o" dono
+ * arbitrariamente seria pior: daria a transacao a um e a esconderia do outro.
  */
-export async function donoDoItem(itemId: string): Promise<string | null> {
-  const { data } = await admin()
+export async function donosDoItem(itemId: string): Promise<string[]> {
+  const { data, error } = await admin()
     .from('open_finance_itens')
     .select('user_id')
-    .eq('pluggy_item_id', itemId)
-    .maybeSingle();
-  return data?.user_id ?? null;
+    .eq('pluggy_item_id', itemId);
+  if (error) throw new Error(`select open_finance_itens: ${error.message}`);
+  return (data ?? []).map((l) => l.user_id as string);
 }
 
 /**
@@ -195,11 +200,11 @@ export async function donoDoItem(itemId: string): Promise<string | null> {
  * entao o mesmo item mudar de dono nao acontece. Reconectar o mesmo banco cria outro item.
  */
 export async function gravarItem(itemId: string, clientUserId: string) {
-  const donoAtual = await donoDoItem(itemId);
-  if (donoAtual && donoAtual !== clientUserId) {
+  const donos = await donosDoItem(itemId);
+  if (donos.length && !donos.includes(clientUserId)) {
     // ⚠️ Erro, nao `return` silencioso: isto so acontece por defeito da Pluggy ou por
     // payload forjado, e os dois merecem uma linha vermelha no painel.
-    throw new Error(`item ${itemId} ja tem outro dono -- troca recusada`);
+    throw new Error(`item ${itemId} ja tem dono -- webhook nao acrescenta um segundo`);
   }
 
   let banco: string | null = null;
@@ -218,7 +223,7 @@ export async function gravarItem(itemId: string, clientUserId: string) {
     .upsert(
       { pluggy_item_id: itemId, user_id: clientUserId, banco, status,
         atualizado_em: new Date().toISOString() },
-      { onConflict: 'pluggy_item_id' },
+      { onConflict: 'user_id,pluggy_item_id' },
     );
   if (error) throw new Error(`upsert open_finance_itens: ${error.message}`);
 }
@@ -233,7 +238,7 @@ export async function gravarTransacoes(linhas: Awaited<ReturnType<typeof paraLin
   if (!linhas.length) return;
   const { error } = await admin()
     .from('open_finance')
-    .upsert(linhas, { onConflict: 'pluggy_transaction_id' });
+    .upsert(linhas, { onConflict: 'user_id,pluggy_transaction_id' });
   if (error) throw new Error(`upsert open_finance: ${error.message}`);
 }
 
