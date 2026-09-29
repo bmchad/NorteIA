@@ -100,6 +100,44 @@ function nomeDe(t: TransacaoPluggy): string {
   return t.descriptionRaw ?? t.description ?? '(sem descricao)';
 }
 
+/**
+ * Campos que identificam PESSOA, e que por isso nao entram no `payload`.
+ *
+ * ⭐⭐ **O criterio e valor analitico, nao fidelidade.** Medido em 2026-09-28: 100 de 100
+ * transferencias do sandbox trazem `paymentData` com CPF do pagador, CPF do recebedor, agencia e
+ * conta. Nenhum desses campos alimenta analise nenhuma do NorteIA -- guardar so cria passivo.
+ *
+ * ⭐ **O que FICA e o banco**, e a distincao e exata: `routingNumber` e `routingNumberISPB`
+ * identificam a INSTITUICAO, nao a pessoa. `paymentMethod`, `name`, `reason` e
+ * `authenticationCode` tambem ficam -- os tres primeiros dizem o que a transacao foi, o ultimo
+ * e o identificador do Pix, que e da transacao e nao de quem a fez.
+ *
+ * ⚠️ **Por NOME de campo e recursivo, de proposito.** `paymentData.boletoMetadata` existe no
+ * tipo e vem `null` no sandbox, mas carregaria os mesmos campos -- e a Pluggy acrescenta
+ * estrutura sem avisar. Varrer por nome em qualquer profundidade cobre o que ainda nao existe;
+ * uma lista de caminhos fixos cobriria so o que eu vi hoje.
+ */
+const CAMPOS_DE_IDENTIDADE = new Set(['documentNumber', 'accountNumber', 'branchNumber']);
+
+/**
+ * Devolve uma copia sem os campos de identidade, em qualquer profundidade.
+ *
+ * ⚠️ Roda na GRAVACAO, nunca na leitura. Filtrar ao ler deixaria o dado no banco, no backup,
+ * no `pg_dump` e na replica -- e o problema e o dado existir, nao ele aparecer.
+ */
+function semIdentidade(valor: unknown): unknown {
+  if (Array.isArray(valor)) return valor.map(semIdentidade);
+  if (valor && typeof valor === 'object') {
+    const saida: Record<string, unknown> = {};
+    for (const [chave, v] of Object.entries(valor as Record<string, unknown>)) {
+      if (CAMPOS_DE_IDENTIDADE.has(chave)) continue;
+      saida[chave] = semIdentidade(v);
+    }
+    return saida;
+  }
+  return valor;
+}
+
 /** Mapeia uma transacao da Pluggy para uma linha de `open_finance`. */
 async function paraLinha(t: TransacaoPluggy, userId: string, itemId: string) {
   const { conta, banco } = await contaComBanco(t.accountId);
@@ -161,7 +199,8 @@ async function paraLinha(t: TransacaoPluggy, userId: string, itemId: string) {
     parcela_valor_total: cc?.totalAmount ?? null,
     cartao_numero: cc?.cardNumber ?? null,
     fatura_id: cc?.billId ?? null,
-    payload: t,
+    // ⭐ Sem os campos de identidade. Ver `semIdentidade` acima.
+    payload: semIdentidade(t),
     atualizado_em: new Date().toISOString(),
   };
 }
