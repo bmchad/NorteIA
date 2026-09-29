@@ -17,3 +17,12 @@ verify_jwt = false
 # A autenticacao real e o header `x-webhook-secret`, verificado dentro da funcao.
 [functions.pluggy-webhook]
 verify_jwt = false
+
+# Registra um item da Pluggy para o usuario autenticado.
+#
+# ⭐ `true` e o default, e a linha existe para dizer o CONTRASTE com a de cima: esta funcao e o
+# oposto do webhook. Ela e chamada pelo browser com sessao, e o dono da conexao e justamente o
+# dono do JWT -- entao o gateway barrar sem token e a primeira barreira, e o `getUser()` dentro
+# da funcao e a segunda. Desligar aqui deixaria qualquer um reivindicar o item de outra pessoa.
+[functions.pluggy-register-item]
+verify_jwt = true
