@@ -65,6 +65,24 @@ Deno.serve(async (req) => {
       banco = item.connector?.name ?? null;
       status = item.status ?? null;
       log.etapa('item.ok', { status });
+
+      // ⛔⛔ **Sem esta checagem, QUALQUER usuario autenticado reivindica QUALQUER item cujo id
+      // conheca** -- e passa a receber copia das transacoes de outra pessoa, porque desde a
+      // migration 20260928120000 acrescentar dono e legitimo. O `zz_repo_maduro` tem o mesmo furo:
+      // ele faz o upsert com o id que vier no corpo, sem perguntar de quem e.
+      //
+      // ⭐ A resposta estava no proprio item: a Pluggy guarda o `clientUserId` que foi passado no
+      // Connect Token. Se ele existe e nao e quem esta chamando, a conexao e de outra conta.
+      //
+      // ⚠️ **Ausente e PERMITIDO, e e o caso que justifica esta funcao existir.** Item conectado
+      // pelo painel da Pluggy ou pelo Meu Pluggy nasce sem `clientUserId` -- e orfao, nao alheio.
+      // Recusar aqui deixaria esses itens permanentemente inalcancaveis, que e exatamente o
+      // `item_orfao` que esta funcao veio resolver.
+      const donoNaPluggy = item.clientUserId ?? null;
+      if (donoNaPluggy && donoNaPluggy !== user.id) {
+        log.falha('dono_divergente', 'item tem outro clientUserId na Pluggy');
+        return erro('REQUISICAO_INVALIDA', 'Esta conexão pertence a outra conta.', 403);
+      }
     } catch (e) {
       log.falha('item', e);
       return erro(
