@@ -57,3 +57,6 @@ schema.sql
 
 #Material do hackaton do Itau: os slides sao "Corporativo | Interno"
 /context_hacka
+
+#Ignora meu material de inspiracao
+/zz_repo_maduro
