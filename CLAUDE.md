@@ -57,6 +57,7 @@ o deploy**. → `context/30-decisoes-e-licoes.md` L-001
 | Rotas | `react-router-dom` 7, tudo em `src/App.tsx` |
 | Dados | Supabase (Auth + Postgres), cliente único em `src/lib/supabase.ts` |
 | IA | ⭐ Edge Function `ai-agents` (Deno): `MODELO.EXTRACAO` e `MODELO.CLASSIFICACAO` no Gemini, com `MODELO.FALLBACK` no Claude só em 503. **O front não fala com nenhum dos dois** |
+| Open Finance | Pluggy, por duas Edge Functions: `pluggy-webhook` (eventos) e `pluggy-register-item` (registro com JWT). Grava num **espelho** (`open_finance*`); ⛔ nada entra em `transactions` e nenhuma tela lê. → D-076, D-078 |
 | Gráficos | `recharts` 3 |
 | Planilhas | `xlsx` (SheetJS), lê `.xlsx` e converte para CSV |
 | Deploy | Vercel. Instância da família: `norteia-nexfin.com.br`. Repositório público: `github.com/bmchad/NorteIA`. ⛔ Cada fork publica a própria |
@@ -79,7 +80,13 @@ Ficam no `.env` (gitignorado) e **também precisam estar configuradas na Vercel*
 
 **Secrets do servidor** (painel do Supabase, nunca no repositório): `GEMINI_API_KEY` e
 ⭐ `CLAUDE_API_KEY` em `ai-agents`; `RESEND_API_KEY`, `SELLER_EMAIL` e ⚠️ `WEBHOOK_SECRET` em
-`send-email`.
+`send-email`; `PLUGGY_CLIENT_ID`, `PLUGGY_CLIENT_SECRET`, ⚠️ `PLUGGY_WEBHOOK_SECRET` e ⭐
+`OPEN_FINANCE_CPF_SEGREDO` nas funções da Pluggy.
+
+⚠️ **A Pluggy pede `clientId` + `clientSecret`, nunca a apiKey** — ela expira em 2 h, e o
+`PLUGGY_API_KEY`/`PLUGGY_CONNECT_TOKEN` do `.env` não servem a um webhook. ⛔
+**`OPEN_FINANCE_CPF_SEGREDO` chaveia o HMAC do CPF**: faltando, a identidade sai `indisponivel` e
+nada quebra; **trocado, invalida todos os hashes** — esvazie `open_finance_identidades` junto. → D-079
 
 ⭐ **`CLAUDE_API_KEY` é o provedor reserva**, acionado só quando o Gemini responde 503. ⚠️ Sem ela o
 fallback simplesmente não existe e o erro do Gemini segue — nada quebra. → D-055
@@ -116,6 +123,13 @@ supabase/              versionado
     ai-agents/         ⭐ porta única dos agentes de IA — index, agentes/, lib/, prompts/
       lib/memoria-categoria.ts   o que o usuário confirmou 3× vence o palpite da IA
     send-email/        webhook de INSERT em `leads` e `profiles`
+    pluggy-webhook/    ⭐ eventos da Pluggy. ⛔ `verify_jwt = false`: autentica pelo header `x-webhook-secret`
+      sincronizar.ts   ⭐ a carga completa e idempotente do item, com orçamento de tempo (D-078)
+      produtos.ts      identidade (só HMAC do CPF), investimentos, movimentações, empréstimos
+      gravar.ts        mapeamento, `partirData`, `semIdentidade`, `gravarEmLotes` — dono único
+      pluggy.ts        cliente da API; v2 por cursor para transação, v1 por página para o resto
+      versao.ts        o carimbo `VERSAO` que as duas funções devolvem
+    pluggy-register-item/  registra o item para o dono do JWT e sincroniza; empacota `pluggy-webhook/`
 supabase-backup/       ⚠️ gitignorado. Dump de schema, roles e dados reais
 context/               ⚠️ 00–05 versionados; 10, 11, 20 e 30 ficam fora
 ```
@@ -141,6 +155,11 @@ redireciona sem ela.
 `local` e `remote` iguais nas **20** migrations, incluindo as duas do Mercado de Datas
 (`20260903120000_transactions_tipo.sql` e `20260903130000_vencimentos.sql`), que passaram uma semana
 escritas e não aplicadas por um 403 de privilégio. → P39, fechada.
+
+⛔ **Atualização de 2026-10-02: há uma migration escrita e NÃO aplicada** —
+`20261002120000_open_finance_produtos.sql`. E o CLI local está logado numa conta **sem acesso** ao
+projeto: `migration list`, `secrets list` e `functions list` devolvem 403. Ela vai **antes** das
+funções da Pluggy, que gravam a coluna `subtipo` que só ela cria. → P54
 
 ⛔⛔ **Desde 16/09 esta assimetria deixou de ser sobre você.** Outros operadores fazem pull da
 `main` em bancos que você não vê. Migration nova chega ao código deles sem chegar ao banco deles, e
@@ -169,6 +188,14 @@ está ligada em todas as tabelas de usuário; `cores` é a exceção deliberada.
 | `vencimentos` | ⭐ o dia em que a fatura de cada cartão vence, **um por banco**. Contraparte de `transactions.tipo = 'credito'`. ⚠️⚠️ Não confundir com `memory.ciclo_dia`: aquele é o FECHAMENTO, este é o VENCIMENTO | `user_id` |
 | `cores` | ⭐ paleta **global**, sem dono. RLS ligada: legível por todos, **gravável por ninguém** | — |
 | `leads` | contatos da landing; única escrita sem autenticação | — |
+| `open_finance_itens` | ⭐ o mapa `pluggy_item_id → user_id`. **Plural**: conta conjunta tem um item com dois donos. Único em `(user_id, pluggy_item_id)` | `user_id` |
+| `open_finance` | ⭐ o **espelho** das transações da Pluggy: nomes de coluna de `transactions`, valores crus. ⚠️ `valor` é o `amount` cru e o sinal no cartão **não está medido** (D-081). `tipo` é `BANK`/`CREDIT`, domínio diferente do de `transactions` | `user_id` |
+| `open_finance_investimentos` · `_investimento_movimentos` · `_emprestimos` | ⚠️ **migration não aplicada (P54).** Colunas explícitas, sem objeto cru, sem coluna `valor` (D-080) | `user_id` |
+| `open_finance_identidades` | ⚠️ **não aplicada (P54).** Só o HMAC do CPF, um por usuário. ⛔ Sem policy e sem GRANT: nem o dono lê (D-079) | `user_id` |
+
+⭐ **As tabelas `open_finance*` têm RLS só de SELECT.** Quem escreve é a Edge Function com
+`service_role`, por cima da RLS — por isso toda escrita lá é **escopada ao item** e o dono vem da
+API da Pluggy, nunca do payload.
 
 **Colunas de `transactions` usadas no código:** `user_id`, `data`, `nome`, `apelido`, `valor`,
 `banco`, `mes_fatura`, `categoria_id`, `hora`, `parcela_atual`, `parcela_total`, `pendente`,
@@ -344,6 +371,15 @@ diferente tem de ser diferente no teste, senão ele prova só o caso degenerado.
 **12. ⚠️ Não existe runner de teste.** Os casos que cobrem ciclo, camadas e cascata foram escritos
 como scripts avulsos e rodados fora do repositório. Mudou `comprometido.ts`, `fixos-propostos.ts` ou
 `parcelas.ts`? Não há rede de segurança automática. → P32
+
+**13. ⛔ No Open Finance, o payload é aviso, nunca dado.** O evento da Pluggy só diz *qual* item ou
+transação mudou; o resto — inclusive o dono — se busca na API. Ler campo do payload como dado
+reabre a exfiltração que a D-077 descreve. ⚠️ Evento que chega a um item sem dono é **perdido**, e
+só a sincronização completa recupera (L-017, D-078). ⚠️ Data `T00:00:00.000Z` é data sem hora em
+UTC: não converta para São Paulo (L-018). ⛔ CPF aparece em texto livre (`issuer`, `name`), então
+verificar dado pessoal é varrer o que vai ao banco pela **forma** (L-019).
+⭐ A integração Supabase↔GitHub publica as Edge Functions no push em `admin`; o carimbo `VERSAO`
+na resposta é o único jeito de **confirmar** qual código está no ar.
 
 ---
 

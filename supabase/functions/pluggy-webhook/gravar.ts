@@ -6,16 +6,17 @@
  * NorteIA sao decisoes de produto que ainda nao foram tomadas -- e tomadas aqui, dentro de um
  * mapeamento, ficariam invisiveis.
  *
- * ⭐ **Ate 2026-09-28 esta linha abria uma excecao para o sinal de `valor`, e a excecao estava
- * errada nos dois sentidos:** a gente calculava o sinal a partir de `type`, e nao precisava --
- * `amount` ja vem assinado. Hoje nao ha excecao de VALOR nenhuma.
+ * ⭐ **Nem o sinal de `valor` e traduzido.** Ate 2026-09-28 havia uma excecao que derivava o sinal
+ * de `type`, e ela invertia linha. Hoje `valor` e o `amount` cru -- e, desde 2026-10-02, nenhum
+ * comentario daqui afirma qual convencao a Pluggy usa no cartao. Ver o comentario de `valor`.
  *
- * ⚠️ O que sobra de traducao e de FORMA, e e uma so: o `date` date-time partido em `data` + `hora`,
- * no fuso de Sao Paulo. Ver `partirData`.
+ * ⚠️ O que sobra de traducao e de FORMA, e e uma so: o `date` date-time partido em `data` + `hora`.
+ * Ver `partirData`.
  */
 
-import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import { contaComBanco, TransacaoPluggy, buscarItem } from './pluggy.ts';
+import { createClient, type SupabaseClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import type { ContaComBanco, ItemPluggy, TransacaoPluggy } from './pluggy.ts';
+import type { Log } from '../_shared/log.ts';
 
 /**
  * ⛔ `service_role`, e e a primeira vez no projeto. Nenhuma outra Edge Function usa -- e
@@ -35,12 +36,15 @@ import { contaComBanco, TransacaoPluggy, buscarItem } from './pluggy.ts';
  * `sb_publishable_...`/`sb_secret_...` (variaveis `SUPABASE_PUBLISHABLE_KEYS`/`SUPABASE_SECRET_KEYS`).
  * As legadas continuam funcionando; quando sairem, e esta funcao que muda.
  */
-function admin() {
-  return createClient(
+let cliente: SupabaseClient | null = null;
+
+export function admin(): SupabaseClient {
+  cliente ??= createClient(
     Deno.env.get('SUPABASE_URL')!,
     Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!,
     { auth: { persistSession: false } },
   );
+  return cliente;
 }
 
 /**
@@ -54,10 +58,13 @@ const RELOGIO = new Intl.DateTimeFormat('en-US', {
   hourCycle: 'h23',
 });
 
+/** Meia-noite UTC cravada, ate o milissegundo. Ver o terceiro caso em `partirData`. */
+const MEIA_NOITE_UTC = /T00:00:00(\.0+)?Z$/;
+
 /**
- * Parte o `date` da Pluggy em `data` + `hora`, **no fuso de Sao Paulo**.
+ * Parte um date-time da Pluggy em `data` + `hora`, **no fuso de Sao Paulo**.
  *
- * ⛔⛔ **Este comentario dizia o contrario, e estava errado.** Afirmava que a Pluggy manda
+ * ⛔⛔ **Este comentario ja disse o contrario, e estava errado.** Afirmava que a Pluggy manda
  * meia-noite UTC e que converter puxaria tudo para o dia anterior. Medido em 2026-09-28, nas 33
  * linhas do sandbox:
  *
@@ -70,19 +77,29 @@ const RELOGIO = new Intl.DateTimeFormat('en-US', {
  *
  * ⚠️ **A 33a e a que decide, porque ela troca de DIA.** Fatiando o UTC cai em `2026-09-25`;
  * convertida, em `2026-09-24 22:47`. Como as outras 32 mostram que o campo e local, esta tambem e
- * -- e um extrato brasileiro lista esse boleto em **24/09**. Converter e a unica regra
- * internamente consistente com os dois formatos que a Pluggy usa no mesmo campo.
+ * -- e um extrato brasileiro lista esse boleto em **24/09**.
+ *
+ * ⛔ **O terceiro caso, medido em 2026-10-02: meia-noite UTC cravada (`T00:00:00.000Z`) e DATA SEM
+ * HORA escrita em UTC, e nao pode ser convertida.** Investimentos e emprestimos usam essa forma --
+ * 400 de 500 movimentacoes e 5 de 5 `contractDate` do sandbox. Convertida, ela vira 21h do DIA
+ * ANTERIOR em Sao Paulo, e todo contrato e toda aplicacao andariam um dia para tras. A data
+ * pretendida e a do proprio UTC.
+ * ⭐ Nas 302 transacoes medidas nenhuma usa essa forma (sao instante real ou `T03:00Z`), entao a
+ * regra nao muda nada do que ja estava gravado. E um instante real cair exatamente em
+ * `00:00:00.000` UTC e improvavel ao ponto de ser descartavel.
  *
  * ⚠️ O Brasil nao tem mais horario de verao (extinto em 2019), mas o `Intl` resolve o offset pelo
  * IANA em vez de assumir `-03:00` fixo -- entao data anterior a extincao tambem sai certa.
- *
- * O instante completo continua no `payload`, entao nada se perde.
  */
 function partirData(iso: string): { data: string; hora: string | null } {
   const quando = new Date(iso);
   if (Number.isNaN(quando.getTime())) {
-    // `data` e NOT NULL -- sem data nao ha linha. Falha alta: o evento reentra pelo retry.
+    // `data` e NOT NULL em `open_finance` -- sem data nao ha linha. Falha alta.
     throw new Error(`date invalido da Pluggy: ${JSON.stringify(iso)}`);
+  }
+
+  if (MEIA_NOITE_UTC.test(iso)) {
+    return { data: quando.toISOString().slice(0, 10), hora: null };
   }
 
   const p: Record<string, string> = {};
@@ -95,13 +112,22 @@ function partirData(iso: string): { data: string; hora: string | null } {
   return { data: `${p.year}-${p.month}-${p.day}`, hora: hora === '00:00:00' ? null : hora };
 }
 
+/**
+ * A metade DATA de `partirData`, para as colunas `date` das tabelas de produto. Ausente vira
+ * `null`; invalido lanca, pelo mesmo motivo de la.
+ */
+export function dataLocal(iso: string | null | undefined): string | null {
+  if (iso == null || iso === '') return null;
+  return partirData(iso).data;
+}
+
 /** O `nome`, calculado num lugar so, porque `apelido` precisa compara-lo. */
 function nomeDe(t: TransacaoPluggy): string {
   return t.descriptionRaw ?? t.description ?? '(sem descricao)';
 }
 
 /**
- * Campos que identificam PESSOA, e que por isso nao entram no `payload`.
+ * Campos que identificam PESSOA, e que por isso nao entram em `jsonb` nenhum.
  *
  * ⭐⭐ **O criterio e valor analitico, nao fidelidade.** Medido em 2026-09-28: 100 de 100
  * transferencias do sandbox trazem `paymentData` com CPF do pagador, CPF do recebedor, agencia e
@@ -112,12 +138,19 @@ function nomeDe(t: TransacaoPluggy): string {
  * `authenticationCode` tambem ficam -- os tres primeiros dizem o que a transacao foi, o ultimo
  * e o identificador do Pix, que e da transacao e nao de quem a fez.
  *
+ * ⚠️ `contractNumber`, `ipocCode` e `cnpjConsignee` sao do emprestimo: o numero do contrato e o
+ * codigo IPOC identificam o contrato de UMA pessoa no banco, e o CNPJ consignante e o empregador.
+ * Nao viram coluna (`produtos.ts`), e entram aqui para que nenhum `jsonb` aninhado os carregue.
+ *
  * ⚠️ **Por NOME de campo e recursivo, de proposito.** `paymentData.boletoMetadata` existe no
  * tipo e vem `null` no sandbox, mas carregaria os mesmos campos -- e a Pluggy acrescenta
  * estrutura sem avisar. Varrer por nome em qualquer profundidade cobre o que ainda nao existe;
  * uma lista de caminhos fixos cobriria so o que eu vi hoje.
  */
-const CAMPOS_DE_IDENTIDADE = new Set(['documentNumber', 'accountNumber', 'branchNumber']);
+const CAMPOS_DE_IDENTIDADE = new Set([
+  'documentNumber', 'accountNumber', 'branchNumber',
+  'contractNumber', 'ipocCode', 'cnpjConsignee',
+]);
 
 /**
  * Devolve uma copia sem os campos de identidade, em qualquer profundidade.
@@ -125,7 +158,7 @@ const CAMPOS_DE_IDENTIDADE = new Set(['documentNumber', 'accountNumber', 'branch
  * ⚠️ Roda na GRAVACAO, nunca na leitura. Filtrar ao ler deixaria o dado no banco, no backup,
  * no `pg_dump` e na replica -- e o problema e o dado existir, nao ele aparecer.
  */
-function semIdentidade(valor: unknown): unknown {
+export function semIdentidade(valor: unknown): unknown {
   if (Array.isArray(valor)) return valor.map(semIdentidade);
   if (valor && typeof valor === 'object') {
     const saida: Record<string, unknown> = {};
@@ -138,9 +171,19 @@ function semIdentidade(valor: unknown): unknown {
   return valor;
 }
 
-/** Mapeia uma transacao da Pluggy para uma linha de `open_finance`. */
-async function paraLinha(t: TransacaoPluggy, userId: string, itemId: string) {
-  const { conta, banco } = await contaComBanco(t.accountId);
+/**
+ * Mapeia uma transacao da Pluggy para uma linha de `open_finance`.
+ *
+ * ⭐ **Pura: nao faz rede.** A conta e o banco chegam prontos. A sincronizacao completa os monta de
+ * `listarContas` + o item que ja buscou; os eventos `transactions/*`, de `contaComBanco`. Quando
+ * isto buscava sozinho, 100 transacoes disparavam 100 buscas da mesma conta.
+ */
+export function paraLinha(
+  t: TransacaoPluggy,
+  { conta, banco }: ContaComBanco,
+  userId: string,
+  itemId: string,
+) {
   const { data, hora } = partirData(t.date);
   const cc = t.creditCardMetadata ?? null;
 
@@ -160,23 +203,22 @@ async function paraLinha(t: TransacaoPluggy, userId: string, itemId: string) {
     // na 33a e igual ao `description`. Sem esta comparacao as 33 nasceriam com as duas colunas
     // repetidas, fingindo que alguem apelidou a transacao.
     apelido: t.description && t.description !== nomeDe(t) ? t.description : null,
-    // ⛔⛔ **`amount` JA VEM ASSINADO. Repassar e o certo, e derivar o sinal de `type` era um bug
-    // que invertia linha.** Medido em 2026-09-28, nas duas contas do sandbox:
+    // ⚠️⚠️ **`amount` CRU, e o sinal no cartao NAO esta decidido.** Este comentario ja afirmou que
+    // `amount` vem com saida negativa, a partir de 12 linhas de cartao do sandbox. Em 2026-10-02,
+    // com 102 linhas de cartao, o quadro ficou indecidivel:
     //
-    //   cartao de credito   `type=CREDIT`   amount NEGATIVO   12/12 linhas (compras)
-    //   conta corrente      `type=CREDIT`   amount POSITIVO    4/21 linhas (salario, +8500)
-    //   conta corrente      `type=DEBIT`    amount negativo   17/21 linhas
+    //   documentacao da Pluggy   "For credit cards, it will be positive (debit) when its an expense"
+    //   leitura do projeto       compra negativa, pagamento de fatura positivo
+    //   sandbox                  as linhas de teste do cartao se chamam todas "pgto" -- nao separam
+    //                            compra de pagamento, entao nao decidem nada
     //
-    // ⭐ `type=CREDIT` significa coisas OPOSTAS nas duas: no cartao e compra (voce passa a dever),
-    // na corrente e entrada. Entao `type` nao carrega direcao, e a formula antiga
-    // (`type === 'DEBIT' ? -abs : abs`) jogava as 12 do cartao para positivo.
+    // ⭐ O que continua medido: `type` NAO carrega direcao -- `type=CREDIT` e compra no cartao e
+    // entrada na conta corrente --, entao derivar o sinal dele continua errado, e era o bug antigo.
+    // Repassar cru e a unica escolha que nao aposta.
     //
-    // ⚠️ **E acertava na conta corrente, o que tornava o defeito insidioso:** quem testasse so com
-    // conta corrente veria numero certo e concluiria que estava tudo bem.
-    //
-    // A prova de que o sinal de `amount` e autoritativo: a soma dos 12 `amount` do cartao da
-    // exatamente `-670,80`, que e o `balance` da conta. E ja e a convencao de `transactions` --
-    // negativo e saida (`src/pages/Dashboard.tsx:199`, `src/pages/Historico.tsx:438`).
+    // ⛔ Antes de qualquer travessia para `transactions` (invariante 4: negativo e saida), medir num
+    // CARTAO REAL uma compra conhecida e um pagamento de fatura. So entao decidir se `valor` muda.
+    // Ver P52 em `context/20-pendencias-e-dividas.md` e D-081 em `context/30-decisoes-e-licoes.md`.
     valor: t.amount,
     banco,
     parcela_atual: cc?.installmentNumber ?? null,
@@ -191,6 +233,8 @@ async function paraLinha(t: TransacaoPluggy, userId: string, itemId: string) {
     // ⚠️ 'BANK' | 'CREDIT' -- mesmo NOME de `transactions.tipo`, DOMINIO diferente. Ver o
     // comentario da coluna na migration 20260924120000.
     tipo: conta.type ?? null,
+    // ⭐ O que separa corrente de poupanca, que `tipo` junta sob 'BANK'.
+    subtipo: conta.subtype ?? null,
     conta_nome: conta.name ?? null,
     status: t.status ?? null,
     saldo_apos: t.balance ?? null,
@@ -201,8 +245,129 @@ async function paraLinha(t: TransacaoPluggy, userId: string, itemId: string) {
     fatura_id: cc?.billId ?? null,
     // ⭐ Sem os campos de identidade. Ver `semIdentidade` acima.
     payload: semIdentidade(t),
+    // ⭐ A versao da Pluggy. E o que o trigger `open_finance_nao_regride` compara.
+    pluggy_atualizado_em: t.updatedAt ?? null,
     atualizado_em: new Date().toISOString(),
   };
+}
+
+/** Copia cada linha para cada dono. ⭐ O plural e a conta conjunta -- ver `donosDoItem`. */
+export function porDono<L extends object>(base: L[], donos: string[]): (L & { user_id: string })[] {
+  return donos.flatMap((dono) => base.map((l) => ({ ...l, user_id: dono })));
+}
+
+/**
+ * ⭐ Os codigos de "o banco nao tem o que o codigo espera": coluna desconhecida pelo PostgREST
+ * (PGRST204), tabela desconhecida (PGRST205), e os equivalentes do Postgres (42P01, 42703).
+ *
+ * ⛔⛔ **Num fork, isto e o diagnostico inteiro (P44).** Quem faz pull da `main` recebe o codigo
+ * novo e nao recebe a migration. Sem esta linha, o sintoma e "upsert open_finance: Could not find
+ * the 'subtipo' column" no meio de um log de webhook -- correto, e inutil para quem nao sabe que
+ * existe `db push`.
+ */
+const CODIGOS_DE_SCHEMA = new Set(['PGRST204', 'PGRST205', '42P01', '42703']);
+
+/** Classifica um erro de escrita: loga o caso de schema com a dica, e devolve o erro para lancar. */
+export function erroDeEscrita(
+  operacao: string,
+  tabela: string,
+  error: { code?: string; message: string },
+  log: Log,
+): Error {
+  if (error.code && CODIGOS_DE_SCHEMA.has(error.code)) {
+    log.etapa('schema_desatualizado', {
+      tabela,
+      codigo: error.code,
+      dica: 'o banco nao tem a migration que este codigo espera -- rode `npx supabase db push`',
+    });
+  }
+  return new Error(`${operacao} ${tabela}: ${error.code ?? '?'} ${error.message}`);
+}
+
+/** Linhas por `upsert`. Um corpo de 500 linhas de transacao com `payload` fica bem abaixo de 1 MB. */
+const LOTE = 500;
+
+/**
+ * Grava (ou atualiza) linhas em lotes, pela chave de conflito.
+ *
+ * ⭐ `upsert` com `onConflict`, e nao `insert`: a Pluggy repete o mesmo evento nos retries, e a
+ * sincronizacao completa reescreve o que ja existe. Sem isso a segunda passagem duplicaria tudo.
+ *
+ * ⛔ **Deduplica pela chave antes de mandar, com a ULTIMA ocorrencia vencendo.** Duas linhas com a
+ * mesma chave no mesmo comando derrubam o lote inteiro com `ON CONFLICT DO UPDATE command cannot
+ * affect row a second time` -- e lista da Pluggy repetir id entre paginas e possivel.
+ *
+ * ⭐ **Ordena pela chave**, para que duas sincronizacoes simultaneas do mesmo item travem as linhas
+ * na mesma ordem. Em ordens diferentes, elas podem se esperar mutuamente (deadlock), e o Postgres
+ * mata uma das duas.
+ *
+ * Devolve quantas linhas distintas foram mandadas.
+ */
+export async function gravarEmLotes(
+  tabela: string,
+  linhas: Record<string, unknown>[],
+  onConflict: string,
+  log: Log,
+): Promise<number> {
+  if (!linhas.length) return 0;
+
+  const chaves = onConflict.split(',');
+  const porChave = new Map<string, Record<string, unknown>>();
+  for (const l of linhas) porChave.set(chaves.map((c) => String(l[c])).join('\u0000'), l);
+  const unicas = [...porChave.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+    .map(([, l]) => l);
+
+  for (let i = 0; i < unicas.length; i += LOTE) {
+    const { error } = await admin()
+      .from(tabela)
+      .upsert(unicas.slice(i, i + LOTE), { onConflict });
+    if (error) throw erroDeEscrita('upsert', tabela, error, log);
+  }
+  return unicas.length;
+}
+
+/**
+ * Apaga, para os donos e o item, as linhas cujo id NAO veio na listagem.
+ *
+ * ⛔ **Quem chama decide se pode** -- e so pode com listagem COMPLETA, nao vazia, de um item
+ * `UPDATED` (ver `produtos.ts`). Esta funcao confia nisso e apaga.
+ *
+ * ⚠️ Le os ids existentes e apaga por `in(ausentes)`, em vez de `not in (presentes)`: o caminho
+ * pelo `in` passa os valores pelo cliente, que os escapa, e uma lista de presentes nunca precisa
+ * ser montada como texto de filtro.
+ * ⚠️ O `select` respeita o teto de linhas do PostgREST (1000). Passar disso faz a limpeza ver so
+ * parte do que existe -- deixa de apagar, nunca apaga a mais.
+ */
+export async function apagarAusentes(
+  tabela: string,
+  colunaId: string,
+  itemId: string,
+  donos: string[],
+  presentes: string[],
+  log: Log,
+): Promise<number> {
+  const { data, error } = await admin()
+    .from(tabela)
+    .select(colunaId)
+    .eq('pluggy_item_id', itemId)
+    .in('user_id', donos);
+  if (error) throw erroDeEscrita('select', tabela, error, log);
+
+  const manter = new Set(presentes);
+  const existentes = (data ?? []) as unknown as Record<string, unknown>[];
+  const ausentes = [...new Set(existentes.map((l) => String(l[colunaId])))]
+    .filter((id) => !manter.has(id));
+  if (!ausentes.length) return 0;
+
+  const { error: erroApagar } = await admin()
+    .from(tabela)
+    .delete()
+    .eq('pluggy_item_id', itemId)
+    .in('user_id', donos)
+    .in(colunaId, ausentes);
+  if (erroApagar) throw erroDeEscrita('delete', tabela, erroApagar, log);
+  return ausentes.length;
 }
 
 /**
@@ -226,59 +391,59 @@ export async function donosDoItem(itemId: string): Promise<string[]> {
   return (data ?? []).map((l) => l.user_id as string);
 }
 
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
- * Grava (ou atualiza) o mapa item -> usuario. Chamado nos eventos `item/*`.
+ * Grava (ou atualiza) o mapa item -> usuario, a partir do item **como a API da Pluggy o devolveu**.
  *
- * ⛔⛔ **Um item NUNCA troca de dono, e recusar a troca e o que fecha o pior caso deste
- * arquivo.** O `clientUserId` chega no payload do webhook e esta funcao escreve com
- * `service_role`, por cima da RLS. Sem esta guarda, um `item/created` forjado re-aponta o item
- * de outra pessoa para o atacante -- e a partir dai as transacoes DELA nascem com o `user_id`
- * DELE, que a policy de SELECT entao deixa ele ler. Nao e custo de cota: e exfiltracao.
+ * ⭐⭐ **Desde 2026-10-02 o dono vem de `buscarItem().clientUserId`, nunca do payload.** Antes vinha
+ * do `clientUserId` do evento, e um `item/created` forjado podia escrever qualquer `user_id` aqui.
+ * Hoje o maximo que um evento forjado consegue e fazer a gente perguntar a Pluggy -- e a resposta e
+ * o `clientUserId` que o Connect Token gravou, que o atacante nao controla. E a regra do
+ * `index.ts` aplicada ao ultimo campo que a violava: *o payload e aviso, nunca dado*.
  *
- * ⭐ E nao ha caso legitimo que isso barre: a Pluggy emite um `itemId` NOVO a cada conexao,
- * entao o mesmo item mudar de dono nao acontece. Reconectar o mesmo banco cria outro item.
+ * ⛔ **Um item NUNCA troca de dono por aqui.** A guarda continua, porque a premissa "a Pluggy
+ * guarda o dono certo" pode envelhecer e uma guarda no codigo nao. E nao ha caso legitimo que ela
+ * barre: a Pluggy emite um `itemId` NOVO a cada conexao. Acrescentar um segundo dono (conta
+ * conjunta) e trabalho do `pluggy-register-item`, que tem JWT.
  */
-export async function gravarItem(itemId: string, clientUserId: string) {
-  const donos = await donosDoItem(itemId);
-  if (donos.length && !donos.includes(clientUserId)) {
-    // ⚠️ Erro, nao `return` silencioso: isto so acontece por defeito da Pluggy ou por
-    // payload forjado, e os dois merecem uma linha vermelha no painel.
-    throw new Error(`item ${itemId} ja tem dono -- webhook nao acrescenta um segundo`);
+export async function gravarItem(itemId: string, item: ItemPluggy) {
+  const dono = item.clientUserId;
+  if (!dono || !UUID.test(dono)) {
+    // `user_id` e uuid com FK para auth.users -- um valor que nao e uuid nao e usuario do NorteIA.
+    throw new Error(`item ${itemId} sem clientUserId uuid na Pluggy`);
   }
 
-  let banco: string | null = null;
-  let status: string | null = null;
-  try {
-    const item = await buscarItem(itemId);
-    banco = item.connector?.name ?? null;
-    status = item.status ?? null;
-  } catch {
-    // Mesmo raciocinio do `contaComBanco`: o vinculo item->usuario e o que importa aqui, e
-    // perde-lo por causa do nome do banco seria trocar o essencial pelo cosmetico.
+  const donos = await donosDoItem(itemId);
+  if (donos.length && !donos.includes(dono)) {
+    // ⚠️ Erro, nao `return` silencioso: isto so acontece por defeito da Pluggy ou por dado
+    // adulterado, e os dois merecem uma linha vermelha no painel.
+    throw new Error(`item ${itemId} ja tem dono -- webhook nao acrescenta um segundo`);
   }
 
   const { error } = await admin()
     .from('open_finance_itens')
     .upsert(
-      { pluggy_item_id: itemId, user_id: clientUserId, banco, status,
-        atualizado_em: new Date().toISOString() },
+      { pluggy_item_id: itemId, user_id: dono, banco: item.connector?.name ?? null,
+        status: item.status ?? null, atualizado_em: new Date().toISOString() },
       { onConflict: 'user_id,pluggy_item_id' },
     );
   if (error) throw new Error(`upsert open_finance_itens: ${error.message}`);
 }
 
 /**
- * Grava as transacoes de um evento.
+ * Carimba o fim de uma sincronizacao completa em que nada falhou nem foi adiado.
  *
- * ⭐ `upsert` com `onConflict`, e nao `insert`: a Pluggy repete o mesmo evento nos retries, e
- * `transactions/updated` reenvia ids que ja existem. Sem isso o primeiro retry duplicaria tudo.
+ * ⚠️ So observabilidade e o intervalo minimo do `pluggy-register-item`. **Nada decide SE
+ * sincroniza por isto** -- um evento da Pluggy sempre sincroniza.
  */
-export async function gravarTransacoes(linhas: Awaited<ReturnType<typeof paraLinha>>[]) {
-  if (!linhas.length) return;
+export async function marcarSincronizado(itemId: string, donos: string[]) {
   const { error } = await admin()
-    .from('open_finance')
-    .upsert(linhas, { onConflict: 'user_id,pluggy_transaction_id' });
-  if (error) throw new Error(`upsert open_finance: ${error.message}`);
+    .from('open_finance_itens')
+    .update({ sincronizado_em: new Date().toISOString() })
+    .eq('pluggy_item_id', itemId)
+    .in('user_id', donos);
+  if (error) throw new Error(`update open_finance_itens: ${error.code ?? '?'} ${error.message}`);
 }
 
 /**
@@ -297,5 +462,3 @@ export async function apagarTransacoes(itemId: string, ids: string[]) {
     .in('pluggy_transaction_id', ids);
   if (error) throw new Error(`delete open_finance: ${error.message}`);
 }
-
-export { paraLinha };

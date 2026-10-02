@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-09-16
+atualizado_em: 2026-10-02
 ---
 
 # O que é a NorteIA
@@ -112,6 +112,10 @@ estabelecimento, ele passa a acertar sozinho — sem IA, sem custo, e ficando ma
 
 - **Não se conecta ao banco.** Sem Open Finance, sem scraping, sem credencial guardada. A entrada é
   sempre um arquivo que você exportou.
+  ⚠️ **Correção de 2026-10-02:** no servidor já existe um espelho do Open Finance pela Pluggy
+  (D-076, D-078), sem credencial bancária guardada — mas nenhuma tela o lê, e nada dele entra nos
+  balanços. Para quem usa o produto, a frase acima continua verdadeira; para quem mexe no código,
+  não.
 - **Não calcula com IA.** O modelo extrai e classifica; toda soma, agrupamento e projeção é código.
 - **Não lança nada sozinho.** Nem a IA, nem gasto fixo aceito: um lançamento automático duplica em
   silêncio quando o real chega pelo extrato.

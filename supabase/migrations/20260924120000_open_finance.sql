@@ -23,14 +23,19 @@
 --   conta corrente      `type=CREDIT`   amount POSITIVO    4/21 (salario)
 --   conta corrente      `type=DEBIT`    amount negativo   17/21
 --
--- ⭐ `amount` **ja vem assinado**, na mesma convencao de `transactions` (negativo = saida), e
--- `type` significa coisas opostas em conta corrente e em cartao. Entao `valor` e copia direta, e
--- **nao ha excecao de valor nenhuma** nesta tabela. Ver o comentario de `valor` em
+-- ⭐ `type` significa coisas opostas em conta corrente e em cartao, entao derivar o sinal dele e
+-- errado. `valor` e copia direta de `amount`, e **nao ha excecao de valor nenhuma** nesta tabela.
+--
+-- ⚠️⚠️ **CORRECAO de 2026-10-02: este cabecalho tambem afirmava que `amount` vem "na mesma convencao
+-- de `transactions` (negativo = saida)". Isso NAO esta medido no cartao de credito.** A
+-- documentacao da Pluggy diz que despesa de cartao vem POSITIVA; a leitura do projeto e o
+-- contrario; e o sandbox de 102 linhas de cartao (todas "pgto") nao separa compra de pagamento.
+-- O sinal so se decide medindo num cartao real. Ver o comentario de `valor` em
 -- `supabase/functions/pluggy-webhook/gravar.ts`.
 --
--- ⚠️ Esta migration ja estava aplicada quando a correcao foi feita; so o texto mudou, nunca o
--- schema. **O `COMMENT ON TABLE` abaixo ja esta no banco com a frase antiga** -- corrigi-lo exige
--- rodar o `COMMENT ON` de novo no SQL Editor.
+-- ⚠️ Esta migration ja estava aplicada quando as correcoes foram feitas; so o texto mudou, nunca o
+-- schema. O `COMMENT ON TABLE` abaixo ficou no banco com a frase antiga e e reescrito pela
+-- 20261002120000, que tambem acrescenta o `COMMENT ON COLUMN valor`.
 
 -- ---------------------------------------------------------------------------------------
 -- Os itens (conexoes com instituicoes), e por que eles vem primeiro
@@ -92,8 +97,9 @@ CREATE TABLE IF NOT EXISTS public.open_finance (
   -- (= `apelido`). E como `Historico.tsx` ja os trata: mostra o apelido, guarda o original.
   nome text NOT NULL,
   apelido text,
-  -- ⛔ ASSINADO PELA PLUGGY -- negativo e saida, igual a `transactions`. Copia direta, sem
-  -- conversao. Ver a correcao no cabecalho: derivar este sinal de `type` era um bug.
+  -- ⛔ O `amount` da Pluggy, copia direta, sem conversao: derivar este sinal de `type` era um bug.
+  -- ⚠️ A convencao do sinal no cartao de credito NAO esta medida -- ver a correcao de 2026-10-02
+  -- no cabecalho. Nao tratar como "negativo e saida" antes de medir num cartao real.
   valor numeric(10,2) NOT NULL,
   banco text,
   parcela_atual integer,

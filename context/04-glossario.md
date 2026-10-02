@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-08-30
+atualizado_em: 2026-10-02
 ---
 
 # Glossário
@@ -136,3 +136,22 @@ autenticação.
 
 **`PGRST116`** · código do PostgREST para "`.single()` não achou linha". No código deste projeto é
 tratado como caso normal (usuário novo ainda sem `memory`), não como erro.
+
+---
+
+## Open Finance
+
+**Item** · uma conexão com uma instituição na Pluggy (`itemId`), com as contas, transações e
+produtos que ela traz. Reconectar o mesmo banco cria **outro** item. O dono vive em
+`open_finance_itens` — e pode ser mais de um (conta conjunta).
+
+**Item órfão** · item sem dono no mapa local: conectado sem `clientUserId` e ainda não registrado
+pelo `pluggy-register-item`. Todo evento dele vira `item_orfao` e é descartado (L-017).
+
+⚠️ **Espelho × travessia** · o **espelho** são as tabelas `open_finance*`, que guardam o que a
+Pluggy devolveu, sem tradução. A **travessia** é levar daí para `transactions`, e ainda não existe
+(P50). Nada do espelho aparece em tela nenhuma.
+
+**Sincronização completa** · a carga inteira de um item — contas, todas as transações, identidade,
+investimentos, empréstimos e movimentações —, idempotente, rodada em todo `item/*` e em todo
+registro (D-078). Diferente dos eventos `transactions/*`, que só trazem o que mudou.

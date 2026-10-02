@@ -1,6 +1,6 @@
 ---
 status: vigente
-atualizado_em: 2026-09-24
+atualizado_em: 2026-10-02
 ---
 
 # Erros comuns — o que se acredita e é falso
@@ -77,7 +77,11 @@ atualizado_em: 2026-09-24
 | `open_finance.tipo` e `transactions.tipo` guardam a mesma coisa | ⛔ **Mesmo nome, domínios diferentes**: `'BANK'`/`'CREDIT'` (conta, cru da Pluggy) × `'credito'`/`'debito'` (declaração do usuário). Copiar direto leva violação de CHECK | `30-decisoes-e-licoes.md` D-076 |
 | Transação do Open Finance entra em `transactions` | ⚠️ Entra em **`public.open_finance`**, tabela-espelho. `transactions` não tem dedup nenhuma, e a travessia ainda não existe | `30-decisoes-e-licoes.md` D-076, P50 |
 | ⭐ Os três eventos `transactions/*` da Pluggy têm o mesmo formato | ⛔ **Não têm.** Só `updated` e `deleted` mandam `transactionIds`; `created` manda contagem e instante, e exige paginar a API | `30-decisoes-e-licoes.md` L-015 |
-| `valor` em `open_finance` é o `amount` da Pluggy | ⚠️ É o `amount` **com sinal aplicado** (saída negativa). Na Pluggy `amount` é sempre positivo e a direção vive em `type` | `30-decisoes-e-licoes.md` D-076 |
+| `valor` em `open_finance` já segue a convenção de `transactions` (negativo é saída) | ⚠️ **Correção de 2026-10-02** (esta linha dizia que o sinal era *aplicado* a partir de `type`): é o `amount` **cru**, sem conversão — e a convenção do sinal no **cartão** não está medida. Documentação da Pluggy e leitura do projeto discordam, e o sandbox não decide | `30-decisoes-e-licoes.md` D-081, `20-pendencias-e-dividas.md` P52 |
+| `open_finance.tipo = 'BANK'` é a conta corrente | ⚠️ É corrente **e** poupança. Quem separa é `subtipo` (o `account.subtype`) — foi por não separar que uma poupança inteira faltou sem ninguém ver | `30-decisoes-e-licoes.md` L-017 |
+| ⭐ Um item que ganha dono depois recebe o que a Pluggy já mandou | ⛔ **Não recebe.** Evento que chega sem dono é descartado e a Pluggy não reenvia. Quem recupera é a sincronização completa do registro e de todo `item/*` (⚠️ ainda não implantada — P54) | `30-decisoes-e-licoes.md` L-017, D-078 |
+| Data da Pluggy se converte sempre para o fuso de São Paulo | ⛔ `T00:00:00.000Z` cravado é **data sem hora** escrita em UTC — investimento e empréstimo usam essa forma. Convertida, cai um dia antes | `30-decisoes-e-licoes.md` L-018 |
+| ⭐ Excluir os campos de identidade pelo nome basta para não guardar CPF | ⛔ A Pluggy cola CPF em **texto livre** — no sandbox, no `issuer` e no `name` de títulos CRI. A verificação é pela forma, no que vai ao banco | `30-decisoes-e-licoes.md` L-019 |
 | O cartão é branco/papel | ⚠️ É **sálvia 500 `#849A76`** desde 10/09. O papel sobreviveu só no **campo** de formulário (`--papel-campo`) | `30-decisoes-e-licoes.md` D-069 |
 | ⛔ Para destacar texto, use `text-primary` | ⛔ Laranja sobre o cartão é **1,02:1** e nenhum tom resolve. Ele só existe **preenchido** — `bg-primary` com branco, anel, trilho — e em **ícone** ao lado de rótulo | `30-decisoes-e-licoes.md` D-069 |
 | Texto secundário se distingue do principal pelo tom | ⚠️ Não mais: 4,72:1 contra 4,92:1 é imperceptível. A hierarquia vem de **peso e tamanho** | `30-decisoes-e-licoes.md` D-069 |
@@ -120,4 +124,5 @@ atualizado_em: 2026-09-24
 | ⭐⭐ Migrar o repositório no GitHub preserva a integração com o Supabase | ⛔ **Não preserva, e falha em SILÊNCIO.** Instalação de GitHub App se prende ao *id* do repositório, não ao nome — renomear o antigo e criar um novo com o mesmo nome deixa a integração apontando para o antigo. Em 2026-09-25 foi o que houve: o push funcionava, a Vercel publicava o front, e a Edge Function ficava na versão anterior sem aviso em lugar nenhum. Sintoma mediúvel: `0` em `/check-runs`, `/status` **e** `/deployments` do commit. Reconectada no mesmo dia | este arquivo |
 | ⭐ A integração Supabase↔GitHub cobre só migrations | **Cobre Edge Function também.** Medido em 2026-09-25: o push de `7ce38e8` deixou o check `Supabase Preview`, e o carimbo `VERSAO` da `pluggy-webhook` virou ~**180 s** depois. `functions deploy` à mão deixou de ser necessário — mas o carimbo continua sendo o único jeito de **confirmar** que pegou | este arquivo |
 | ⚠️ Se o push subiu, front e Edge Function estão na mesma versão | São **dois sistemas independentes** — Vercel de um lado, integração Supabase do outro — e cada um falha sozinho. Por isso mudança de contrato entre os dois é par indivisível: **ponte de compatibilidade, nunca janela** | este arquivo |
+| ⭐ O `clientUserId` que chega no evento `item/*` diz de quem é o item | ⛔ É campo de payload, e **payload é aviso, nunca dado**: a partir da D-078 o dono é lido de `buscarItem()` na API. ⚠️ Até a implantação (P54), a função no ar ainda lê o do evento | `30-decisoes-e-licoes.md` D-078, D-077 |
 | O `version` que o painel mostra prova que o código novo subiu | ⚠️ Não prova: ele sobe também quando só um **secret** muda. E mudança interna (uma guarda, um escopo de `delete`) não altera nada visível de fora. Por isso `pluggy-webhook` carimba `VERSAO` na resposta 200 — conferir é um `curl` | `supabase/functions/pluggy-webhook/index.ts` |
